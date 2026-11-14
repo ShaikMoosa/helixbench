@@ -222,6 +222,8 @@ impl HelixBench {
             Some(Dialog::Codon(_)) => "codon".into(),
             Some(Dialog::Blast(_)) => "blast".into(),
             Some(Dialog::Combinatorial(_)) => "combinatorial".into(),
+            Some(Dialog::Registry(_)) => "registry".into(),
+            Some(Dialog::RegistryEditor(_)) => "registry-editor".into(),
         }
     }
 
@@ -771,6 +773,15 @@ impl HelixBench {
                         .on_click(cx.listener(|t, _, _, cx| {
                             t.menu = None;
                             act::open_combinatorial(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-registry", "Local Registry…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_registry(&mut t.app);
                             cx.notify();
                         }))
                         .into_any_element(),

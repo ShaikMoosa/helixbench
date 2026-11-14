@@ -227,6 +227,8 @@ pub enum Dialog {
     Codon(CodonDraft),
     Blast(BlastDraft),
     Combinatorial(CombDraft),
+    Registry(RegistryDraft),
+    RegistryEditor(RegistryEditDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -316,6 +318,21 @@ pub struct CombDraft {
     pub error: Option<String>,
 }
 
+#[derive(Clone, Default)]
+pub struct RegistryDraft {
+    /// 0 = all, 1..=3 = Kind index + 1.
+    pub filter: usize,
+    pub error: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct RegistryEditDraft {
+    pub id: Option<u64>,
+    pub kind: usize,
+    pub values: Vec<String>,
+    pub error: Option<String>,
+}
+
 #[derive(Default)]
 pub struct EnzymeFilterState {
     pub name: String,
@@ -345,6 +362,8 @@ pub struct AppState {
     pub doc: Document,
     /// Other open documents (e.g. PCR products); `doc` is the active one.
     pub library: Vec<OpenDoc>,
+    /// Local offline catalog of plasmids / strains / primers.
+    pub registry: domain::registry::Registry,
     pub path: Option<PathBuf>,
     pub dirty: bool,
     /// History depth at the last save/open; `None` once a branch makes that state unreachable.
@@ -395,6 +414,7 @@ impl AppState {
         let mut s = Self {
             doc,
             library: Vec::new(),
+            registry: storage::registry::load(),
             path: None,
             dirty: false,
             saved_depth: Some(0),

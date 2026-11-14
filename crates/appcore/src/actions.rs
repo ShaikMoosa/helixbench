@@ -11,7 +11,7 @@ use domain::{ColorRegion, Document, Range, Topology};
 use crate::state::{
     AlignmentDraft, AppState, AssemblyDraft, BlastDraft, CodonDraft, ColorDraft, ColorsMode,
     CombDraft, CrisprDraft, Dialog, FeatureDraft, NewSeqState, OpenDoc, PcrDraft, PendingAction,
-    PrimerDesignDraft, PrimerDraft,
+    PrimerDesignDraft, PrimerDraft, RegistryDraft, RegistryEditDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -1192,4 +1192,93 @@ pub fn create_combinatorial(
     push_product(app, doc);
     app.toast(format!("Combinatorial construct {} created", idx + 1));
     Ok(())
+}
+
+// --- Local registry ---------------------------------------------------------
+
+pub fn open_registry(app: &mut AppState) {
+    app.dialog = Some(Dialog::Registry(RegistryDraft::default()));
+}
+
+pub fn open_registry_editor(app: &mut AppState, kind: usize, id: Option<u64>) {
+    let k = domain::registry::Kind::ALL[kind.min(2)];
+    let values = match id.and_then(|i| app.registry.get(i)) {
+        Some(e) => k
+            .fields()
+            .iter()
+            .map(|f| e.values.get(*f).cloned().unwrap_or_default())
+            .collect(),
+        None => vec![String::new(); k.fields().len()],
+    };
+    app.dialog = Some(Dialog::RegistryEditor(RegistryEditDraft {
+        id,
+        kind,
+        values,
+        error: None,
+    }));
+}
+
+pub fn save_registry_entry(app: &mut AppState, draft: &RegistryEditDraft) -> Result<(), String> {
+    let k = domain::registry::Kind::ALL[draft.kind.min(2)];
+    let fields = k.fields();
+    let mut values = std::collections::BTreeMap::new();
+    for (i, f) in fields.iter().enumerate() {
+        values.insert(
+            (*f).to_string(),
+            draft.values.get(i).cloned().unwrap_or_default(),
+        );
+    }
+    if values
+        .get("Name")
+        .map(|s| s.trim().is_empty())
+        .unwrap_or(true)
+    {
+        return Err("Name is required.".into());
+    }
+    let now = unix_now();
+    match draft.id {
+        Some(id) => {
+            app.registry.update(id, values, now);
+        }
+        None => {
+            app.registry.add(k, values, now);
+        }
+    }
+    let _ = storage::registry::save(&app.registry);
+    app.toast("Registry entry saved");
+    Ok(())
+}
+
+pub fn delete_registry_entry(app: &mut AppState, id: u64) {
+    if app.registry.delete(id) {
+        let _ = storage::registry::save(&app.registry);
+        app.toast("Registry entry deleted");
+    }
+}
+
+pub fn link_registry_entry(app: &mut AppState, id: u64) {
+    let current = app.doc.name.clone();
+    let already = app.registry.get(id).and_then(|e| e.linked_doc.clone()) == Some(current.clone());
+    let target = if already { None } else { Some(current) };
+    app.registry.link(id, target.clone(), unix_now());
+    let _ = storage::registry::save(&app.registry);
+    app.toast(match target {
+        Some(d) => format!("Linked to {d}"),
+        None => "Unlinked".into(),
+    });
+}
+
+pub fn open_linked_entry(app: &mut AppState, id: u64) {
+    let Some(docname) = app.registry.get(id).and_then(|e| e.linked_doc.clone()) else {
+        app.toast("Entry has no linked document");
+        return;
+    };
+    if app.doc.name == docname {
+        return;
+    }
+    if let Some(i) = app.library.iter().position(|od| od.doc.name == docname) {
+        switch_doc(app, i);
+    } else {
+        app.toast(format!("Linked document \"{docname}\" is not open"));
+    }
 }

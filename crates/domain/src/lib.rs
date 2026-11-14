@@ -18,6 +18,7 @@ pub mod iupac;
 pub mod pcr;
 pub mod primer;
 pub mod primer_design;
+pub mod registry;
 pub mod search;
 pub mod sequence;
 pub mod translate;

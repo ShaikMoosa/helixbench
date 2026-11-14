@@ -6,6 +6,7 @@
 pub mod config;
 pub mod fasta;
 pub mod genbank;
+pub mod registry;
 
 use std::fs;
 use std::io::Write;

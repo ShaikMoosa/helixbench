@@ -182,6 +182,10 @@ pub fn show(
         blast(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Combinatorial(_))) {
         combinatorial(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Registry(_))) {
+        registry(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::RegistryEditor(_))) {
+        registry_editor(app, cx, max_h)
     } else {
         return None;
     };
@@ -3586,6 +3590,292 @@ fn combinatorial(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
         cx,
         "Combinatorial Assembly",
         680.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Local registry (catalog)
+// ---------------------------------------------------------------------------
+
+fn registry(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Registry(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Local Registry",
+                700.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Offline catalog of plasmids, strains and primers. Entries can be linked to the active document.",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    let mut bar = div().flex().items_center().gap(px(6.0));
+    for (i, label) in ["All", "Plasmid", "Strain", "Primer"].iter().enumerate() {
+        let sel = draft.filter == i;
+        bar = bar.child(
+            widgets::button(
+                SharedString::from(format!("rg-filter-{i}")),
+                label,
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::Registry(d)) = &mut t.app.dialog {
+                    d.filter = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    bar = bar.child(div().flex_grow());
+    bar = bar.child(
+        widgets::button("rg-add", "Add entry", Btn::Primary).on_click(cx.listener(
+            |t, _, _, cx| {
+                let kind = match &t.app.dialog {
+                    Some(Dialog::Registry(d)) if d.filter >= 1 => d.filter - 1,
+                    _ => 0,
+                };
+                act::open_registry_editor(&mut t.app, kind, None);
+                cx.notify();
+            },
+        )),
+    );
+    body = body.child(bar);
+
+    let entries: Vec<domain::registry::Entry> = app
+        .app
+        .registry
+        .entries
+        .iter()
+        .filter(|e| draft.filter == 0 || (e.kind as usize) + 1 == draft.filter)
+        .cloned()
+        .collect();
+    let mut list = div().flex().flex_col().gap(px(3.0));
+    if entries.is_empty() {
+        list = list.child(widgets::label(
+            "No entries yet. Add a plasmid, strain or primer.",
+            theme::T_SM,
+            theme::FAINT,
+        ));
+    }
+    for e in entries {
+        let id = e.id;
+        let linked = e.linked_doc.clone().unwrap_or_default();
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .p(px(6.0))
+                .rounded(px(5.0))
+                .bg(theme::SURFACE)
+                .child(
+                    div()
+                        .w(px(60.0))
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::FAINT)
+                        .child(e.kind.label()),
+                )
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(e.name().to_string()),
+                )
+                .child(
+                    div()
+                        .w(px(120.0))
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::MUTED)
+                        .child(linked),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("rg-edit-{id}")),
+                        "Edit",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        let kind = t.app.registry.get(id).map(|e| e.kind as usize).unwrap_or(0);
+                        act::open_registry_editor(&mut t.app, kind, Some(id));
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("rg-link-{id}")),
+                        "Link",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::link_registry_entry(&mut t.app, id);
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("rg-open-{id}")),
+                        "Open",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::open_linked_entry(&mut t.app, id);
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("rg-del-{id}")),
+                        "Delete",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::delete_registry_entry(&mut t.app, id);
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    body = body.child(list);
+    let footer = footer_row(vec![widgets::button("rg-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Local Registry",
+        760.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Registry entry editor
+// ---------------------------------------------------------------------------
+
+fn registry_editor(
+    app: &mut HelixBench,
+    cx: &mut Context<HelixBench>,
+    max_h: Pixels,
+) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::RegistryEditor(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Registry Entry",
+                520.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let kind = domain::registry::Kind::ALL[draft.kind.min(2)];
+    let fields = kind.fields();
+    // Pull-model text inputs per field.
+    let mut inputs = Vec::new();
+    for (i, f) in fields.iter().enumerate() {
+        let seed = draft.values.get(i).cloned().unwrap_or_default();
+        let inp = app.input_entity(cx, &format!("dlg:re:{i}"), &seed, f, false);
+        inputs.push(inp);
+    }
+    let values: Vec<String> = inputs.iter().map(|inp| inp.read(cx).text()).collect();
+    if let Some(Dialog::RegistryEditor(d)) = &mut app.app.dialog {
+        d.values = values;
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    if draft.id.is_none() {
+        let mut kinds = div().flex().gap(px(6.0));
+        for (i, k) in domain::registry::Kind::ALL.iter().enumerate() {
+            let sel = draft.kind == i;
+            kinds = kinds.child(
+                widgets::button(
+                    SharedString::from(format!("re-kind-{i}")),
+                    k.label(),
+                    if sel { Btn::Primary } else { Btn::Outline },
+                )
+                .on_click(cx.listener(move |t, _, _, cx| {
+                    if let Some(Dialog::RegistryEditor(d)) = &mut t.app.dialog {
+                        d.kind = i;
+                        d.values =
+                            vec![String::new(); domain::registry::Kind::ALL[i].fields().len()];
+                    }
+                    cx.notify();
+                })),
+            );
+        }
+        body = body.child(kinds);
+    }
+    for (i, f) in fields.iter().enumerate() {
+        body = body.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .child(div().w(px(140.0)).child(field_label(f)))
+                .child(input_field(inputs[i].clone(), 300.0)),
+        );
+    }
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("re-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| {
+                act::open_registry(&mut t.app);
+                cx.notify();
+            }))
+            .into_any_element(),
+        widgets::button("re-save", "Save", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::RegistryEditor(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::save_registry_entry(&mut t.app, &d) {
+                    Ok(()) => {
+                        act::open_registry(&mut t.app);
+                        cx.notify();
+                    }
+                    Err(e) => {
+                        if let Some(Dialog::RegistryEditor(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        if draft.id.is_some() {
+            "Edit Registry Entry"
+        } else {
+            "New Registry Entry"
+        },
+        560.0,
         max_h,
         true,
         body.into_any_element(),

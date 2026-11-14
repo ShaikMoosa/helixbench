@@ -653,6 +653,101 @@ pub fn show(app: &mut AppState, ctx: &egui::Context) {
                 app.dialog = Some(Dialog::Combinatorial(d));
             }
         }
+        Some(Dialog::Registry(mut d)) => {
+            window(ctx, "Local Registry", 700.0, |ui| {
+                ui.horizontal(|ui| {
+                    for (i, label) in ["All", "Plasmid", "Strain", "Primer"].iter().enumerate() {
+                        if ui.radio(d.filter == i, *label).clicked() {
+                            d.filter = i;
+                        }
+                    }
+                    if ui.button("Add entry").clicked() {
+                        let kind = d.filter.saturating_sub(1);
+                        appcore::actions::open_registry_editor(app, kind, None);
+                    }
+                });
+                egui::ScrollArea::vertical()
+                    .max_height(360.0)
+                    .show(ui, |ui| {
+                        let entries: Vec<domain::registry::Entry> = app
+                            .registry
+                            .entries
+                            .iter()
+                            .filter(|e| d.filter == 0 || (e.kind as usize) + 1 == d.filter)
+                            .cloned()
+                            .collect();
+                        for e in entries {
+                            ui.horizontal(|ui| {
+                                ui.label(e.kind.label());
+                                ui.label(e.name());
+                                ui.label(e.linked_doc.clone().unwrap_or_default());
+                                if ui.button("Edit").clicked() {
+                                    appcore::actions::open_registry_editor(
+                                        app,
+                                        e.kind as usize,
+                                        Some(e.id),
+                                    );
+                                }
+                                if ui.button("Link").clicked() {
+                                    appcore::actions::link_registry_entry(app, e.id);
+                                }
+                                if ui.button("Open").clicked() {
+                                    appcore::actions::open_linked_entry(app, e.id);
+                                }
+                                if ui.button("Delete").clicked() {
+                                    appcore::actions::delete_registry_entry(app, e.id);
+                                }
+                            });
+                        }
+                    });
+                if ui.button("Close").clicked() {
+                    keep = false;
+                }
+            });
+            if keep {
+                app.dialog = Some(Dialog::Registry(d));
+            }
+        }
+        Some(Dialog::RegistryEditor(mut d)) => {
+            window(ctx, "Registry Entry", 520.0, |ui| {
+                if d.id.is_none() {
+                    ui.horizontal(|ui| {
+                        for (i, k) in domain::registry::Kind::ALL.iter().enumerate() {
+                            if ui.radio(d.kind == i, k.label()).clicked() {
+                                d.kind = i;
+                                d.values = vec![String::new(); k.fields().len()];
+                            }
+                        }
+                    });
+                }
+                let fields = domain::registry::Kind::ALL[d.kind.min(2)].fields();
+                for (i, f) in fields.iter().enumerate() {
+                    ui.horizontal(|ui| {
+                        ui.label(*f);
+                        if let Some(v) = d.values.get_mut(i) {
+                            ui.text_edit_singleline(v);
+                        }
+                    });
+                }
+                if let Some(e) = &d.error {
+                    ui.colored_label(egui::Color32::RED, e);
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("Cancel").clicked() {
+                        appcore::actions::open_registry(app);
+                    }
+                    if ui.button("Save").clicked() {
+                        match appcore::actions::save_registry_entry(app, &d) {
+                            Ok(()) => appcore::actions::open_registry(app),
+                            Err(e) => d.error = Some(e),
+                        }
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::RegistryEditor(d));
+            }
+        }
         None => {}
     }
     if close {
