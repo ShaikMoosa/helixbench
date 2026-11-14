@@ -1,0 +1,187 @@
+# HelixBench — Product Improvement Plan (from Benchling resource analysis)
+
+**Date:** 2026-11-14
+**Scope:** Analyze the Benchling training / molecular-biology resources in
+`benchling-resources-main/_static/files/` and derive a prioritized improvement roadmap for
+HelixBench (local-first, pure-Rust Windows DNA & plasmid workbench).
+**Constraint:** every recommendation must stay implementable in pure Rust, offline, local-first
+(no cloud, no account), consistent with the existing `domain / storage / appcore / apps` architecture.
+
+---
+
+## 1. Sources analyzed
+
+| File | What it covers | Relevance |
+| --- | --- | --- |
+| `MolBio-Tools-Guide.pdf` | Full Molecular Biology suite guide: index + §§1–10 (visualization, annotation, codon opt, primer design, in-silico PCR, virtual digest, assembly wizard, alignment, CRISPR, tips) | **Primary** feature reference |
+| `2026_Molecular_Biology_Tools_HandsOn_v4.pdf` | Newest hands-on deck, same workflow set as the guide | **Primary** (confirms current toolset) |
+| `2025_Molecular_Biology_Tools_HandsOn_v4.pdf` / `_v3.pdf` / `2025_...HandsOn.pdf` | Earlier revisions of the hands-on training | Secondary (evolution of toolset) |
+| `2025_02_10_...Introduction.pdf`, `2025_05_13_...Introduction.pdf`, `2026_02_02_...INTRODUCTION_Presentation.pdf` | Platform intro: Projects/folders, ELN entries, Registry entities (strains/plasmids/media), samples, requests, worklists, sharing | Organizational / future scope |
+| `2026_Updated_Purchasing_Training_Users.pdf`, `material_order_guide.pdf` | Material orders / purchasing requests, order types & filters | Lab logistics — out of core scope |
+| `Strain_Template_YourName.xlsx` | Strain registry import template (fields for strain entities) | Future registry schema reference |
+
+---
+
+## 2. Benchling capability inventory (extracted)
+
+**Sequence visualization & annotation**
+- Plasmid map + linear view; ORF customization; topology & tags.
+- Annotations / features libraries; **bulk auto-annotation**; feature library creation.
+- Sequence search; auto-fill / back / bulk translations.
+
+**Construct design**
+- **Primer design** (manual + parameter-driven; adjustable thermodynamic defaults; add restriction
+  sites / overhangs to primers; Tm / GC acceptable-range checks).
+- **In-silico PCR** (primer pair → PCR product; choose which features to copy into the new DNA).
+- **Virtual digestion** (customizable enzyme lists; digest visualization / fragment preview).
+
+**Construct assembly**
+- **Assembly Wizard**: Digest & Ligate (RE cloning), **Gibson**, **Golden Gate**.
+- **Combinatorial / bulk assembly**; worklists integration.
+
+**Sequence alignment**
+- Template-based alignment, **consensus alignment**, **BLAST**, bulk auto-alignment.
+- Powered by MAFFT / ClustalOmega; **auto-reindex circular sequences** on alignment.
+
+**CRISPR**
+- Guide RNA design; **on / off-target scoring**.
+
+**Codon optimization**
+- Host-aware codon optimization during sequence editing.
+
+**AA / protein analysis**
+- AA alignment; electrochemical / physicochemical properties overview.
+
+**History & organization**
+- Sequence **version history with restore of old versions**.
+- Projects / subfolders, ELN entries, Registry (strains, plasmids, media), samples, requests,
+  worklists; **bulk / expanded workspace view** (edit, move, archive, attach/detach primers,
+  auto-annotate in bulk); starring; sharing.
+
+**UX tips worth borrowing**
+- Bulk operations via an expanded table view; auto-indexing for circular alignments; clear
+  parameter defaults with "PRO TIP" guidance; wizard-style multi-step construct building.
+
+---
+
+## 3. HelixBench current state (baseline)
+
+Already implemented: circular/linear map (pastel features, enzyme leader-lines, minimap, zoom
+slider); double-stranded sequence view (complement, translations, ORFs, selection, colors);
+Features CRUD + Detect Common + translated CDS; Primers (Tm, GC%, direction, phosphorylation);
+Enzymes (DB, sets, filters, cut sites); undo/redo history; DNA/protein/name IUPAC search;
+`.hbx` / FASTA / GenBank / raw import + FASTA/GenBank/plain export; genetic codes (7), ORF threshold,
+topology; light Benchling-style editor; installer + release.
+
+---
+
+## 4. Gap analysis
+
+| Capability | Benchling | HelixBench today | Gap | Priority |
+| --- | --- | --- | --- | --- |
+| In-silico PCR | yes | no | build product from primer pair, copy features | **P0** |
+| Primer design assistant | yes | manual list only | auto-design w/ Tm/GC/clamp + overhangs | **P0** |
+| Virtual digest / gel preview | yes | cut sites only | fragment sizes + gel simulation | **P0** |
+| Pairwise / consensus alignment | yes | no | NW/SW + consensus, auto-reindex circular | **P0** |
+| Version history + restore | yes | in-memory undo only | persistent snapshots + restore | **P0** |
+| Assembly wizard (RE/Gibson/Golden Gate) | yes | no | simulate assemblies → new construct | **P1** |
+| CRISPR gRNA + on/off-target | yes | no | PAM scan + scoring + off-target search | **P1** |
+| Codon optimization | yes | no | host codon table + CAI + site avoidance | **P1** |
+| Features library / bulk auto-annotation | yes | Detect Common only | curated library + batch apply | **P1** |
+| Protein / AA analysis | yes | translation only | AA alignment + pI/MW/hydropathy/charge | **P1** |
+| Bulk / expanded workspace + projects/tags | yes | single doc | multi-doc table, folders, tags | **P1** |
+| BLAST (local DB) | yes | no | local similarity search | **P2** |
+| Combinatorial / bulk assembly | yes | no | multi-fragment combinatorics | **P2** |
+| Registry / ELN / worklists / purchasing | yes | no | lab logistics | **P2 / out-of-core** |
+
+---
+
+## 5. Prioritized roadmap
+
+### P0 — core molecular-biology parity (pure Rust, high value)
+
+1. **In-silico PCR** (`domain::pcr`)
+   - Input: forward + reverse primer (from primer list or typed), template.
+   - Compute amplicon (position, length, Tm, GC), handle circular templates and reverse-strand primers.
+   - Output: new sequence document; **copy selected features** into the product (Benchling parity).
+   - UI: PCR dialog (pick primers, preview amplicon, feature-copy checkboxes) → creates doc tab.
+   - Tests: known primer pair → expected amplicon coords/length on linear + circular.
+
+2. **Primer design assistant** (`domain::primer_design`)
+   - Auto-design primers flanking a selected region / target: length, Tm (nearest-neighbor), GC%,
+    3' GC-clamp, self-dimer / hairpin sanity checks; optional 5' overhangs / restriction sites.
+   - Expose adjustable thermodynamic defaults (Benchling "PRO TIP").
+   - UI: "Design primers" from selection → candidate list with scores → add to primer list.
+   - Tests: Tm/GC math vs reference values; clamp/overhang placement.
+
+3. **Virtual digest + gel preview** (`domain::digest`)
+   - From chosen enzyme set: fragment list (sizes, count, ends), single/double digest.
+   - **Agarose-gel simulation view** (log-scale migration vs ladder) — strong visual win.
+   - UI: Enzymes view → "Simulate digest" → fragments table + gel panel.
+   - Tests: fragment sizes sum to template length; circular vs linear cut counts.
+
+4. **Alignment** (`domain::align`)
+   - Pairwise (Needleman–Wunsch global / Smith–Waterman local) with affine gaps; template-based
+     alignment of a sequence to a reference; **consensus** row for multi-sequence.
+   - **Auto-reindex circular** sequences before aligning (Benchling default), toggleable.
+   - UI: Alignment view (rows + consensus + mismatch highlighting), reindex toggle.
+   - Tests: known alignments, consensus correctness, circular reindex.
+
+5. **Persistent version history + restore** (`storage::versions`)
+   - Snapshot document versions (on save / manual "save version") in `.hbx` or sidecar; list with
+     timestamps + labels; **restore** an old version as a new document / current state.
+   - UI: History view → version timeline with restore.
+   - Tests: snapshot/restore round-trip; version ordering; corrupt-version handling.
+
+### P1 — differentiating tools
+
+6. **Assembly wizard** (`domain::assembly`): Digest&Ligate, Gibson (overlap design), Golden Gate
+   (Type IIS overhangs); vector + inserts → assembled construct with carried features; preview junctions.
+7. **CRISPR** (`domain::crispr`): PAM (NGG + variants) scan, gRNA candidates, on-target score
+   (Doench-style simplified), off-target scan vs the loaded sequence(s) with mismatch counts.
+8. **Codon optimization** (`domain::codon`): host codon-usage tables, CAI target, GC-window smoothing,
+   avoid chosen restriction sites; preserve protein; show before/after identity.
+9. **Features library + bulk auto-annotation** (`domain::feature_lib`): curated reusable library;
+   batch-apply across open documents; extend Detect Common.
+10. **Protein analysis** (`domain::protein`): AA alignment, MW, pI, charge, hydropathy (GRAVY),
+    electrochemical overview panel.
+11. **Bulk workspace + organization**: multi-document expanded table (batch edit/move/archive,
+    attach/detach primers, auto-annotate), project folders + tags in a local library index.
+
+### P2 — optional / future
+
+12. **Local BLAST** against a user-supplied FASTA database (seed-and-extend, pure Rust).
+13. **Combinatorial / bulk assembly** (multi-fragment combinatorics + worklist export).
+14. **Registry / ELN-lite / worklists / purchasing** — lab logistics. *Recommendation:* keep out of the
+    core DNA editor; if pursued, model as a separate local registry module (strain/plasmid entities,
+    using `Strain_Template_YourName.xlsx` fields) rather than bloating the sequence editor.
+
+---
+
+## 6. UX improvements (borrowed from Benchling tips + reference editor)
+
+- **Wizard-style dialogs** for PCR / assembly / primer design (multi-step, preview before commit).
+- **Bulk / expanded view** for primers, features, enzymes (multi-select + batch actions).
+- **Auto-index** toggle for circular alignments; sensible parameter defaults with inline "pro tip" help.
+- **Gel + alignment + version-timeline** as first-class visual panels in the light editor.
+- Keyboard shortcuts and drag-select parity across map / sequence / tables (already partly present).
+
+---
+
+## 7. Architecture & verification notes
+
+- Add pure-Rust modules under `crates/domain` (`pcr`, `primer_design`, `digest`, `align`, `assembly`,
+  `crispr`, `codon`, `protein`, `feature_lib`); keep them UI/OS/network-free.
+- Expose typed commands via `crates/appcore`; persist versions/library via `crates/storage`.
+- GPUI views/dialogs in `apps/desktop_gpui`; egui fallback inherits commands automatically.
+- Each P0/P1 feature ships with unit tests (math + round-trips) and a runtime-verified UI flow;
+  run `cargo fmt / test / clippy -D warnings / build` before release.
+- Update the Figma design system + README preview as new panels land.
+
+---
+
+## 8. Suggested next step
+
+Implement **P0 #1–#3 (in-silico PCR, primer design, virtual digest + gel)** first: they reuse the
+existing primer/enzyme/feature model, deliver immediately visible value, and are fully testable in
+pure Rust. Then alignment + version history (P0 #4–#5), then the P1 differentiators.
