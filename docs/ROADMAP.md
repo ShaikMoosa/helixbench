@@ -1,11 +1,11 @@
 # HelixBench — Detailed Product Roadmap
 
-**Grounded in:** `Benchling-Features-and-UI-Research.docx` + `Benchling-Research/screens/`
+**Grounded in:** `reference-features-ui-research.docx` + `reference-research/screens/`
 (15 capability areas, 82 screen groups, 178 public UI assets, 84 sources; research date 14 Nov 2026).
 **Baseline:** HelixBench v0.6.0 (local-first, pure-Rust, offline, single-user Windows DNA workbench).
 
-This roadmap translates the Benchling platform research into a phased plan for HelixBench. It keeps
-HelixBench's identity — **local-first, offline, single-user, pure Rust** — and adapts Benchling's
+This roadmap translates the reference platform research into a phased plan for HelixBench. It keeps
+HelixBench's identity — **local-first, offline, single-user, pure Rust** — and adapts the reference platform's
 *connected-record* ideas to local equivalents rather than copying its multi-tenant cloud model.
 
 ---
@@ -34,7 +34,7 @@ HelixBench's identity — **local-first, offline, single-user, pure Rust** — a
 
 ## 2. Current coverage (v0.6.0) vs the 15 research areas
 
-| # | Benchling area | HelixBench v0.6.0 | Status |
+| # | Reference area | HelixBench v0.6.0 | Status |
 |---|---|---|---|
 | 1 | Notebook | — (no entries/templates/review) | **Gap → Phase 1** |
 | 2 | Registry | local catalog (plasmid/strain/primer) + link-to-doc | Partial → Phase 1 (schemas, lineage, import) |

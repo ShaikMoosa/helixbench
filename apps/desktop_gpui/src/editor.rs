@@ -1,4 +1,4 @@
-//! Light, Benchling-style editor: circular map on the left, an annotated
+//! Light, modern editor: circular map on the left, an annotated
 //! double-stranded sequence panel on the right, and description / properties /
 //! legend cards along the bottom. Pastel feature fills on a white canvas.
 

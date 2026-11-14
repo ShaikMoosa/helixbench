@@ -104,7 +104,7 @@ Or build from source (below).
   tags for organization.
 
 ### Local registry
-- Offline catalog of **plasmids, strains and primers** (strain fields follow the Benchling strain
+- Offline catalog of **plasmids, strains and primers** (strain fields follow the the reference platform strain
   template: organism, host/parent strain, resistance, plasmids, medium, genotype, status, …).
 - Add / edit / delete entries, **link** an entry to the active document and **open** the linked doc.
 - Persisted to a versioned, atomic `registry.json` in the config dir. No multi-user / sync.
@@ -170,7 +170,7 @@ shells.
 
 ## Design
 
-The GPUI shell follows a light, Benchling-style laboratory editor: a white canvas and chrome with a
+The GPUI shell follows a light, modern laboratory editor: a white canvas and chrome with a
 single dark top application bar, ink text, one teal accent for selection, and pastel feature fills
 so annotations read softly on light. The editor splits into a circular map (left) and an annotated
 double-stranded sequence panel (right), with description / properties / legend cards below. A left
@@ -193,7 +193,7 @@ The domain, storage and appcore crates are covered by ~90 unit tests (translatio
 cutting, search, PCR, primer design, digest, alignment, assembly, CRISPR, codon/CAI, BLAST, registry,
 `.hbx`/registry round-trips, atomic-write behavior).
 
-The improvement roadmap derived from the Benchling training resources lives in
+The improvement roadmap derived from the reference training resources lives in
 [`docs/PRODUCT_IMPROVEMENTS.md`](docs/PRODUCT_IMPROVEMENTS.md).
 
 ## License

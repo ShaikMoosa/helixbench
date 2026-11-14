@@ -1,8 +1,8 @@
-# HelixBench — Product Improvement Plan (from Benchling resource analysis)
+# HelixBench — Product Improvement Plan (from reference resource analysis)
 
 **Date:** 2026-11-14
-**Scope:** Analyze the Benchling training / molecular-biology resources in
-`benchling-resources-main/_static/files/` and derive a prioritized improvement roadmap for
+**Scope:** Analyze the reference training / molecular-biology resources in
+`reference-resources/_static/files/` and derive a prioritized improvement roadmap for
 HelixBench (local-first, pure-Rust Windows DNA & plasmid workbench).
 **Constraint:** every recommendation must stay implementable in pure Rust, offline, local-first
 (no cloud, no account), consistent with the existing `domain / storage / appcore / apps` architecture.
@@ -22,7 +22,7 @@ HelixBench (local-first, pure-Rust Windows DNA & plasmid workbench).
 
 ---
 
-## 2. Benchling capability inventory (extracted)
+## 2. Reference capability inventory (extracted)
 
 **Sequence visualization & annotation**
 - Plasmid map + linear view; ORF customization; topology & tags.
@@ -71,7 +71,7 @@ slider); double-stranded sequence view (complement, translations, ORFs, selectio
 Features CRUD + Detect Common + translated CDS; Primers (Tm, GC%, direction, phosphorylation);
 Enzymes (DB, sets, filters, cut sites); undo/redo history; DNA/protein/name IUPAC search;
 `.hbx` / FASTA / GenBank / raw import + FASTA/GenBank/plain export; genetic codes (7), ORF threshold,
-topology; light Benchling-style editor; installer + release.
+topology; light modern editor; installer + release.
 
 ---
 
@@ -81,7 +81,7 @@ The table below was originally a pre-implementation snapshot. As of **v0.6.0** e
 organization row is **shipped**; only the enterprise lab-logistics row remains open (deliberately
 out-of-core for a local-first, single-user product).
 
-| Capability | Benchling | HelixBench v0.6.0 | Status | Released |
+| Capability | the reference platform | HelixBench v0.6.0 | Status | Released |
 | --- | --- | --- | --- | --- |
 | In-silico PCR | yes | amplicon preview + product w/ feature copy | **Shipped** | v0.2.0 |
 | Primer design assistant | yes | Tm/GC/clamp scoring + overhangs | **Shipped** | v0.2.0 |
@@ -117,14 +117,14 @@ out-of-core for a local-first, single-user product).
 1. **In-silico PCR** (`domain::pcr`)
    - Input: forward + reverse primer (from primer list or typed), template.
    - Compute amplicon (position, length, Tm, GC), handle circular templates and reverse-strand primers.
-   - Output: new sequence document; **copy selected features** into the product (Benchling parity).
+   - Output: new sequence document; **copy selected features** into the product (reference parity).
    - UI: PCR dialog (pick primers, preview amplicon, feature-copy checkboxes) → creates doc tab.
    - Tests: known primer pair → expected amplicon coords/length on linear + circular.
 
 2. **Primer design assistant** (`domain::primer_design`)
    - Auto-design primers flanking a selected region / target: length, Tm (nearest-neighbor), GC%,
     3' GC-clamp, self-dimer / hairpin sanity checks; optional 5' overhangs / restriction sites.
-   - Expose adjustable thermodynamic defaults (Benchling "PRO TIP").
+   - Expose adjustable thermodynamic defaults (reference "PRO TIP").
    - UI: "Design primers" from selection → candidate list with scores → add to primer list.
    - Tests: Tm/GC math vs reference values; clamp/overhang placement.
 
@@ -137,7 +137,7 @@ out-of-core for a local-first, single-user product).
 4. **Alignment** (`domain::align`)
    - Pairwise (Needleman–Wunsch global / Smith–Waterman local) with affine gaps; template-based
      alignment of a sequence to a reference; **consensus** row for multi-sequence.
-   - **Auto-reindex circular** sequences before aligning (Benchling default), toggleable.
+   - **Auto-reindex circular** sequences before aligning (reference default), toggleable.
    - UI: Alignment view (rows + consensus + mismatch highlighting), reindex toggle.
    - Tests: known alignments, consensus correctness, circular reindex.
 
@@ -172,7 +172,7 @@ out-of-core for a local-first, single-user product).
 
 ---
 
-## 6. UX improvements (borrowed from Benchling tips + reference editor)
+## 6. UX improvements (borrowed from reference tips + reference editor)
 
 - **Wizard-style dialogs** for PCR / assembly / primer design (multi-step, preview before commit).
 - **Bulk / expanded view** for primers, features, enzymes (multi-select + batch actions).

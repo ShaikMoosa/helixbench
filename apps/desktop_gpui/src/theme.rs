@@ -1,4 +1,4 @@
-//! Visual language for the GPUI shell: a light, Benchling-style laboratory
+//! Visual language for the GPUI shell: a light, modern laboratory
 //! editor. White canvas and chrome, ink text, a single teal accent for
 //! selection, and pastel feature fills so annotations read softly on light.
 //! Spacing sits on a 4px grid; radii nest (8 outer / 6 inner / 4).

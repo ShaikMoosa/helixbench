@@ -1,5 +1,5 @@
 //! Local registry: an offline catalog of plasmids, strains and primers.
-//! Schema-driven (strain fields follow the Benchling strain template subset);
+//! Schema-driven (strain fields follow the standard strain template subset);
 //! entries can be linked to an open document. No multi-user / sync.
 
 use std::collections::BTreeMap;
