@@ -1,0 +1,17 @@
+[package]
+name = "desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+domain.workspace = true
+storage.workspace = true
+appcore.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+eframe = "0.37.0"
+egui = "0.37.0"
+egui_extras = "0.37.0"
+rfd = "0.18.0"
+arboard = "3"

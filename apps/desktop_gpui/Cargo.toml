@@ -1,0 +1,15 @@
+[package]
+name = "desktop_gpui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "helixbench_gpui"
+path = "src/main.rs"
+
+[dependencies]
+gpui.workspace = true
+domain.workspace = true
+storage.workspace = true
+appcore.workspace = true

@@ -1,0 +1,10 @@
+[package]
+name = "appcore"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+domain.workspace = true
+storage.workspace = true
+rfd = "0.18.0"
