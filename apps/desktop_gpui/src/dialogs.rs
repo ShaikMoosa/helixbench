@@ -206,6 +206,8 @@ pub fn show(
         entity_map(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::RegistryImport(_))) {
         registry_import(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Inventory(_))) {
+        inventory(app, cx, max_h)
     } else {
         return None;
     };
@@ -5166,6 +5168,259 @@ fn registry_import(
         cx,
         "Registry Import (CSV)",
         660.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: Inventory
+// ---------------------------------------------------------------------------
+
+fn inventory(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Inventory(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Inventory",
+                700.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let ni = app.input_entity(
+        cx,
+        "dlg:inv:name",
+        &draft.name,
+        "Location / box / plate name",
+        false,
+    );
+    let li = app.input_entity(
+        cx,
+        "dlg:inv:lookup",
+        &draft.lookup,
+        "find entity containers",
+        false,
+    );
+    let (name, lookup) = (ni.read(cx).text(), li.read(cx).text());
+    if let Some(Dialog::Inventory(d)) = &mut app.app.dialog {
+        d.name = name;
+        d.lookup = lookup.clone();
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    let mut kinds = div().flex().gap(px(6.0));
+    for (i, label) in ["Location", "Box", "Plate", "Tube"].iter().enumerate() {
+        let sel = draft.kind == i;
+        kinds = kinds.child(
+            widgets::button(
+                SharedString::from(format!("inv-k-{i}")),
+                label,
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::Inventory(d)) = &mut t.app.dialog {
+                    d.kind = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(input_field(ni, 220.0))
+            .child(kinds)
+            .child(
+                widgets::button("inv-add", "Add", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        let d = match &t.app.dialog {
+                            Some(Dialog::Inventory(d)) => d.clone(),
+                            _ => return,
+                        };
+                        act::inv_add(&mut t.app, &d);
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    let mut tree = div().flex().flex_col().gap(px(2.0));
+    fn walk(
+        inv: &domain::inventory::Inventory,
+        parent: Option<u64>,
+        depth: usize,
+        out: &mut Vec<(u64, String, String, usize)>,
+    ) {
+        for c in inv.children(parent) {
+            out.push((c.id, c.name.clone(), c.kind.label().to_string(), depth));
+            walk(inv, Some(c.id), depth + 1, out);
+        }
+    }
+    let mut rows = Vec::new();
+    walk(&app.app.inventory, None, 0, &mut rows);
+    if rows.is_empty() {
+        tree = tree.child(widgets::label(
+            "No storage yet. Add a location, then boxes/plates.",
+            theme::T_SM,
+            theme::FAINT,
+        ));
+    }
+    for (id, name, kind, depth) in rows {
+        tree = tree.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .p(px(4.0))
+                .rounded(px(4.0))
+                .bg(theme::SURFACE)
+                .child(div().w(px((depth * 14) as f32)))
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(name),
+                )
+                .child(widgets::label(&kind, theme::T_XS, theme::MUTED))
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("inv-sel-{id}")),
+                        "Select",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        if let Some(Dialog::Inventory(d)) = &mut t.app.dialog {
+                            d.selected_plate = Some(id);
+                            d.parent = Some(id);
+                        }
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    body = body.child(tree);
+    if let Some(plate) = draft.selected_plate {
+        let wells: Vec<domain::inventory::Container> = app
+            .app
+            .inventory
+            .wells(plate)
+            .iter()
+            .map(|c| (*c).clone())
+            .collect();
+        body = body.child(widgets::label(
+            &format!("Plate wells ({}):", wells.len()),
+            theme::T_SM,
+            theme::FAINT,
+        ));
+        let mut grid = div()
+            .flex()
+            .flex_col()
+            .gap(px(2.0))
+            .p(px(6.0))
+            .rounded(px(5.0))
+            .bg(theme::SURFACE);
+        for w in wells.iter().take(12) {
+            grid = grid.child(
+                div()
+                    .flex()
+                    .gap(px(8.0))
+                    .child(
+                        div()
+                            .w(px(40.0))
+                            .text_size(px(theme::T_XS))
+                            .font_family(theme::MONO_FONT)
+                            .text_color(theme::TEXT)
+                            .child(w.position.clone().unwrap_or_default()),
+                    )
+                    .child(
+                        div()
+                            .flex_grow()
+                            .text_size(px(theme::T_XS))
+                            .text_color(theme::MUTED)
+                            .child(w.entity.clone().unwrap_or_else(|| "—".into())),
+                    )
+                    .child(widgets::label(
+                        w.role.map(|r| r.label()).unwrap_or(""),
+                        theme::T_XS,
+                        theme::FAINT,
+                    )),
+            );
+        }
+        body = body.child(grid);
+        body = body.child(
+            div()
+                .flex()
+                .gap(px(6.0))
+                .child(
+                    widgets::button("inv-fill", "Fill demo wells", Btn::Outline).on_click(
+                        cx.listener(move |t, _, _, cx| {
+                            act::inv_fill_demo_wells(&mut t.app, plate);
+                            cx.notify();
+                        }),
+                    ),
+                )
+                .child(
+                    widgets::button("inv-snap", "Snapshot to notebook", Btn::Outline).on_click(
+                        cx.listener(move |t, _, _, cx| {
+                            act::inv_snapshot_to_entry(&mut t.app, plate);
+                            cx.notify();
+                        }),
+                    ),
+                ),
+        );
+    }
+    if !lookup.trim().is_empty() {
+        let hits: Vec<domain::inventory::Container> = app
+            .app
+            .inventory
+            .find_by_entity(lookup.trim())
+            .iter()
+            .map(|c| (*c).clone())
+            .collect();
+        body = body.child(widgets::label(
+            &format!("Containers holding \"{}\": {}", lookup, hits.len()),
+            theme::T_SM,
+            theme::FAINT,
+        ));
+        for h in hits {
+            body = body.child(widgets::label(
+                &format!(
+                    "{} [{}] qty {} {}",
+                    h.name,
+                    h.position.clone().unwrap_or_default(),
+                    h.quantity,
+                    h.unit
+                ),
+                theme::T_XS,
+                theme::MUTED,
+            ));
+        }
+    }
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(field_label("Find entity"))
+            .child(input_field(li, 220.0)),
+    );
+    let footer = footer_row(vec![widgets::button("inv-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Inventory",
+        760.0,
         max_h,
         true,
         body.into_any_element(),

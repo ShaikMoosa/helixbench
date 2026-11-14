@@ -34,15 +34,14 @@ plain files on disk; saves are atomic and versioned. There is no cloud, no telem
 annotated double-stranded sequence panel (right), and feature description / properties / legend
 cards below. Left icon rail switches views; document tabs and a zoom slider + minimap sit above.*
 
-Two native shells share one framework-agnostic core:
+The shell is built on **GPUI** (Zed's UI framework) over a framework-agnostic core:
 
 | Shell | Crate | Role |
 | --- | --- | --- |
-| **GPUI** (Zed's UI framework) | `apps/desktop_gpui` | Primary shell — light laboratory editor |
-| **egui / eframe** | `apps/desktop` | Lightweight fallback shell |
+| **GPUI** (Zed's UI framework) | `apps/desktop_gpui` | Single native shell — light laboratory editor |
 
-Both dispatch the same typed commands from `appcore` over the same `domain` + `storage` crates, so
-behavior and file formats are identical across shells.
+All logic lives in `appcore` over `domain` + `storage`, so the UI is a thin rendering layer and the
+science is testable headlessly. (The earlier egui fallback was removed in v0.8; GPUI is the single shell.)
 
 ## Install
 
@@ -125,11 +124,8 @@ Requirements: **Windows 10/11 (x64)** and a **Rust stable toolchain (MSVC)** wit
 C++ build tools. No Node.js, no webview, no runtime downloads.
 
 ```bash
-# primary GPUI shell
+# GPUI shell
 cargo run -p desktop_gpui
-
-# fallback egui shell
-cargo run -p desktop
 
 # optimized release binary
 cargo build --release -p desktop_gpui
@@ -165,8 +161,7 @@ helixbench/
 │   │                # registry persistence
 │   └── appcore/     # framework-agnostic AppState + typed commands (actions), undo/redo, versions
 └── apps/
-    ├── desktop_gpui/  # GPUI shell: views, dialogs, theme, icons (primary)
-    └── desktop/       # egui/eframe shell (fallback)
+    └── desktop_gpui/  # GPUI shell: views, dialogs, theme, icons (single shell)
 ```
 
 Dependency rule: shells depend inward on `appcore` → `domain` / `storage`. The core crates never

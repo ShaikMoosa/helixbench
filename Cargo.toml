@@ -4,7 +4,6 @@ members = [
     "crates/domain",
     "crates/storage",
     "crates/appcore",
-    "apps/desktop",
     "apps/desktop_gpui",
 ]
 

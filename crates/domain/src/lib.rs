@@ -16,6 +16,7 @@ pub mod enzyme_set;
 pub mod feature;
 pub mod feature_lib;
 pub mod genetic_code;
+pub mod inventory;
 pub mod iupac;
 pub mod msa;
 pub mod notebook;

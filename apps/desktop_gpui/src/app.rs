@@ -235,6 +235,7 @@ impl HelixBench {
             Some(Dialog::Home(_)) => "home".into(),
             Some(Dialog::EntityMap(_)) => "entity-map".into(),
             Some(Dialog::RegistryImport(_)) => "registry-import".into(),
+            Some(Dialog::Inventory(_)) => "inventory".into(),
         }
     }
 
@@ -906,6 +907,7 @@ impl HelixBench {
                     ("lb-entitymap", "Entity Map", 3),
                     ("lb-import", "Registry Import (CSV)", 4),
                     ("lb-audit", "Audit Log", 5),
+                    ("lb-inv", "Inventory", 6),
                 ] {
                     rows.push(
                         widgets::menu_row(id, label, "", true)
@@ -917,6 +919,7 @@ impl HelixBench {
                                     2 => act::open_projects(&mut t.app),
                                     3 => act::open_entity_map(&mut t.app),
                                     4 => act::open_registry_import(&mut t.app),
+                                    6 => act::open_inventory(&mut t.app),
                                     _ => act::open_audit(&mut t.app),
                                 }
                                 cx.notify();

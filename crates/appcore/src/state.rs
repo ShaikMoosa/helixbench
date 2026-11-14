@@ -239,6 +239,7 @@ pub enum Dialog {
     Home(HomeDraft),
     EntityMap(EntityMapDraft),
     RegistryImport(RegistryImportDraft),
+    Inventory(InventoryDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -391,6 +392,16 @@ pub struct RegistryImportDraft {
     pub imported: usize,
 }
 
+#[derive(Clone, Default)]
+pub struct InventoryDraft {
+    pub name: String,
+    pub kind: usize,
+    pub parent: Option<u64>,
+    pub selected_plate: Option<u64>,
+    pub lookup: String,
+    pub error: Option<String>,
+}
+
 #[derive(Clone)]
 pub struct CombDraft {
     pub strategy: usize,
@@ -453,6 +464,8 @@ pub struct AppState {
     pub blast_db: Vec<(String, Vec<u8>)>,
     /// Phase-1 connected records: projects, notebook entries, templates, audit.
     pub records: storage::records::Records,
+    /// Phase-2 physical inventory (locations/boxes/plates/containers).
+    pub inventory: domain::inventory::Inventory,
     pub path: Option<PathBuf>,
     pub dirty: bool,
     /// History depth at the last save/open; `None` once a branch makes that state unreachable.
@@ -507,6 +520,7 @@ impl AppState {
             feature_lib: storage::feature_lib::load(),
             blast_db: Vec::new(),
             records: storage::records::load(),
+            inventory: storage::inventory::load(),
             path: None,
             dirty: false,
             saved_depth: Some(0),

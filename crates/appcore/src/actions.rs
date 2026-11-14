@@ -11,9 +11,9 @@ use domain::{ColorRegion, Document, Range, Topology};
 use crate::state::{
     AlignmentDraft, AppState, AssemblyDraft, AuditDraft, BlastDraft, CodonDraft, ColorDraft,
     ColorsMode, CombDraft, CrisprDraft, Dialog, EntityMapDraft, EntryEditDraft, FeatureDraft,
-    FeatureLibDraft, HomeDraft, NewSeqState, NotebookDraft, OpenDoc, PcrDraft, PendingAction,
-    PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft, RegistryDraft, RegistryEditDraft,
-    RegistryImportDraft, WorkspaceDraft,
+    FeatureLibDraft, HomeDraft, InventoryDraft, NewSeqState, NotebookDraft, OpenDoc, PcrDraft,
+    PendingAction, PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft, RegistryDraft,
+    RegistryEditDraft, RegistryImportDraft, WorkspaceDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -1863,4 +1863,104 @@ fn split_csv(line: &str) -> Vec<String> {
     }
     out.push(cur);
     out
+}
+
+// --- Phase 2: inventory -----------------------------------------------------
+
+pub fn open_inventory(app: &mut AppState) {
+    app.dialog = Some(Dialog::Inventory(InventoryDraft::default()));
+}
+
+pub fn inv_add(app: &mut AppState, draft: &InventoryDraft) {
+    if draft.name.trim().is_empty() {
+        app.toast("Name required");
+        return;
+    }
+    let kind = match draft.kind {
+        1 => domain::inventory::ContainerKind::Box,
+        2 => domain::inventory::ContainerKind::Plate,
+        3 => domain::inventory::ContainerKind::Tube,
+        _ => domain::inventory::ContainerKind::Location,
+    };
+    let id = app.inventory.add(draft.name.trim(), kind, draft.parent);
+    let _ = storage::inventory::save(&app.inventory);
+    audit(app, &format!("inv:{id}"), "created", &draft.name);
+    app.toast(format!("{} created", kind.label()));
+}
+
+/// Fill the first four wells of a plate with the first registry entity (sample)
+/// and blanks, as a quick-start demonstration of plate filling.
+pub fn inv_fill_demo_wells(app: &mut AppState, plate: u64) {
+    let entity = app.registry.entries.first().map(|e| e.name().to_string());
+    let wells = vec![
+        (
+            "A1".to_string(),
+            entity.clone(),
+            domain::inventory::WellRole::Sample,
+            10.0,
+        ),
+        (
+            "A2".to_string(),
+            entity.clone(),
+            domain::inventory::WellRole::Sample,
+            10.0,
+        ),
+        (
+            "A3".to_string(),
+            None,
+            domain::inventory::WellRole::Control,
+            10.0,
+        ),
+        (
+            "A4".to_string(),
+            None,
+            domain::inventory::WellRole::Blank,
+            10.0,
+        ),
+    ];
+    let n = app.inventory.fill_wells(plate, &wells);
+    let _ = storage::inventory::save(&app.inventory);
+    audit(
+        app,
+        &format!("inv:{plate}"),
+        "filled",
+        &format!("{n} wells"),
+    );
+    app.toast(format!("Filled {n} wells"));
+}
+
+/// Record an immutable plate snapshot as a notebook entry result table.
+pub fn inv_snapshot_to_entry(app: &mut AppState, plate: u64) {
+    let Some(snap) = app.inventory.snapshot(plate, unix_now()) else {
+        app.toast("Select a plate");
+        return;
+    };
+    let now = unix_now();
+    let id = app.records.entries.len() as u64 + 1;
+    let mut e =
+        domain::notebook::Entry::new(id, format!("Plate snapshot: {}", snap.plate_name), now);
+    let mut table = domain::notebook::ResultTable {
+        name: format!("{} wells", snap.plate_name),
+        columns: vec![
+            "Well".into(),
+            "Entity".into(),
+            "Role".into(),
+            "Volume (uL)".into(),
+        ],
+        rows: Vec::new(),
+        submitted: true,
+    };
+    for (pos, entity, role, qty) in &snap.wells {
+        table.rows.push(vec![
+            pos.clone(),
+            entity.clone().unwrap_or_default(),
+            role.map(|r| r.label().to_string()).unwrap_or_default(),
+            format!("{qty}"),
+        ]);
+    }
+    e.tables.push(table);
+    app.records.entries.push(e);
+    audit(app, &format!("entry:{id}"), "snapshot", &snap.plate_name);
+    persist_records(app);
+    app.toast("Plate snapshot recorded to notebook");
 }
