@@ -88,8 +88,8 @@ fn paint_seq(d: &SeqDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut 
         let start = r * n;
         let end = (start + n).min(l);
         // top strand letters
-        for i in start..end {
-            let ch = (d.seq[i] as char).to_string();
+        for (i, b) in d.seq.iter().enumerate().take(end).skip(start) {
+            let ch = (*b as char).to_string();
             draw::text(
                 window,
                 cx,
@@ -129,8 +129,8 @@ fn paint_seq(d: &SeqDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut 
             }
         }
         // bottom strand letters
-        for i in start..end {
-            let ch = (complement(d.seq[i]) as char).to_string();
+        for (i, b) in d.seq.iter().enumerate().take(end).skip(start) {
+            let ch = (complement(*b) as char).to_string();
             draw::text(
                 window,
                 cx,
