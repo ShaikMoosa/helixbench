@@ -152,8 +152,9 @@ Goal: analyze and transform local data; reusable pipelines.
 - **Notebook/Registry/Inventory screens:** adopt schema-driven forms, structured tables with a clear
   **Submit** persistence boundary, template editor with locked columns, review badges, Entity Map graph,
   plate grid + fill-wells, storage tree.
-- **Home/AI screens:** home = resume-work hub (My Work/recent/worklists/calendar); AI/Agents uses a
-  3-step governed wizard (setup → data access → collaborators) with "uses mine / has its own" permissions.
+- **Home/AI screens:** home = resume-work hub (My Work / recent files / worklist / recent entries)
+  shipped (v1.6.0); calendar and the AI/Agents 3-step governed wizard (setup → data access →
+  collaborators) with "uses mine / has its own" permissions remain.
 - **States to design for every module:** empty, loading, long-running, validation-error, partial-select,
   async-creating, locked, archived, view-only, no-access, review-pending, failed-mapping.
 - **Density & recovery:** virtualized tables, column config, saved views, bulk bars, import mapping with

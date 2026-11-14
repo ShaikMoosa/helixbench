@@ -71,6 +71,14 @@ fn row_card() -> gpui::Div {
         .border_color(theme::BORDER)
 }
 
+fn section_title(text: &str) -> gpui::Div {
+    div()
+        .text_size(px(theme::T_MD))
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .text_color(theme::TEXT)
+        .child(text.to_owned())
+}
+
 pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
     let mut p = page("Home", "Your local workspace at a glance");
     let mut body = scroll("home-scroll");
@@ -109,13 +117,120 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
         );
     }
     body = body.child(cards);
+
+    body = body.child(section_title("My Work"));
     body = body.child(
-        div()
-            .text_size(px(theme::T_MD))
-            .font_weight(gpui::FontWeight::SEMIBOLD)
-            .text_color(theme::TEXT)
-            .child("Recent entries"),
+        row_card()
+            .child(
+                div()
+                    .flex_grow()
+                    .text_size(px(theme::T_SM))
+                    .text_color(theme::TEXT)
+                    .child(app.app.doc.name.clone()),
+            )
+            .child(widgets::label("current", theme::T_XS, theme::ACCENT)),
     );
+    for (i, od) in app.app.library.iter().enumerate() {
+        let name = od.doc.name.clone();
+        body = body.child(
+            row_card()
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(name),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("hm-switch-{i}")),
+                        "Switch",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::switch_doc(&mut t.app, i);
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+
+    body = body.child(section_title("Recent files"));
+    if app.app.config.recent_files.is_empty() {
+        body = body.child(widgets::label(
+            "No recent files yet.",
+            theme::T_XS,
+            theme::FAINT,
+        ));
+    } else {
+        for (i, p) in app.app.config.recent_files.iter().take(6).enumerate() {
+            let path = p.clone();
+            let label = p
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| p.display().to_string());
+            body = body.child(
+                row_card()
+                    .child(
+                        div()
+                            .flex_grow()
+                            .text_size(px(theme::T_SM))
+                            .text_color(theme::TEXT)
+                            .child(label),
+                    )
+                    .child(
+                        widgets::button(
+                            SharedString::from(format!("hm-file-{i}")),
+                            "Open",
+                            Btn::Subtle,
+                        )
+                        .on_click(cx.listener(move |t, _, _, cx| {
+                            act::open_path(&mut t.app, &path);
+                            cx.notify();
+                        })),
+                    ),
+            );
+        }
+    }
+
+    body = body.child(section_title("Worklist"));
+    let open_tasks: Vec<domain::workflow::Task> = app
+        .app
+        .workflows
+        .tasks
+        .iter()
+        .filter(|t| t.status != domain::workflow::TaskStatus::Completed)
+        .take(6)
+        .cloned()
+        .collect();
+    if open_tasks.is_empty() {
+        body = body.child(widgets::label("No open tasks.", theme::T_XS, theme::FAINT));
+    } else {
+        for t in open_tasks {
+            let id = t.id;
+            body = body.child(
+                row_card()
+                    .child(
+                        div()
+                            .flex_grow()
+                            .text_size(px(theme::T_SM))
+                            .text_color(theme::TEXT)
+                            .child(t.title.clone()),
+                    )
+                    .child(widgets::label(t.status.label(), theme::T_XS, theme::MUTED))
+                    .child(
+                        widgets::button(
+                            SharedString::from(format!("hm-wl-{id}")),
+                            "Open",
+                            Btn::Subtle,
+                        )
+                        .on_click(cx.listener(|t, _, _, cx| t.set_view(View::Workflows, cx))),
+                    ),
+            );
+        }
+    }
+
+    body = body.child(section_title("Recent entries"));
     for e in app.app.records.entries.iter().rev().take(6) {
         let id = e.id;
         body = body.child(
