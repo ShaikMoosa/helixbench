@@ -855,6 +855,245 @@ pub fn show(app: &mut AppState, ctx: &egui::Context) {
                 app.dialog = Some(Dialog::Workspace(d));
             }
         }
+        Some(Dialog::Notebook(d)) => {
+            window(ctx, "Notebook", 640.0, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.button("New entry").clicked() {
+                        appcore::actions::open_entry_editor(app, None, 0);
+                    }
+                    if ui.button("Close").clicked() {
+                        keep = false;
+                    }
+                });
+                egui::ScrollArea::vertical()
+                    .max_height(320.0)
+                    .show(ui, |ui| {
+                        for e in app.records.entries.clone() {
+                            ui.horizontal(|ui| {
+                                ui.label(&e.title);
+                                ui.label(e.status.label());
+                                if ui.button("Open").clicked() {
+                                    appcore::actions::open_entry_editor(app, Some(e.id), 0);
+                                }
+                                if ui.button("Submit").clicked() {
+                                    appcore::actions::entry_action(app, e.id, "submit");
+                                }
+                                if ui.button("Approve").clicked() {
+                                    appcore::actions::entry_action(app, e.id, "approve");
+                                }
+                            });
+                        }
+                    });
+            });
+            if keep {
+                app.dialog = Some(Dialog::Notebook(d));
+            }
+        }
+        Some(Dialog::EntryEditor(mut d)) => {
+            window(ctx, "Entry", 620.0, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Title");
+                    ui.text_edit_singleline(&mut d.title);
+                });
+                for (i, (t, b)) in d.sections.iter_mut().enumerate() {
+                    ui.label(t.clone());
+                    ui.text_edit_multiline(b);
+                    let _ = i;
+                }
+                for (ti, t) in d.tables.iter().enumerate() {
+                    ui.label(format!("Table: {} ({} rows)", t.name, t.rows.len()));
+                    if ui.button("Submit table").clicked() {
+                        if let Some(id) = d.id {
+                            appcore::actions::submit_entry_table(app, id, ti);
+                        }
+                    }
+                }
+                if let Some(e) = &d.error {
+                    ui.colored_label(egui::Color32::RED, e);
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("Back").clicked() {
+                        appcore::actions::open_notebook(app);
+                    }
+                    if ui.button("Save").clicked() {
+                        match appcore::actions::save_entry(app, &d) {
+                            Ok(_) => appcore::actions::open_notebook(app),
+                            Err(e) => d.error = Some(e),
+                        }
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::EntryEditor(d));
+            }
+        }
+        Some(Dialog::Projects(mut d)) => {
+            window(ctx, "Projects", 520.0, |ui| {
+                ui.horizontal(|ui| {
+                    ui.text_edit_singleline(&mut d.name);
+                    if ui.button("Add").clicked() {
+                        appcore::actions::add_project(app, &d);
+                    }
+                });
+                egui::ScrollArea::vertical()
+                    .max_height(280.0)
+                    .show(ui, |ui| {
+                        for p in app.records.workspace.projects.clone() {
+                            ui.horizontal(|ui| {
+                                ui.label(format!(
+                                    "{}{}",
+                                    "  ".repeat(depth_of(&app.records.workspace, p.id)),
+                                    p.name
+                                ));
+                                if ui.button("Delete").clicked() {
+                                    appcore::actions::delete_project(app, p.id);
+                                }
+                            });
+                        }
+                    });
+                if ui.button("Close").clicked() {
+                    keep = false;
+                }
+            });
+            if keep {
+                app.dialog = Some(Dialog::Projects(d));
+            }
+        }
+        Some(Dialog::Audit(mut d)) => {
+            window(ctx, "Audit Log", 620.0, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("filter");
+                    ui.text_edit_singleline(&mut d.filter);
+                    if ui.button("Export CSV").clicked() {
+                        appcore::actions::export_audit(app);
+                    }
+                });
+                egui::ScrollArea::vertical()
+                    .max_height(320.0)
+                    .show(ui, |ui| {
+                        for e in app
+                            .records
+                            .audit
+                            .events
+                            .iter()
+                            .rev()
+                            .filter(|e| d.filter.is_empty() || e.object.contains(&d.filter))
+                            .take(60)
+                        {
+                            ui.monospace(format!(
+                                "{} {} {} {}",
+                                e.ts, e.object, e.action, e.detail
+                            ));
+                        }
+                    });
+                if ui.button("Close").clicked() {
+                    keep = false;
+                }
+            });
+            if keep {
+                app.dialog = Some(Dialog::Audit(d));
+            }
+        }
+        Some(Dialog::Home(_)) => {
+            window(ctx, "Home / My Work", 560.0, |ui| {
+                ui.label(format!(
+                    "Open docs {} · registry {} · entries {}",
+                    app.library.len() + 1,
+                    app.registry.entries.len(),
+                    app.records.entries.len()
+                ));
+                for e in app.records.entries.iter().rev().take(6) {
+                    ui.label(format!("{} [{}]", e.title, e.status.label()));
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("Notebook").clicked() {
+                        appcore::actions::open_notebook(app);
+                    }
+                    if ui.button("Projects").clicked() {
+                        appcore::actions::open_projects(app);
+                    }
+                    if ui.button("Audit").clicked() {
+                        appcore::actions::open_audit(app);
+                    }
+                    if ui.button("Close").clicked() {
+                        keep = false;
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::Home(Default::default()));
+            }
+        }
+        Some(Dialog::EntityMap(_)) => {
+            window(ctx, "Entity Map", 560.0, |ui| {
+                for e in app.registry.entries.iter().filter(|e| !e.archived) {
+                    let rel: Vec<String> = e
+                        .relations
+                        .iter()
+                        .filter_map(|r| app.registry.get(*r).map(|x| x.name().to_string()))
+                        .collect();
+                    ui.label(format!(
+                        "{} -> {}",
+                        e.name(),
+                        if rel.is_empty() {
+                            "—".into()
+                        } else {
+                            rel.join(", ")
+                        }
+                    ));
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("Link 1<->2").clicked() {
+                        let ids: Vec<u64> = app
+                            .registry
+                            .entries
+                            .iter()
+                            .filter(|e| !e.archived)
+                            .take(2)
+                            .map(|e| e.id)
+                            .collect();
+                        if ids.len() == 2 {
+                            appcore::actions::link_registry_entries(app, ids[0], ids[1]);
+                        }
+                    }
+                    if ui.button("Close").clicked() {
+                        keep = false;
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::EntityMap(Default::default()));
+            }
+        }
+        Some(Dialog::RegistryImport(mut d)) => {
+            window(ctx, "Registry Import", 620.0, |ui| {
+                ui.horizontal(|ui| {
+                    for (i, k) in domain::registry::Kind::ALL.iter().enumerate() {
+                        if ui.radio(d.kind == i, k.label()).clicked() {
+                            d.kind = i;
+                        }
+                    }
+                });
+                ui.text_edit_multiline(&mut d.csv);
+                if let Some(e) = &d.error {
+                    ui.colored_label(egui::Color32::RED, e);
+                }
+                if d.imported > 0 {
+                    ui.label(format!("Imported {}", d.imported));
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("Import").clicked() {
+                        appcore::actions::run_registry_import(app, &mut d);
+                    }
+                    if ui.button("Close").clicked() {
+                        keep = false;
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::RegistryImport(d));
+            }
+        }
         None => {}
     }
     if close {
@@ -1863,4 +2102,14 @@ fn accent_stroke() -> Stroke {
 #[allow(dead_code)]
 fn preview_range(start: usize, len: usize) -> Range {
     Range::new(start, len)
+}
+
+fn depth_of(ws: &domain::project::Workspace, id: u64) -> usize {
+    let mut d = 0;
+    let mut cur = ws.get(id).and_then(|p| p.parent);
+    while let Some(c) = cur {
+        d += 1;
+        cur = ws.get(c).and_then(|p| p.parent);
+    }
+    d
 }

@@ -7,6 +7,7 @@ pub mod config;
 pub mod fasta;
 pub mod feature_lib;
 pub mod genbank;
+pub mod records;
 pub mod registry;
 
 use std::fs;

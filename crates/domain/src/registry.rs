@@ -62,6 +62,12 @@ pub struct Entry {
     pub updated: u64,
     /// Name of the linked document (if any).
     pub linked_doc: Option<String>,
+    /// Archived entries are hidden by default but retained.
+    #[serde(default)]
+    pub archived: bool,
+    /// Related registry entry ids (Entity Map edges).
+    #[serde(default)]
+    pub relations: Vec<u64>,
 }
 
 impl Entry {
@@ -90,8 +96,48 @@ impl Registry {
             created: now,
             updated: now,
             linked_doc: None,
+            archived: false,
+            relations: Vec::new(),
         });
         id
+    }
+
+    pub fn set_archived(&mut self, id: u64, archived: bool, now: u64) -> bool {
+        if let Some(e) = self.entries.iter_mut().find(|e| e.id == id) {
+            e.archived = archived;
+            e.updated = now;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn add_relation(&mut self, a: u64, b: u64, now: u64) -> bool {
+        if a == b || self.get(a).is_none() || self.get(b).is_none() {
+            return false;
+        }
+        for (x, y) in [(a, b), (b, a)] {
+            if let Some(e) = self.entries.iter_mut().find(|e| e.id == x) {
+                if !e.relations.contains(&y) {
+                    e.relations.push(y);
+                }
+                e.updated = now;
+            }
+        }
+        true
+    }
+
+    /// Entity Map edges (undirected, deduplicated).
+    pub fn edges(&self) -> Vec<(u64, u64)> {
+        let mut out = Vec::new();
+        for e in &self.entries {
+            for &r in &e.relations {
+                if e.id < r {
+                    out.push((e.id, r));
+                }
+            }
+        }
+        out
     }
 
     pub fn get(&self, id: u64) -> Option<&Entry> {

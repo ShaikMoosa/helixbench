@@ -192,6 +192,20 @@ pub fn show(
         feature_lib(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Workspace(_))) {
         workspace(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Notebook(_))) {
+        notebook(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::EntryEditor(_))) {
+        entry_editor(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Projects(_))) {
+        projects(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Audit(_))) {
+        audit(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Home(_))) {
+        home(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::EntityMap(_))) {
+        entity_map(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::RegistryImport(_))) {
+        registry_import(app, cx, max_h)
     } else {
         return None;
     };
@@ -4412,6 +4426,746 @@ fn workspace(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
         cx,
         "Workspace / Bulk",
         680.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1: Notebook
+// ---------------------------------------------------------------------------
+
+fn notebook(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Notebook(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Notebook",
+                700.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    let mut bar = div().flex().items_center().gap(px(6.0));
+    for (i, label) in ["All", "Draft", "In review", "Approved", "Archived"]
+        .iter()
+        .enumerate()
+    {
+        let sel = draft.filter == i;
+        bar = bar.child(
+            widgets::button(
+                SharedString::from(format!("nb-f-{i}")),
+                label,
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::Notebook(d)) = &mut t.app.dialog {
+                    d.filter = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    bar = bar.child(div().flex_grow());
+    bar = bar.child(
+        widgets::button("nb-new", "New entry", Btn::Primary).on_click(cx.listener(
+            |t, _, _, cx| {
+                act::open_entry_editor(&mut t.app, None, 0);
+                cx.notify();
+            },
+        )),
+    );
+    body = body.child(bar);
+    let mut list = div().flex().flex_col().gap(px(3.0));
+    let entries: Vec<domain::notebook::Entry> = app
+        .app
+        .records
+        .entries
+        .iter()
+        .filter(|e| match draft.filter {
+            1 => e.status == domain::notebook::EntryStatus::Draft,
+            2 => e.status == domain::notebook::EntryStatus::InReview,
+            3 => e.status == domain::notebook::EntryStatus::Approved,
+            4 => e.status == domain::notebook::EntryStatus::Archived,
+            _ => true,
+        })
+        .cloned()
+        .collect();
+    if entries.is_empty() {
+        list = list.child(widgets::label(
+            "No entries. Create one from a template.",
+            theme::T_SM,
+            theme::FAINT,
+        ));
+    }
+    for e in entries {
+        let id = e.id;
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .p(px(6.0))
+                .rounded(px(5.0))
+                .bg(theme::SURFACE)
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(e.title.clone()),
+                )
+                .child(widgets::label(e.status.label(), theme::T_XS, theme::MUTED))
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("nb-open-{id}")),
+                        "Open",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::open_entry_editor(&mut t.app, Some(id), 0);
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("nb-sub-{id}")),
+                        "Submit",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::entry_action(&mut t.app, id, "submit");
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("nb-app-{id}")),
+                        "Approve",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::entry_action(&mut t.app, id, "approve");
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    body = body.child(list);
+    let footer = footer_row(vec![widgets::button("nb-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Notebook",
+        760.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn entry_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::EntryEditor(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Entry",
+                640.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let ti = app.input_entity(cx, "dlg:ee:title", &draft.title, "Title", false);
+    let title = ti.read(cx).text();
+    if let Some(Dialog::EntryEditor(d)) = &mut app.app.dialog {
+        d.title = title;
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(field_label("Title"))
+            .child(input_field(ti, 320.0)),
+    );
+    // sections
+    for (i, (st, sb)) in draft.sections.iter().enumerate() {
+        let si = app.input_entity(cx, &format!("dlg:ee:s{i}"), sb, st, false);
+        let val = si.read(cx).text();
+        if let Some(Dialog::EntryEditor(d)) = &mut app.app.dialog {
+            if let Some(s) = d.sections.get_mut(i) {
+                s.1 = val;
+            }
+        }
+        body = body.child(
+            div()
+                .flex()
+                .flex_col()
+                .gap(px(2.0))
+                .child(field_label(st))
+                .child(input_field(si, 560.0)),
+        );
+    }
+    // tables
+    for (ti2, t) in draft.tables.iter().enumerate() {
+        body = body.child(widgets::label(
+            &format!(
+                "Table: {} ({} rows){}",
+                t.name,
+                t.rows.len(),
+                if t.submitted { " · submitted" } else { "" }
+            ),
+            theme::T_SM,
+            theme::FAINT,
+        ));
+        let mut grid = div()
+            .flex()
+            .flex_col()
+            .gap(px(2.0))
+            .p(px(6.0))
+            .rounded(px(5.0))
+            .bg(theme::SURFACE);
+        grid = grid.child(
+            div().flex().gap(px(8.0)).children(
+                t.columns
+                    .iter()
+                    .map(|c| widgets::label(c, theme::T_XS, theme::MUTED)),
+            ),
+        );
+        for row in t.rows.iter().take(6) {
+            grid = grid.child(
+                div().flex().gap(px(8.0)).children(
+                    row.iter()
+                        .map(|c| widgets::label(c, theme::T_XS, theme::TEXT)),
+                ),
+            );
+        }
+        body = body.child(grid);
+        let eid = draft.id;
+        body = body.child(
+            widgets::button(
+                SharedString::from(format!("ee-submit-{ti2}")),
+                "Submit table (write back)",
+                Btn::Outline,
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(id) = eid {
+                    act::submit_entry_table(&mut t.app, id, ti2);
+                }
+                cx.notify();
+            })),
+        );
+    }
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("ee-cancel", "Back", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| {
+                act::open_notebook(&mut t.app);
+                cx.notify();
+            }))
+            .into_any_element(),
+        widgets::button("ee-save", "Save entry", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::EntryEditor(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::save_entry(&mut t.app, &d) {
+                    Ok(_) => {
+                        act::open_notebook(&mut t.app);
+                        cx.notify();
+                    }
+                    Err(e) => {
+                        if let Some(Dialog::EntryEditor(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        if draft.id.is_some() {
+            "Edit Entry"
+        } else {
+            "New Entry"
+        },
+        680.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn projects(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Projects(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Projects",
+                560.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let ni = app.input_entity(
+        cx,
+        "dlg:pj:name",
+        &draft.name,
+        "Project / folder name",
+        false,
+    );
+    let name = ni.read(cx).text();
+    if let Some(Dialog::Projects(d)) = &mut app.app.dialog {
+        d.name = name;
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(input_field(ni, 240.0))
+            .child(
+                widgets::button("pj-add", "Add", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        let d = match &t.app.dialog {
+                            Some(Dialog::Projects(d)) => d.clone(),
+                            _ => return,
+                        };
+                        act::add_project(&mut t.app, &d);
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    let mut list = div().flex().flex_col().gap(px(2.0));
+    fn walk(
+        ws: &domain::project::Workspace,
+        parent: Option<u64>,
+        depth: usize,
+        out: &mut Vec<(u64, String, usize)>,
+    ) {
+        for p in ws.children(parent) {
+            out.push((p.id, p.name.clone(), depth));
+            walk(ws, Some(p.id), depth + 1, out);
+        }
+    }
+    let mut rows = Vec::new();
+    walk(&app.app.records.workspace, None, 0, &mut rows);
+    for (id, name, depth) in rows {
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .p(px(4.0))
+                .child(div().w(px((depth * 16) as f32)))
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(name),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("pj-del-{id}")),
+                        "Delete",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::delete_project(&mut t.app, id);
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    body = body.child(list);
+    let footer = footer_row(vec![widgets::button("pj-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Projects & Folders",
+        600.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn audit(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Audit(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Audit Log",
+                640.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let fi = app.input_entity(
+        cx,
+        "dlg:au:filter",
+        &draft.filter,
+        "filter by object",
+        false,
+    );
+    let filter = fi.read(cx).text();
+    if let Some(Dialog::Audit(d)) = &mut app.app.dialog {
+        d.filter = filter.clone();
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(input_field(fi, 240.0))
+            .child(
+                widgets::button("au-export", "Export CSV", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        act::export_audit(&mut t.app);
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    let mut list = div().flex().flex_col().gap(px(2.0));
+    for e in app
+        .app
+        .records
+        .audit
+        .events
+        .iter()
+        .rev()
+        .filter(|e| filter.is_empty() || e.object.contains(&filter))
+        .take(60)
+    {
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .p(px(4.0))
+                .rounded(px(4.0))
+                .bg(theme::SURFACE)
+                .child(
+                    div()
+                        .w(px(70.0))
+                        .text_size(px(theme::T_XS))
+                        .font_family(theme::MONO_FONT)
+                        .text_color(theme::FAINT)
+                        .child(e.ts.to_string()),
+                )
+                .child(
+                    div()
+                        .w(px(110.0))
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::MUTED)
+                        .child(e.object.clone()),
+                )
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::TEXT)
+                        .child(e.action.clone()),
+                )
+                .child(
+                    div()
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::FAINT)
+                        .child(e.detail.clone()),
+                ),
+        );
+    }
+    body = body.child(list);
+    let footer = footer_row(vec![widgets::button("au-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Audit Log",
+        700.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn home(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label("My Work", theme::T_MD, theme::TEXT));
+    body = body.child(widgets::label(
+        &format!(
+            "Open documents: {} · Registry entries: {} · Notebook entries: {}",
+            app.app.library.len() + 1,
+            app.app.registry.entries.len(),
+            app.app.records.entries.len()
+        ),
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    let mut recent = div().flex().flex_col().gap(px(2.0));
+    recent = recent.child(widgets::label("Recent entries", theme::T_SM, theme::FAINT));
+    for e in app.app.records.entries.iter().rev().take(6) {
+        recent = recent.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .p(px(4.0))
+                .rounded(px(4.0))
+                .bg(theme::SURFACE)
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(e.title.clone()),
+                )
+                .child(widgets::label(e.status.label(), theme::T_XS, theme::MUTED)),
+        );
+    }
+    body = body.child(recent);
+    let mut quick = div().flex().gap(px(6.0));
+    for (id, label, f) in [
+        ("hm-nb", "Notebook", 1),
+        ("hm-pj", "Projects", 2),
+        ("hm-au", "Audit", 5),
+        ("hm-em", "Entity Map", 3),
+    ] {
+        quick = quick.child(
+            widgets::button(id, label, Btn::Outline).on_click(cx.listener(move |t, _, _, cx| {
+                match f {
+                    1 => act::open_notebook(&mut t.app),
+                    2 => act::open_projects(&mut t.app),
+                    3 => act::open_entity_map(&mut t.app),
+                    _ => act::open_audit(&mut t.app),
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(quick);
+    let footer = footer_row(vec![widgets::button("hm-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Home / My Work",
+        620.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn entity_map(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(widgets::label(
+        "Entity Map — registry relationships (select two to link).",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    let mut list = div().flex().flex_col().gap(px(2.0));
+    for e in app.app.registry.entries.iter().filter(|e| !e.archived) {
+        let rel: Vec<String> = e
+            .relations
+            .iter()
+            .filter_map(|r| app.app.registry.get(*r).map(|x| x.name().to_string()))
+            .collect();
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .p(px(4.0))
+                .rounded(px(4.0))
+                .bg(theme::SURFACE)
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(e.name().to_string()),
+                )
+                .child(
+                    div()
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::MUTED)
+                        .child(if rel.is_empty() {
+                            "—".into()
+                        } else {
+                            rel.join(", ")
+                        }),
+                ),
+        );
+    }
+    body = body.child(list);
+    body = body.child(widgets::label(
+        "Link first two non-archived entries (demo):",
+        theme::T_XS,
+        theme::FAINT,
+    ));
+    body = body.child(
+        widgets::button("em-link", "Link entry 1 ↔ 2", Btn::Outline).on_click(cx.listener(
+            |t, _, _, cx| {
+                let ids: Vec<u64> = t
+                    .app
+                    .registry
+                    .entries
+                    .iter()
+                    .filter(|e| !e.archived)
+                    .take(2)
+                    .map(|e| e.id)
+                    .collect();
+                if ids.len() == 2 {
+                    act::link_registry_entries(&mut t.app, ids[0], ids[1]);
+                }
+                cx.notify();
+            },
+        )),
+    );
+    let footer = footer_row(vec![widgets::button("em-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Entity Map",
+        620.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn registry_import(
+    app: &mut HelixBench,
+    cx: &mut Context<HelixBench>,
+    max_h: Pixels,
+) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::RegistryImport(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Registry Import",
+                620.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let ci = app.input_entity(
+        cx,
+        "dlg:ri:csv",
+        &draft.csv,
+        "Name,Organism,...\nDH5a,E. coli,...",
+        true,
+    );
+    let csv = ci.read(cx).text();
+    if let Some(Dialog::RegistryImport(d)) = &mut app.app.dialog {
+        d.csv = csv;
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    let mut kinds = div().flex().gap(px(6.0));
+    for (i, k) in domain::registry::Kind::ALL.iter().enumerate() {
+        let sel = draft.kind == i;
+        kinds = kinds.child(
+            widgets::button(
+                SharedString::from(format!("ri-k-{i}")),
+                k.label(),
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::RegistryImport(d)) = &mut t.app.dialog {
+                    d.kind = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(kinds);
+    body = body.child(input_field(ci, 560.0));
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    if draft.imported > 0 {
+        body = body.child(widgets::label(
+            &format!("Imported {} entries", draft.imported),
+            theme::T_SM,
+            theme::OK,
+        ));
+    }
+    let footer = footer_row(vec![
+        widgets::button("ri-close", "Close", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("ri-run", "Import", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let mut d = match &t.app.dialog {
+                    Some(Dialog::RegistryImport(d)) => d.clone(),
+                    _ => return,
+                };
+                act::run_registry_import(&mut t.app, &mut d);
+                t.app.dialog = Some(Dialog::RegistryImport(d));
+                cx.notify();
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Registry Import (CSV)",
+        660.0,
         max_h,
         true,
         body.into_any_element(),

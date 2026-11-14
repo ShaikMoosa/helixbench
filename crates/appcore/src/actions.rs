@@ -9,10 +9,11 @@ use domain::sequence::{clean_sequence, reverse_complement};
 use domain::{ColorRegion, Document, Range, Topology};
 
 use crate::state::{
-    AlignmentDraft, AppState, AssemblyDraft, BlastDraft, CodonDraft, ColorDraft, ColorsMode,
-    CombDraft, CrisprDraft, Dialog, FeatureDraft, FeatureLibDraft, NewSeqState, OpenDoc, PcrDraft,
-    PendingAction, PrimerDesignDraft, PrimerDraft, ProteinDraft, RegistryDraft, RegistryEditDraft,
-    WorkspaceDraft,
+    AlignmentDraft, AppState, AssemblyDraft, AuditDraft, BlastDraft, CodonDraft, ColorDraft,
+    ColorsMode, CombDraft, CrisprDraft, Dialog, EntityMapDraft, EntryEditDraft, FeatureDraft,
+    FeatureLibDraft, HomeDraft, NewSeqState, NotebookDraft, OpenDoc, PcrDraft, PendingAction,
+    PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft, RegistryDraft, RegistryEditDraft,
+    RegistryImportDraft, WorkspaceDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -1536,4 +1537,330 @@ pub fn bulk_delete(app: &mut AppState, draft: &WorkspaceDraft) {
 pub fn set_tags(app: &mut AppState, tags: Vec<String>) {
     app.doc.tags = tags;
     app.dirty = true;
+}
+
+// --- Phase 1: connected records (projects / notebook / audit / home) --------
+
+fn persist_records(app: &AppState) {
+    let _ = storage::records::save(&app.records);
+}
+
+fn audit(app: &mut AppState, object: &str, action: &str, detail: &str) {
+    app.records
+        .audit
+        .append(unix_now(), "local", object, action, detail);
+    persist_records(app);
+}
+
+pub fn open_projects(app: &mut AppState) {
+    app.dialog = Some(Dialog::Projects(ProjectsDraft::default()));
+}
+
+pub fn add_project(app: &mut AppState, draft: &ProjectsDraft) {
+    if draft.name.trim().is_empty() {
+        app.toast("Project name required");
+        return;
+    }
+    let id = app.records.workspace.add(draft.name.trim(), draft.parent);
+    audit(app, &format!("project:{id}"), "created", &draft.name);
+    app.toast("Project created");
+}
+
+pub fn delete_project(app: &mut AppState, id: u64) {
+    if app.records.workspace.delete(id) {
+        audit(app, &format!("project:{id}"), "deleted", "");
+        app.toast("Project deleted (children reparented)");
+    }
+}
+
+pub fn open_notebook(app: &mut AppState) {
+    app.dialog = Some(Dialog::Notebook(NotebookDraft::default()));
+}
+
+pub fn open_entry_editor(app: &mut AppState, id: Option<u64>, template: usize) {
+    let draft = match id.and_then(|i| app.records.entries.iter().find(|e| e.id == i)) {
+        Some(e) => EntryEditDraft {
+            id: Some(e.id),
+            title: e.title.clone(),
+            project: e.project,
+            template: 0,
+            sections: e
+                .sections
+                .iter()
+                .map(|s| (s.title.clone(), s.body.clone()))
+                .collect(),
+            tables: e.tables.clone(),
+            error: None,
+        },
+        None => {
+            let t = app
+                .records
+                .templates
+                .get(template)
+                .cloned()
+                .unwrap_or_else(|| domain::notebook::Template {
+                    name: "Blank".into(),
+                    sections: vec![domain::notebook::Section {
+                        title: "Objective".into(),
+                        body: String::new(),
+                    }],
+                    tables: Vec::new(),
+                });
+            EntryEditDraft {
+                id: None,
+                title: t.name.clone(),
+                project: None,
+                template,
+                sections: t
+                    .sections
+                    .iter()
+                    .map(|s| (s.title.clone(), s.body.clone()))
+                    .collect(),
+                tables: t.tables.clone(),
+                error: None,
+            }
+        }
+    };
+    app.dialog = Some(Dialog::EntryEditor(draft));
+}
+
+pub fn save_entry(app: &mut AppState, draft: &EntryEditDraft) -> Result<u64, String> {
+    if draft.title.trim().is_empty() {
+        return Err("Title required".into());
+    }
+    let now = unix_now();
+    let sections: Vec<domain::notebook::Section> = draft
+        .sections
+        .iter()
+        .map(|(t, b)| domain::notebook::Section {
+            title: t.clone(),
+            body: b.clone(),
+        })
+        .collect();
+    let id = match draft.id {
+        Some(id) => {
+            if let Some(e) = app.records.entries.iter_mut().find(|e| e.id == id) {
+                if e.locked() {
+                    return Err("Entry is locked (approved/archived)".into());
+                }
+                e.title = draft.title.clone();
+                e.project = draft.project;
+                e.sections = sections;
+                e.tables = draft.tables.clone();
+                e.updated = now;
+            }
+            id
+        }
+        None => {
+            let id = app.records.entries.len() as u64 + 1;
+            let mut e = domain::notebook::Entry::new(id, draft.title.clone(), now);
+            e.project = draft.project;
+            e.sections = sections;
+            e.tables = draft.tables.clone();
+            app.records.entries.push(e);
+            id
+        }
+    };
+    audit(app, &format!("entry:{id}"), "saved", &draft.title);
+    persist_records(app);
+    Ok(id)
+}
+
+pub fn entry_action(app: &mut AppState, id: u64, action: &str) {
+    let now = unix_now();
+    let Some(e) = app.records.entries.iter_mut().find(|e| e.id == id) else {
+        return;
+    };
+    let ok = match action {
+        "submit" => e.submit_review("local", now),
+        "approve" => e.approve("local", "", now),
+        "reject" => e.reject("local", "", now),
+        "archive" => {
+            e.archive(now);
+            true
+        }
+        _ => false,
+    };
+    if ok {
+        audit(app, &format!("entry:{id}"), action, "");
+        persist_records(app);
+        app.toast(format!("Entry {action}"));
+    }
+}
+
+/// Submit a result table: persistence boundary + writeback of rows with a Name
+/// column into the registry as plasmid entries.
+pub fn submit_entry_table(app: &mut AppState, entry_id: u64, table_idx: usize) {
+    let now = unix_now();
+    let Some(e) = app.records.entries.iter_mut().find(|e| e.id == entry_id) else {
+        return;
+    };
+    if !e.submit_table(table_idx, now) {
+        app.toast("Cannot submit (locked or missing table)");
+        return;
+    }
+    let table = e.tables[table_idx].clone();
+    let name_col = table
+        .columns
+        .iter()
+        .position(|c| c.eq_ignore_ascii_case("name"));
+    let mut created = 0;
+    if let Some(nc) = name_col {
+        for row in &table.rows {
+            if let Some(name) = row.get(nc) {
+                if name.trim().is_empty() {
+                    continue;
+                }
+                let mut values = std::collections::BTreeMap::new();
+                for (i, col) in table.columns.iter().enumerate() {
+                    values.insert(col.clone(), row.get(i).cloned().unwrap_or_default());
+                }
+                app.registry
+                    .add(domain::registry::Kind::Plasmid, values, now);
+                created += 1;
+            }
+        }
+        let _ = storage::registry::save(&app.registry);
+    }
+    audit(
+        app,
+        &format!("entry:{entry_id}"),
+        "table_submitted",
+        &format!("{} rows, {created} registered", table.rows.len()),
+    );
+    persist_records(app);
+    app.toast(format!("Table submitted ({created} registered)"));
+}
+
+pub fn open_home(app: &mut AppState) {
+    app.dialog = Some(Dialog::Home(HomeDraft {}));
+}
+
+pub fn open_audit(app: &mut AppState) {
+    app.dialog = Some(Dialog::Audit(AuditDraft::default()));
+}
+
+pub fn export_audit(app: &mut AppState) {
+    if let Some(path) = crate::fs_dialogs::pick_save(
+        "Export audit log",
+        "CSV",
+        &["csv"],
+        "audit.csv",
+        app.config.last_directory.as_ref(),
+    ) {
+        match std::fs::write(&path, app.records.audit.to_csv()) {
+            Ok(()) => app.toast(format!("Audit exported to {}", path.display())),
+            Err(e) => app.toast(format!("Export failed: {e}")),
+        }
+    }
+}
+
+pub fn open_entity_map(app: &mut AppState) {
+    app.dialog = Some(Dialog::EntityMap(EntityMapDraft {}));
+}
+
+pub fn link_registry_entries(app: &mut AppState, a: u64, b: u64) {
+    if app.registry.add_relation(a, b, unix_now()) {
+        let _ = storage::registry::save(&app.registry);
+        audit(
+            app,
+            &format!("registry:{a}"),
+            "related",
+            &format!("registry:{b}"),
+        );
+        app.toast("Entities linked");
+    }
+}
+
+pub fn archive_registry_entry(app: &mut AppState, id: u64, archived: bool) {
+    if app.registry.set_archived(id, archived, unix_now()) {
+        let _ = storage::registry::save(&app.registry);
+        audit(
+            app,
+            &format!("registry:{id}"),
+            if archived { "archived" } else { "unarchived" },
+            "",
+        );
+    }
+}
+
+pub fn open_registry_import(app: &mut AppState) {
+    app.dialog = Some(Dialog::RegistryImport(RegistryImportDraft::default()));
+}
+
+/// Parse CSV (header + rows) and register entries of the chosen kind.
+/// Returns (imported, errors). Validates required Name column.
+pub fn run_registry_import(app: &mut AppState, draft: &mut RegistryImportDraft) {
+    let kind = domain::registry::Kind::ALL[draft.kind.min(2)];
+    let mut lines = draft.csv.lines().filter(|l| !l.trim().is_empty());
+    let Some(header) = lines.next() else {
+        draft.error = Some("CSV is empty".into());
+        return;
+    };
+    let cols: Vec<String> = split_csv(header)
+        .iter()
+        .map(|s| s.trim().to_string())
+        .collect();
+    let name_idx = cols.iter().position(|c| c.eq_ignore_ascii_case("name"));
+    let Some(nc) = name_idx else {
+        draft.error = Some("CSV must have a Name column".into());
+        return;
+    };
+    let now = unix_now();
+    let mut imported = 0;
+    let mut errors = 0;
+    for line in lines {
+        let row = split_csv(line);
+        let name = row.get(nc).cloned().unwrap_or_default();
+        if name.trim().is_empty() {
+            errors += 1;
+            continue;
+        }
+        let mut values = std::collections::BTreeMap::new();
+        for (i, c) in cols.iter().enumerate() {
+            values.insert(c.clone(), row.get(i).cloned().unwrap_or_default());
+        }
+        app.registry.add(kind, values, now);
+        imported += 1;
+    }
+    let _ = storage::registry::save(&app.registry);
+    audit(
+        app,
+        "registry",
+        "imported",
+        &format!("{imported} rows, {errors} errors"),
+    );
+    draft.imported = imported;
+    draft.error = if imported == 0 {
+        Some("No valid rows imported".into())
+    } else {
+        None
+    };
+    app.toast(format!("Imported {imported} entries ({errors} skipped)"));
+}
+
+fn split_csv(line: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut in_q = false;
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => {
+                if in_q && chars.peek() == Some(&'"') {
+                    cur.push('"');
+                    chars.next();
+                } else {
+                    in_q = !in_q;
+                }
+            }
+            ',' if !in_q => {
+                out.push(cur.clone());
+                cur.clear();
+            }
+            _ => cur.push(c),
+        }
+    }
+    out.push(cur);
+    out
 }

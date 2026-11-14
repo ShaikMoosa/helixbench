@@ -61,6 +61,7 @@ pub enum MenuKind {
     Primers,
     Enzymes,
     Tools,
+    Lab,
     Help,
 }
 
@@ -227,6 +228,13 @@ impl HelixBench {
             Some(Dialog::Protein(_)) => "protein".into(),
             Some(Dialog::FeatureLib(_)) => "feature-lib".into(),
             Some(Dialog::Workspace(_)) => "workspace".into(),
+            Some(Dialog::Notebook(_)) => "notebook".into(),
+            Some(Dialog::EntryEditor(_)) => "entry-editor".into(),
+            Some(Dialog::Projects(_)) => "projects".into(),
+            Some(Dialog::Audit(_)) => "audit".into(),
+            Some(Dialog::Home(_)) => "home".into(),
+            Some(Dialog::EntityMap(_)) => "entity-map".into(),
+            Some(Dialog::RegistryImport(_)) => "registry-import".into(),
         }
     }
 
@@ -890,6 +898,33 @@ impl HelixBench {
                     );
                 }
             }
+            MenuKind::Lab => {
+                for (id, label, act_fn) in [
+                    ("lb-home", "Home / My Work", 0),
+                    ("lb-notebook", "Notebook", 1),
+                    ("lb-projects", "Projects & Folders", 2),
+                    ("lb-entitymap", "Entity Map", 3),
+                    ("lb-import", "Registry Import (CSV)", 4),
+                    ("lb-audit", "Audit Log", 5),
+                ] {
+                    rows.push(
+                        widgets::menu_row(id, label, "", true)
+                            .on_click(cx.listener(move |t, _, _, cx| {
+                                t.menu = None;
+                                match act_fn {
+                                    0 => act::open_home(&mut t.app),
+                                    1 => act::open_notebook(&mut t.app),
+                                    2 => act::open_projects(&mut t.app),
+                                    3 => act::open_entity_map(&mut t.app),
+                                    4 => act::open_registry_import(&mut t.app),
+                                    _ => act::open_audit(&mut t.app),
+                                }
+                                cx.notify();
+                            }))
+                            .into_any_element(),
+                    );
+                }
+            }
             MenuKind::Help => {
                 rows.push(
                     widgets::menu_row("mh-about", "About HelixBench", "", true)
@@ -1082,6 +1117,7 @@ impl HelixBench {
             (MenuKind::Primers, "Primers"),
             (MenuKind::Enzymes, "Enzymes"),
             (MenuKind::Tools, "Tools"),
+            (MenuKind::Lab, "Lab"),
             (MenuKind::Help, "Help"),
         ];
         let mut bar = div()

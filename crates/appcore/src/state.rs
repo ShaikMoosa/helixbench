@@ -232,6 +232,13 @@ pub enum Dialog {
     Protein(ProteinDraft),
     FeatureLib(FeatureLibDraft),
     Workspace(WorkspaceDraft),
+    Notebook(NotebookDraft),
+    EntryEditor(EntryEditDraft),
+    Projects(ProjectsDraft),
+    Audit(AuditDraft),
+    Home(HomeDraft),
+    EntityMap(EntityMapDraft),
+    RegistryImport(RegistryImportDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -341,6 +348,49 @@ pub struct WorkspaceDraft {
     pub error: Option<String>,
 }
 
+#[derive(Clone, Default)]
+pub struct NotebookDraft {
+    pub filter: usize,
+    pub error: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct EntryEditDraft {
+    pub id: Option<u64>,
+    pub title: String,
+    pub project: Option<u64>,
+    pub template: usize,
+    pub sections: Vec<(String, String)>,
+    pub tables: Vec<domain::notebook::ResultTable>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Default)]
+pub struct ProjectsDraft {
+    pub name: String,
+    pub parent: Option<u64>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Default)]
+pub struct AuditDraft {
+    pub filter: String,
+}
+
+#[derive(Clone, Default)]
+pub struct HomeDraft {}
+
+#[derive(Clone, Default)]
+pub struct EntityMapDraft {}
+
+#[derive(Clone, Default)]
+pub struct RegistryImportDraft {
+    pub csv: String,
+    pub kind: usize,
+    pub error: Option<String>,
+    pub imported: usize,
+}
+
 #[derive(Clone)]
 pub struct CombDraft {
     pub strategy: usize,
@@ -401,6 +451,8 @@ pub struct AppState {
     pub feature_lib: Vec<domain::feature_lib::LibFeature>,
     /// External BLAST database (loaded FASTA); empty = use open documents.
     pub blast_db: Vec<(String, Vec<u8>)>,
+    /// Phase-1 connected records: projects, notebook entries, templates, audit.
+    pub records: storage::records::Records,
     pub path: Option<PathBuf>,
     pub dirty: bool,
     /// History depth at the last save/open; `None` once a branch makes that state unreachable.
@@ -454,6 +506,7 @@ impl AppState {
             registry: storage::registry::load(),
             feature_lib: storage::feature_lib::load(),
             blast_db: Vec::new(),
+            records: storage::records::load(),
             path: None,
             dirty: false,
             saved_depth: Some(0),

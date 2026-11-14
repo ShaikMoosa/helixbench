@@ -2,6 +2,7 @@
 
 pub mod align;
 pub mod assembly;
+pub mod audit;
 pub mod blast;
 pub mod codon;
 pub mod common_features;
@@ -17,9 +18,11 @@ pub mod feature_lib;
 pub mod genetic_code;
 pub mod iupac;
 pub mod msa;
+pub mod notebook;
 pub mod pcr;
 pub mod primer;
 pub mod primer_design;
+pub mod project;
 pub mod protein;
 pub mod registry;
 pub mod search;
