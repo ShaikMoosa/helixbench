@@ -6,6 +6,7 @@ mod draw;
 mod editor;
 mod find;
 mod icons;
+mod lab;
 mod text_input;
 mod theme;
 mod util;

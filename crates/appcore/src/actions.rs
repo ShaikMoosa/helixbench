@@ -2051,3 +2051,186 @@ pub fn wf_execute_next(app: &mut AppState) {
         app.toast("No pending flow step (or a failed task halts)");
     }
 }
+
+// --- v1.0: insights + automation -------------------------------------------
+
+/// Build local datasets from the connected stores for Insights.
+pub fn datasets(app: &AppState) -> Vec<domain::insights::Dataset> {
+    let mut out = Vec::new();
+    out.push(domain::insights::Dataset {
+        name: "registry".into(),
+        columns: vec!["Name".into(), "Kind".into(), "Archived".into()],
+        rows: app
+            .registry
+            .entries
+            .iter()
+            .map(|e| {
+                vec![
+                    e.name().to_string(),
+                    e.kind.label().to_string(),
+                    e.archived.to_string(),
+                ]
+            })
+            .collect(),
+    });
+    out.push(domain::insights::Dataset {
+        name: "inventory".into(),
+        columns: vec!["Name".into(), "Kind".into(), "Entity".into()],
+        rows: app
+            .inventory
+            .containers
+            .iter()
+            .map(|c| {
+                vec![
+                    c.name.clone(),
+                    c.kind.label().to_string(),
+                    c.entity.clone().unwrap_or_default(),
+                ]
+            })
+            .collect(),
+    });
+    out.push(domain::insights::Dataset {
+        name: "tasks".into(),
+        columns: vec!["Title".into(), "Status".into(), "Assignee".into()],
+        rows: app
+            .workflows
+            .tasks
+            .iter()
+            .map(|t| {
+                vec![
+                    t.title.clone(),
+                    t.status.label().to_string(),
+                    t.assignee.clone(),
+                ]
+            })
+            .collect(),
+    });
+    out.push(domain::insights::Dataset {
+        name: "entries".into(),
+        columns: vec!["Title".into(), "Status".into()],
+        rows: app
+            .records
+            .entries
+            .iter()
+            .map(|e| vec![e.title.clone(), e.status.label().to_string()])
+            .collect(),
+    });
+    out
+}
+
+pub fn insights_add_block(
+    app: &mut AppState,
+    name: &str,
+    source: &str,
+    chart: domain::insights::Chart,
+    group_by: Option<String>,
+) {
+    app.analytics.blocks.push(domain::insights::Block {
+        name: name.into(),
+        source: source.into(),
+        chart,
+        group_by,
+    });
+    let _ = storage::analytics::save(&app.analytics);
+    app.toast("Insights block added");
+}
+
+pub fn insights_export(app: &mut AppState, source: &str) {
+    let ds = datasets(app).into_iter().find(|d| d.name == source);
+    let Some(ds) = ds else {
+        app.toast("Unknown dataset");
+        return;
+    };
+    if let Some(path) = crate::fs_dialogs::pick_save(
+        "Export dataset",
+        "CSV",
+        &["csv"],
+        &format!("{source}.csv"),
+        app.config.last_directory.as_ref(),
+    ) {
+        match std::fs::write(&path, domain::insights::to_csv(&ds)) {
+            Ok(()) => app.toast(format!("Exported {source} to {}", path.display())),
+            Err(e) => app.toast(format!("Export failed: {e}")),
+        }
+    }
+}
+
+pub fn automation_add_pipeline(app: &mut AppState, name: &str) {
+    let steps = vec![
+        domain::automation::Step::IngestCsv,
+        domain::automation::Step::OutputRegistry,
+    ];
+    app.analytics.automation.add_pipeline(name, steps);
+    let _ = storage::analytics::save(&app.analytics);
+    app.toast("Pipeline drafted");
+}
+
+pub fn automation_publish(app: &mut AppState, id: u64) {
+    if app.analytics.automation.publish(id) {
+        let _ = storage::analytics::save(&app.analytics);
+        app.toast("Pipeline published");
+    }
+}
+
+/// Load a CSV file from disk as the input for the next automation run.
+pub fn automation_load_csv(app: &mut AppState) {
+    let Some(path) = crate::fs_dialogs::pick_csv(app.config.last_directory.as_ref()) else {
+        return;
+    };
+    match std::fs::read_to_string(&path) {
+        Ok(text) => {
+            app.automation_csv_name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "input.csv".into());
+            app.automation_csv = text;
+            app.toast(format!("Loaded {}", app.automation_csv_name));
+        }
+        Err(e) => app.toast(format!("Read failed: {e}")),
+    }
+}
+
+/// Run a pipeline over CSV; perform writeback (Registry / Results).
+pub fn automation_run(app: &mut AppState, id: u64, csv: &str) {
+    let Some(run) = app.analytics.automation.execute(id, csv) else {
+        app.toast("Pipeline not found");
+        return;
+    };
+    if run.status == domain::automation::RunStatus::Completed {
+        let name_idx = run
+            .columns
+            .iter()
+            .position(|c| c.eq_ignore_ascii_case("name"));
+        let mut registered = 0;
+        if let Some(nc) = name_idx {
+            for row in &run.output {
+                if let Some(name) = row.get(nc) {
+                    if name.trim().is_empty() {
+                        continue;
+                    }
+                    let mut values = std::collections::BTreeMap::new();
+                    for (i, c) in run.columns.iter().enumerate() {
+                        values.insert(c.clone(), row.get(i).cloned().unwrap_or_default());
+                    }
+                    app.registry
+                        .add(domain::registry::Kind::Plasmid, values, unix_now());
+                    registered += 1;
+                }
+            }
+            let _ = storage::registry::save(&app.registry);
+        }
+        audit(
+            app,
+            &format!("pipeline:{id}"),
+            "run",
+            &format!("{} rows, {registered} registered", run.output.len()),
+        );
+        app.toast(format!(
+            "Run completed: {} rows ({registered} registered)",
+            run.output.len()
+        ));
+    } else {
+        app.toast("Run failed (see log)");
+    }
+    let _ = storage::analytics::save(&app.analytics);
+}

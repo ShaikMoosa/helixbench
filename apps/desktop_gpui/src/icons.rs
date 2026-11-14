@@ -110,5 +110,12 @@ pub fn view_icon(v: View) -> &'static str {
         View::Primers => "primers",
         View::Enzymes => "enzymes",
         View::History => "history",
+        View::Home => "fit",
+        View::Notebook => "pencil",
+        View::Registry => "features",
+        View::Inventory => "orfs",
+        View::Workflows => "redo",
+        View::Insights => "translation",
+        View::Automation => "sliders",
     }
 }

@@ -18,6 +18,13 @@ pub enum View {
     Primers,
     Enzymes,
     History,
+    Home,
+    Notebook,
+    Registry,
+    Inventory,
+    Workflows,
+    Insights,
+    Automation,
 }
 
 impl View {
@@ -30,6 +37,16 @@ impl View {
         View::History,
     ];
 
+    pub const LAB: [View; 7] = [
+        View::Home,
+        View::Notebook,
+        View::Registry,
+        View::Inventory,
+        View::Workflows,
+        View::Insights,
+        View::Automation,
+    ];
+
     pub fn label(self) -> &'static str {
         match self {
             View::Map => "Map",
@@ -38,6 +55,13 @@ impl View {
             View::Primers => "Primers",
             View::Enzymes => "Enzymes",
             View::History => "History",
+            View::Home => "Home",
+            View::Notebook => "Notebook",
+            View::Registry => "Registry",
+            View::Inventory => "Inventory",
+            View::Workflows => "Workflows",
+            View::Insights => "Insights",
+            View::Automation => "Automation",
         }
     }
 
@@ -49,6 +73,13 @@ impl View {
             View::Primers => "➤",
             View::Enzymes => "✂",
             View::History => "↺",
+            View::Home => "⌂",
+            View::Notebook => "✎",
+            View::Registry => "▤",
+            View::Inventory => "▦",
+            View::Workflows => "⇄",
+            View::Insights => "◔",
+            View::Automation => "⚙",
         }
     }
 }
@@ -480,6 +511,11 @@ pub struct AppState {
     pub inventory: domain::inventory::Inventory,
     /// Phase-3 local workflows (tasks/requests/flowchart).
     pub workflows: domain::workflow::Workflows,
+    /// v1.0 insights blocks + automation pipelines/runs.
+    pub analytics: storage::analytics::Analytics,
+    /// CSV loaded from disk for the next automation run (file-ingestion).
+    pub automation_csv: String,
+    pub automation_csv_name: String,
     pub path: Option<PathBuf>,
     pub dirty: bool,
     /// History depth at the last save/open; `None` once a branch makes that state unreachable.
@@ -536,6 +572,9 @@ impl AppState {
             records: storage::records::load(),
             inventory: storage::inventory::load(),
             workflows: storage::workflow::load(),
+            analytics: storage::analytics::load(),
+            automation_csv: String::new(),
+            automation_csv_name: String::new(),
             path: None,
             dirty: false,
             saved_depth: Some(0),

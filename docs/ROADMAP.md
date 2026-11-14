@@ -102,7 +102,7 @@ Goal: assigned, trackable lab work without a server.
 - Failed-mapping recovery modal + bulk fix (research 05 06).
 - Acceptance: request → task → execute → output linked; failed mapping recoverable.
 
-### Phase 4 — v1.0 "Insights + Automation (local)"
+### Phase 4 — v1.0 "Insights + Automation (local)" — SHIPPED (v1.0.0)
 Goal: analyze and transform local data; reusable pipelines.
 - **Insights-lite:** saved queries over local store (SQL-like or query builder), dashboard blocks
   (table/bar/line/heatmap), parameters with null handling, CSV export, permission-aware (local roles).
@@ -110,6 +110,11 @@ Goal: analyze and transform local data; reusable pipelines.
   optional embedded Python) → write back to registry/inventory/results; reusable templates with
   draft→published lifecycle; run history + error states.
 - Acceptance: ingest → transform → register/update with audit; dashboard reflects local data.
+- Shipped scope: local datasets (registry/inventory/tasks/entries) + group-by dashboard blocks with
+  bar charts and CSV export; CSV file-ingestion pipelines (ingest → filter → count → writeback) with
+  draft→published lifecycle, run history + error states, registry writeback + audit trail.
+  UI revamp: labeled workspace navigation sidebar + full-page Home/Notebook/Registry/Inventory/
+  Workflows/Insights/Automation views.
 
 ### Phase 5 — v1.x specialist modules (optional, pick by user focus)
 - **Biologics:** format-aware protein entities (IgG/bispecific/nanobody/TCR), domains/chains/variable
@@ -160,7 +165,7 @@ Goal: analyze and transform local data; reusable pipelines.
 | v0.7 | Connected records | lineage traceable; registry import validates; review locks; audit export |
 | v0.8 | Inventory | place/find/transfer samples; plate snapshots immutable |
 | v0.9 | Workflows | request→task→execute→output; failed-mapping recovery |
-| v1.0 | Insights+Automation | ingest→transform→writeback; dashboards; template lifecycle |
+| v1.0 (shipped) | Insights+Automation | ingest→transform→writeback; dashboards; template lifecycle |
 | v1.x | Specialist modules | per-module acceptance (above) |
 | v2.0 (optional) | Governed AI/integration | approval+audit on all automated actions |
 

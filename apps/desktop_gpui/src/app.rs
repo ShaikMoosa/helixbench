@@ -1081,7 +1081,7 @@ impl HelixBench {
         act::delete_selection(&mut self.app);
         cx.notify();
     }
-    fn set_view(&mut self, v: View, cx: &mut Context<Self>) {
+    pub(crate) fn set_view(&mut self, v: View, cx: &mut Context<Self>) {
         self.app.view = v;
         self.menu = None;
         cx.notify();
@@ -1331,39 +1331,22 @@ impl HelixBench {
         let mut col = div()
             .flex()
             .flex_col()
-            .items_center()
-            .gap(px(4.0))
-            .w(px(48.0))
+            .gap(px(2.0))
+            .w(px(180.0))
             .h_full()
             .py(px(8.0))
+            .px(px(8.0))
             .bg(theme::PANEL)
             .border_r_1()
             .border_color(theme::BORDER);
+        col = col.child(widgets::label("Workspace", theme::T_XS, theme::FAINT));
+        for v in View::LAB {
+            col = col.child(self.nav_row(v, cx));
+        }
+        col = col.child(widgets::divider());
+        col = col.child(widgets::label("Sequence", theme::T_XS, theme::FAINT));
         for v in View::ALL {
-            let active = self.app.view == v;
-            col = col.child(
-                div()
-                    .id(SharedString::from(format!("rail-{}", v.label())))
-                    .w(px(36.0))
-                    .h(px(36.0))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(px(6.0))
-                    .cursor_pointer()
-                    .bg(if active {
-                        theme::SURFACE_2
-                    } else {
-                        theme::transparent()
-                    })
-                    .hover(|s| s.bg(theme::SURFACE))
-                    .child(crate::icons::icon(
-                        crate::icons::view_icon(v),
-                        18.0,
-                        if active { theme::ACCENT } else { theme::MUTED },
-                    ))
-                    .on_click(cx.listener(move |this, _, _, cx| this.set_view(v, cx))),
-            );
+            col = col.child(self.nav_row(v, cx));
         }
         col = col.child(widgets::divider());
         let can_undo = !self.app.history.is_empty();
@@ -1378,13 +1361,14 @@ impl HelixBench {
             ("rail-zoom-in", "zoom-in", 6),
             ("rail-zoom-out", "zoom-out", 7),
         ];
+        let mut tools = div().flex().flex_wrap().gap(px(4.0)).pt(px(2.0));
         for (id, glyph, kind) in actions {
             let disabled = (kind == 3 && !can_undo) || (kind == 4 && !can_redo);
-            col = col.child(
+            tools = tools.child(
                 div()
                     .id(SharedString::from(id))
-                    .w(px(36.0))
-                    .h(px(36.0))
+                    .w(px(28.0))
+                    .h(px(28.0))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -1392,7 +1376,7 @@ impl HelixBench {
                     .cursor_pointer()
                     .opacity(if disabled { 0.4 } else { 1.0 })
                     .hover(|s| s.bg(theme::SURFACE))
-                    .child(crate::icons::icon(glyph, 18.0, theme::MUTED))
+                    .child(crate::icons::icon(glyph, 16.0, theme::MUTED))
                     .on_click(cx.listener(move |this, _, window, cx| match kind {
                         0 => this.on_new(&New, window, cx),
                         1 => this.on_open(&Open, window, cx),
@@ -1428,25 +1412,56 @@ impl HelixBench {
                     })),
             );
         }
-        col = col.child(widgets::divider());
-        col = col.child(
+        tools = tools.child(
             div()
                 .id("rail-options")
-                .w(px(36.0))
-                .h(px(36.0))
+                .w(px(28.0))
+                .h(px(28.0))
                 .flex()
                 .items_center()
                 .justify_center()
                 .rounded(px(6.0))
                 .cursor_pointer()
                 .hover(|s| s.bg(theme::SURFACE))
-                .child(crate::icons::icon("sliders", 18.0, theme::MUTED))
+                .child(crate::icons::icon("sliders", 16.0, theme::MUTED))
                 .on_click(cx.listener(|this, _, _, cx| {
                     this.app.dialog = Some(Dialog::Options);
                     cx.notify();
                 })),
         );
+        col = col.child(tools);
         col.into_any_element()
+    }
+
+    fn nav_row(&mut self, v: View, cx: &mut Context<Self>) -> gpui::Stateful<gpui::Div> {
+        let active = self.app.view == v;
+        div()
+            .id(SharedString::from(format!("nav-{}", v.label())))
+            .h(px(26.0))
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .px(px(8.0))
+            .rounded(px(6.0))
+            .cursor_pointer()
+            .bg(if active {
+                theme::SURFACE_2
+            } else {
+                theme::transparent()
+            })
+            .hover(|s| s.bg(theme::SURFACE))
+            .child(crate::icons::icon(
+                crate::icons::view_icon(v),
+                14.0,
+                if active { theme::ACCENT } else { theme::MUTED },
+            ))
+            .child(
+                div()
+                    .text_size(px(theme::T_SM))
+                    .text_color(if active { theme::TEXT } else { theme::MUTED })
+                    .child(v.label()),
+            )
+            .on_click(cx.listener(move |this, _, _, cx| this.set_view(v, cx)))
     }
 
     pub fn toggle_pref(&mut self, key: &str) {
@@ -1615,6 +1630,13 @@ impl HelixBench {
             View::Primers => self.render_primers(window, cx),
             View::Enzymes => self.render_enzymes(window, cx),
             View::History => self.render_history(window, cx),
+            View::Home => crate::lab::render_home(self, cx),
+            View::Notebook => crate::lab::render_notebook(self, cx),
+            View::Registry => crate::lab::render_registry(self, cx),
+            View::Inventory => crate::lab::render_inventory(self, cx),
+            View::Workflows => crate::lab::render_workflows(self, cx),
+            View::Insights => crate::lab::render_insights(self, cx),
+            View::Automation => crate::lab::render_automation(self, cx),
         }
     }
 
