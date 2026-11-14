@@ -13,7 +13,7 @@ use crate::state::{
     ColorsMode, CombDraft, CrisprDraft, Dialog, EntityMapDraft, EntryEditDraft, FeatureDraft,
     FeatureLibDraft, HomeDraft, InventoryDraft, NewSeqState, NotebookDraft, OpenDoc, PcrDraft,
     PendingAction, PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft, RegistryDraft,
-    RegistryEditDraft, RegistryImportDraft, WorkspaceDraft,
+    RegistryEditDraft, RegistryImportDraft, WorkflowDraft, WorkspaceDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -1963,4 +1963,91 @@ pub fn inv_snapshot_to_entry(app: &mut AppState, plate: u64) {
     audit(app, &format!("entry:{id}"), "snapshot", &snap.plate_name);
     persist_records(app);
     app.toast("Plate snapshot recorded to notebook");
+}
+
+// --- Phase 3: workflows -----------------------------------------------------
+
+pub fn open_workflows(app: &mut AppState) {
+    app.dialog = Some(Dialog::Workflows(WorkflowDraft::default()));
+}
+
+fn persist_workflows(app: &AppState) {
+    let _ = storage::workflow::save(&app.workflows);
+}
+
+pub fn wf_add_task(app: &mut AppState, draft: &WorkflowDraft) {
+    if draft.title.trim().is_empty() {
+        app.toast("Task title required");
+        return;
+    }
+    let id = app
+        .workflows
+        .add_task(draft.title.trim(), &draft.schema, "local", unix_now());
+    persist_workflows(app);
+    audit(app, &format!("task:{id}"), "created", &draft.title);
+    app.toast("Task created");
+}
+
+pub fn wf_set_status(app: &mut AppState, id: u64, status: domain::workflow::TaskStatus) {
+    if app.workflows.set_status(id, status, unix_now()) {
+        persist_workflows(app);
+        audit(app, &format!("task:{id}"), "status", status.label());
+    }
+}
+
+pub fn wf_submit_output(app: &mut AppState, draft: &WorkflowDraft) {
+    let Some(id) = draft.selected_task else {
+        app.toast("Select a task");
+        return;
+    };
+    let mut out = std::collections::BTreeMap::new();
+    if !draft.output_key.trim().is_empty() {
+        out.insert(
+            draft.output_key.trim().to_string(),
+            draft.output_val.clone(),
+        );
+    }
+    if app.workflows.submit_outputs(id, out, unix_now()) {
+        persist_workflows(app);
+        audit(app, &format!("task:{id}"), "completed", "");
+        app.toast("Task completed");
+    }
+}
+
+pub fn wf_add_request(app: &mut AppState, draft: &WorkflowDraft) {
+    if draft.request_name.trim().is_empty() {
+        app.toast("Request name required");
+        return;
+    }
+    let id = app
+        .workflows
+        .add_request(draft.request_name.trim(), "request");
+    persist_workflows(app);
+    audit(
+        app,
+        &format!("request:{id}"),
+        "created",
+        &draft.request_name,
+    );
+    app.toast("Request drafted");
+}
+
+pub fn wf_send_request(app: &mut AppState, id: u64) {
+    let titles = vec!["Fulfill request".to_string()];
+    if app.workflows.send_request(id, &titles, unix_now()) {
+        persist_workflows(app);
+        audit(app, &format!("request:{id}"), "sent", "");
+        app.toast("Request sent (task created)");
+    }
+}
+
+pub fn wf_execute_next(app: &mut AppState) {
+    if let Some(stage) = app.workflows.next_pending() {
+        if app.workflows.execute_step(stage, unix_now()) {
+            persist_workflows(app);
+            app.toast("Flow step started");
+        }
+    } else {
+        app.toast("No pending flow step (or a failed task halts)");
+    }
 }

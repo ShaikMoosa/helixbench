@@ -29,6 +29,7 @@ pub mod registry;
 pub mod search;
 pub mod sequence;
 pub mod translate;
+pub mod workflow;
 
 pub use document::{ColorRegion, Document, StrandMask};
 pub use enzyme::{CutSite, Enzyme, Overhang};

@@ -208,6 +208,8 @@ pub fn show(
         registry_import(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Inventory(_))) {
         inventory(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Workflows(_))) {
+        workflows(app, cx, max_h)
     } else {
         return None;
     };
@@ -5420,6 +5422,256 @@ fn inventory(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
         app,
         cx,
         "Inventory",
+        760.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: Workflows
+// ---------------------------------------------------------------------------
+
+fn workflows(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Workflows(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Workflows",
+                700.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let ti = app.input_entity(cx, "dlg:wf:title", &draft.title, "Task title", false);
+    let si = app.input_entity(cx, "dlg:wf:schema", &draft.schema, "schema", false);
+    let ri = app.input_entity(cx, "dlg:wf:req", &draft.request_name, "Request name", false);
+    let oki = app.input_entity(cx, "dlg:wf:okey", &draft.output_key, "output key", false);
+    let ovi = app.input_entity(cx, "dlg:wf:oval", &draft.output_val, "output value", false);
+    let (title, schema, req, okey, oval) = (
+        ti.read(cx).text(),
+        si.read(cx).text(),
+        ri.read(cx).text(),
+        oki.read(cx).text(),
+        ovi.read(cx).text(),
+    );
+    if let Some(Dialog::Workflows(d)) = &mut app.app.dialog {
+        d.title = title;
+        d.schema = schema;
+        d.request_name = req;
+        d.output_key = okey;
+        d.output_val = oval;
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(input_field(ti, 180.0))
+            .child(input_field(si, 90.0))
+            .child(
+                widgets::button("wf-add", "Add task", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        let d = match &t.app.dialog {
+                            Some(Dialog::Workflows(d)) => d.clone(),
+                            _ => return,
+                        };
+                        act::wf_add_task(&mut t.app, &d);
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    let mut list = div().flex().flex_col().gap(px(2.0));
+    let tasks: Vec<domain::workflow::Task> = app.app.workflows.tasks.to_vec();
+    if tasks.is_empty() {
+        list = list.child(widgets::label("No tasks yet.", theme::T_SM, theme::FAINT));
+    }
+    for t in tasks {
+        let id = t.id;
+        let sel = draft.selected_task == Some(id);
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .p(px(5.0))
+                .rounded(px(5.0))
+                .bg(if sel {
+                    theme::SURFACE_2
+                } else {
+                    theme::SURFACE
+                })
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(t.title.clone()),
+                )
+                .child(widgets::label(t.status.label(), theme::T_XS, theme::MUTED))
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("wf-sel-{id}")),
+                        "Select",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        if let Some(Dialog::Workflows(d)) = &mut t.app.dialog {
+                            d.selected_task = Some(id);
+                        }
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("wf-start-{id}")),
+                        "Start",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::wf_set_status(
+                            &mut t.app,
+                            id,
+                            domain::workflow::TaskStatus::InProgress,
+                        );
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("wf-fail-{id}")),
+                        "Fail",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::wf_set_status(&mut t.app, id, domain::workflow::TaskStatus::Failed);
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    body = body.child(list);
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(input_field(oki, 110.0))
+            .child(input_field(ovi, 140.0))
+            .child(
+                widgets::button("wf-done", "Complete w/ output", Btn::Outline).on_click(
+                    cx.listener(|t, _, _, cx| {
+                        let d = match &t.app.dialog {
+                            Some(Dialog::Workflows(d)) => d.clone(),
+                            _ => return,
+                        };
+                        act::wf_submit_output(&mut t.app, &d);
+                        cx.notify();
+                    }),
+                ),
+            ),
+    );
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(input_field(ri, 180.0))
+            .child(
+                widgets::button("wf-req", "Draft request", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        let d = match &t.app.dialog {
+                            Some(Dialog::Workflows(d)) => d.clone(),
+                            _ => return,
+                        };
+                        act::wf_add_request(&mut t.app, &d);
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    let reqs: Vec<domain::workflow::Request> = app.app.workflows.requests.to_vec();
+    for r in reqs {
+        let id = r.id;
+        let sent = r.status == domain::workflow::RequestStatus::Sent;
+        body = body.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .p(px(4.0))
+                .rounded(px(4.0))
+                .bg(theme::SURFACE)
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(r.name.clone()),
+                )
+                .child(widgets::label(
+                    if sent { "Sent" } else { "Draft" },
+                    theme::T_XS,
+                    theme::MUTED,
+                ))
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("wf-send-{id}")),
+                        "Send",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::wf_send_request(&mut t.app, id);
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(widgets::label("Flowchart:", theme::T_SM, theme::FAINT))
+            .child(
+                widgets::button("wf-exec", "Execute next step", Btn::Outline).on_click(
+                    cx.listener(|t, _, _, cx| {
+                        act::wf_execute_next(&mut t.app);
+                        cx.notify();
+                    }),
+                ),
+            ),
+    );
+    let stages: Vec<domain::workflow::Stage> = app.app.workflows.stages.to_vec();
+    for s in stages {
+        let st = app
+            .app
+            .workflows
+            .task(s.task_id)
+            .map(|t| t.status.label())
+            .unwrap_or("?");
+        body = body.child(widgets::label(
+            &format!("{} [{}]", s.name, st),
+            theme::T_XS,
+            theme::MUTED,
+        ));
+    }
+    let footer = footer_row(vec![widgets::button("wf-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Workflows",
         760.0,
         max_h,
         true,

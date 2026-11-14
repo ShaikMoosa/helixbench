@@ -236,6 +236,7 @@ impl HelixBench {
             Some(Dialog::EntityMap(_)) => "entity-map".into(),
             Some(Dialog::RegistryImport(_)) => "registry-import".into(),
             Some(Dialog::Inventory(_)) => "inventory".into(),
+            Some(Dialog::Workflows(_)) => "workflows".into(),
         }
     }
 
@@ -908,6 +909,7 @@ impl HelixBench {
                     ("lb-import", "Registry Import (CSV)", 4),
                     ("lb-audit", "Audit Log", 5),
                     ("lb-inv", "Inventory", 6),
+                    ("lb-wf", "Workflows", 7),
                 ] {
                     rows.push(
                         widgets::menu_row(id, label, "", true)
@@ -920,6 +922,7 @@ impl HelixBench {
                                     3 => act::open_entity_map(&mut t.app),
                                     4 => act::open_registry_import(&mut t.app),
                                     6 => act::open_inventory(&mut t.app),
+                                    7 => act::open_workflows(&mut t.app),
                                     _ => act::open_audit(&mut t.app),
                                 }
                                 cx.notify();

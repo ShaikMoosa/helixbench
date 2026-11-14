@@ -240,6 +240,7 @@ pub enum Dialog {
     EntityMap(EntityMapDraft),
     RegistryImport(RegistryImportDraft),
     Inventory(InventoryDraft),
+    Workflows(WorkflowDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -402,6 +403,17 @@ pub struct InventoryDraft {
     pub error: Option<String>,
 }
 
+#[derive(Clone, Default)]
+pub struct WorkflowDraft {
+    pub title: String,
+    pub schema: String,
+    pub request_name: String,
+    pub output_key: String,
+    pub output_val: String,
+    pub selected_task: Option<u64>,
+    pub error: Option<String>,
+}
+
 #[derive(Clone)]
 pub struct CombDraft {
     pub strategy: usize,
@@ -466,6 +478,8 @@ pub struct AppState {
     pub records: storage::records::Records,
     /// Phase-2 physical inventory (locations/boxes/plates/containers).
     pub inventory: domain::inventory::Inventory,
+    /// Phase-3 local workflows (tasks/requests/flowchart).
+    pub workflows: domain::workflow::Workflows,
     pub path: Option<PathBuf>,
     pub dirty: bool,
     /// History depth at the last save/open; `None` once a branch makes that state unreachable.
@@ -521,6 +535,7 @@ impl AppState {
             blast_db: Vec::new(),
             records: storage::records::load(),
             inventory: storage::inventory::load(),
+            workflows: storage::workflow::load(),
             path: None,
             dirty: false,
             saved_depth: Some(0),
