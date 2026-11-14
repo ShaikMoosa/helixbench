@@ -839,6 +839,7 @@ pub fn open_alignment(app: &mut AppState) {
         reference: if app.library.is_empty() { 0 } else { 1 },
         reindex: true,
         result: None,
+        labels: Vec::new(),
         error: None,
     }));
 }
@@ -874,7 +875,60 @@ pub fn run_alignment(app: &mut AppState, draft: &mut AlignmentDraft) {
         consensus,
         identity,
     });
+    draft.labels = {
+        let mut n = vec![app.doc.name.clone()];
+        for od in &app.library {
+            n.push(od.doc.name.clone());
+        }
+        n
+    };
     draft.error = None;
+}
+
+/// Persist the current alignment result as a named, reloadable snapshot.
+pub fn alignment_save(app: &mut AppState, name: &str) {
+    let result = match &app.dialog {
+        Some(Dialog::Alignment(d)) => d.result.clone(),
+        _ => None,
+    };
+    let Some(result) = result else {
+        app.toast("Run an alignment first");
+        return;
+    };
+    let mut labels = vec![app.doc.name.clone()];
+    for od in &app.library {
+        labels.push(od.doc.name.clone());
+    }
+    let name = if name.trim().is_empty() {
+        format!("Alignment {}", app.alignments.items.len() + 1)
+    } else {
+        name.trim().to_string()
+    };
+    app.alignments.add(&name, labels, result, unix_now());
+    let _ = storage::alignments::save(&app.alignments);
+    app.toast(format!("Saved alignment \"{name}\""));
+}
+
+/// Reopen a saved alignment in the Alignment dialog.
+pub fn alignment_load_saved(app: &mut AppState, id: u64) {
+    let Some(saved) = app.alignments.get(id).cloned() else {
+        return;
+    };
+    app.dialog = Some(Dialog::Alignment(AlignmentDraft {
+        reference: 0,
+        reindex: true,
+        result: Some(saved.result),
+        labels: saved.labels,
+        error: None,
+    }));
+    app.toast(format!("Loaded alignment \"{}\"", saved.name));
+}
+
+pub fn alignment_delete_saved(app: &mut AppState, id: u64) {
+    if app.alignments.remove(id) {
+        let _ = storage::alignments::save(&app.alignments);
+        app.toast("Alignment deleted");
+    }
 }
 
 fn unix_now() -> u64 {

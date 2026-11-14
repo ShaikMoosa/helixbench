@@ -143,7 +143,7 @@ pub fn consensus(rows: &[Vec<u8>]) -> Vec<u8> {
     out
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Alignment {
     pub rows: Vec<Vec<u8>>,
     pub consensus: Vec<u8>,

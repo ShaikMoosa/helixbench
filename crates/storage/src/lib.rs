@@ -3,6 +3,7 @@
 //! Native documents use the `.hbx` format (versioned JSON). Writes are atomic:
 //! a temporary sibling file is flushed, then renamed over the destination.
 
+pub mod alignments;
 pub mod analytics;
 pub mod config;
 pub mod fasta;

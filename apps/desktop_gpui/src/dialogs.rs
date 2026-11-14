@@ -2817,10 +2817,15 @@ fn alignment(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
             )
         }
     };
-    let mut names = vec![app.app.doc.name.clone()];
-    for od in &app.app.library {
-        names.push(od.doc.name.clone());
-    }
+    let names = if !draft.labels.is_empty() {
+        draft.labels.clone()
+    } else {
+        let mut n = vec![app.app.doc.name.clone()];
+        for od in &app.app.library {
+            n.push(od.doc.name.clone());
+        }
+        n
+    };
 
     let mut body = div().flex().flex_col().size_full().gap(px(10.0));
     body = body.child(widgets::label(
@@ -2896,6 +2901,40 @@ fn alignment(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
             cx.notify();
         })),
     );
+    if draft.result.is_some() {
+        let name_inp = app.input_entity(
+            cx,
+            "dlg:al-save-name",
+            "",
+            "Alignment name (optional)",
+            false,
+        );
+        body = body.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .child(div().w(px(240.0)).child(name_inp))
+                .child(
+                    widgets::button("al-save", "Save alignment", Btn::Primary).on_click(
+                        cx.listener(|t, _, _, cx| {
+                            let name = t
+                                .input_entity(
+                                    cx,
+                                    "dlg:al-save-name",
+                                    "",
+                                    "Alignment name (optional)",
+                                    false,
+                                )
+                                .read(cx)
+                                .text();
+                            act::alignment_save(&mut t.app, &name);
+                            cx.notify();
+                        }),
+                    ),
+                ),
+        );
+    }
     if let Some(e) = &draft.error {
         body = body.child(error_label(e));
     }
@@ -2979,6 +3018,75 @@ fn alignment(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
                 theme::FAINT,
             ));
         }
+    }
+
+    body = body.child(widgets::label(
+        "Saved alignments",
+        theme::T_SM,
+        theme::FAINT,
+    ));
+    if app.app.alignments.items.is_empty() {
+        body = body.child(widgets::label(
+            "No saved alignments yet. Run an alignment and save it to reuse later.",
+            theme::T_XS,
+            theme::FAINT,
+        ));
+    } else {
+        let mut list = div().flex().flex_col().gap(px(4.0));
+        for a in app.app.alignments.items.clone() {
+            let id = a.id;
+            list = list.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(8.0))
+                    .p(px(6.0))
+                    .rounded(px(5.0))
+                    .bg(theme::SURFACE)
+                    .border_1()
+                    .border_color(theme::BORDER)
+                    .child(
+                        div()
+                            .flex_grow()
+                            .flex()
+                            .flex_col()
+                            .gap(px(2.0))
+                            .child(widgets::label(&a.name, theme::T_SM, theme::TEXT))
+                            .child(widgets::label(
+                                &format!(
+                                    "{} columns · identity {:.1}%",
+                                    a.result.consensus.len(),
+                                    a.result.identity
+                                ),
+                                theme::T_XS,
+                                theme::FAINT,
+                            )),
+                    )
+                    .child(
+                        widgets::button(
+                            SharedString::from(format!("al-load-{id}")),
+                            "Load",
+                            Btn::Subtle,
+                        )
+                        .on_click(cx.listener(move |t, _, _, cx| {
+                            act::alignment_load_saved(&mut t.app, id);
+                            cx.notify();
+                        })),
+                    )
+                    .child(
+                        widgets::button(
+                            SharedString::from(format!("al-del-{id}")),
+                            "Delete",
+                            Btn::Ghost,
+                        )
+                        .on_click(cx.listener(move |t, _, _, cx| {
+                            act::alignment_delete_saved(&mut t.app, id);
+                            cx.notify();
+                        })),
+                    ),
+            );
+        }
+        body = body.child(list);
     }
 
     let footer = footer_row(vec![widgets::button("al-close", "Close", Btn::Ghost)

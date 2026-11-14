@@ -320,6 +320,8 @@ pub struct AlignmentDraft {
     pub reference: usize,
     pub reindex: bool,
     pub result: Option<domain::align::Alignment>,
+    /// Row labels for the current result (saved alignments carry their own).
+    pub labels: Vec<String>,
     pub error: Option<String>,
 }
 
@@ -526,6 +528,8 @@ pub struct AppState {
     pub workflows: domain::workflow::Workflows,
     /// v1.0 insights blocks + automation pipelines/runs.
     pub analytics: storage::analytics::Analytics,
+    /// v1.3 saved sequence alignments.
+    pub alignments: storage::alignments::Alignments,
     /// CSV loaded from disk for the next automation run (file-ingestion).
     pub automation_csv: String,
     pub automation_csv_name: String,
@@ -589,6 +593,7 @@ impl AppState {
             inventory: storage::inventory::load(),
             workflows: storage::workflow::load(),
             analytics: storage::analytics::load(),
+            alignments: storage::alignments::load(),
             automation_csv: String::new(),
             automation_csv_name: String::new(),
             path: None,
