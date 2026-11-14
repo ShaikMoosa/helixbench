@@ -565,6 +565,10 @@ pub struct AppState {
     pub zoom_width: usize,
     pub scroll_to: Option<usize>,
     pub enzyme_filter: EnzymeFilterState,
+    /// Per-table hidden column indices (column config).
+    pub table_hidden: HashMap<String, Vec<usize>>,
+    /// Saved table views (column config + sort + filter presets).
+    pub views: storage::views::Views,
     pub feature_sort: TableSort,
     pub primer_sort: TableSort,
     pub enzyme_sort: TableSort,
@@ -626,6 +630,8 @@ impl AppState {
             zoom_width,
             scroll_to: None,
             enzyme_filter: EnzymeFilterState::default(),
+            table_hidden: HashMap::new(),
+            views: storage::views::load(),
             feature_sort: TableSort::default(),
             primer_sort: TableSort::default(),
             enzyme_sort: TableSort::default(),
@@ -653,6 +659,17 @@ impl AppState {
             MapMode::Linear => false,
             _ => self.doc.sequence.topology == domain::Topology::Circular,
         }
+    }
+
+    /// Hidden column indices for a list table (column config).
+    pub fn hidden_cols(&self, table: &str) -> Vec<usize> {
+        self.table_hidden.get(table).cloned().unwrap_or_default()
+    }
+
+    pub fn col_hidden(&self, table: &str, col: usize) -> bool {
+        self.table_hidden
+            .get(table)
+            .is_some_and(|h| h.contains(&col))
     }
 
     /// Region used by the enzyme "find by region" filter, if any.

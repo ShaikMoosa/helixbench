@@ -7,6 +7,7 @@ pub mod history;
 pub mod map;
 pub mod primers;
 pub mod sequence;
+pub mod table_opts;
 
 use std::ops::Range;
 

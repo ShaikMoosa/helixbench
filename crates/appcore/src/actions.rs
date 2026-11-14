@@ -1958,6 +1958,85 @@ pub fn csv_columns(csv: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// Show/hide a column in a list table (column config).
+pub fn table_toggle_column(app: &mut AppState, table: &str, col: usize) {
+    let h = app.table_hidden.entry(table.to_string()).or_default();
+    if let Some(p) = h.iter().position(|c| *c == col) {
+        h.remove(p);
+    } else {
+        h.push(col);
+    }
+}
+
+fn table_sort_filter(app: &AppState, table: &str) -> (crate::state::TableSort, String) {
+    match table {
+        "features" => (app.feature_sort, app.feature_filter.clone()),
+        "primers" => (app.primer_sort, app.primer_filter.clone()),
+        _ => (app.enzyme_sort, app.enzyme_filter.name.clone()),
+    }
+}
+
+/// Save the current column config + sort + filter of a table as a named view.
+pub fn view_save(app: &mut AppState, table: &str, name: &str) {
+    let hidden = app.hidden_cols(table);
+    let (sort, filter) = table_sort_filter(app, table);
+    let name = if name.trim().is_empty() {
+        format!("View {}", app.views.items.len() + 1)
+    } else {
+        name.trim().to_string()
+    };
+    app.views.add(
+        table,
+        &name,
+        hidden,
+        sort.column,
+        sort.dir.map(|d| d == crate::state::SortDir::Desc),
+        filter,
+    );
+    let _ = storage::views::save(&app.views);
+    app.toast(format!("Saved view \"{name}\""));
+}
+
+/// Apply a saved view (column config + sort + filter) to its table.
+pub fn view_load(app: &mut AppState, id: u64) {
+    let Some(v) = app.views.get(id).cloned() else {
+        return;
+    };
+    app.table_hidden.insert(v.table.clone(), v.hidden.clone());
+    let sort = crate::state::TableSort {
+        column: v.sort_column,
+        dir: v.sort_desc.map(|d| {
+            if d {
+                crate::state::SortDir::Desc
+            } else {
+                crate::state::SortDir::Asc
+            }
+        }),
+    };
+    match v.table.as_str() {
+        "features" => {
+            app.feature_sort = sort;
+            app.feature_filter = v.filter.clone();
+        }
+        "primers" => {
+            app.primer_sort = sort;
+            app.primer_filter = v.filter.clone();
+        }
+        _ => {
+            app.enzyme_sort = sort;
+            app.enzyme_filter.name = v.filter.clone();
+        }
+    }
+    app.toast(format!("Loaded view \"{}\"", v.name));
+}
+
+pub fn view_delete(app: &mut AppState, id: u64) {
+    if app.views.remove(id) {
+        let _ = storage::views::save(&app.views);
+        app.toast("View deleted");
+    }
+}
+
 fn split_csv(line: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut cur = String::new();

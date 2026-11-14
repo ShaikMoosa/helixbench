@@ -158,8 +158,9 @@ Goal: analyze and transform local data; reusable pipelines.
 - **States to design for every module:** empty, loading, long-running, validation-error, partial-select,
   async-creating, locked, archived, view-only, no-access, review-pending, failed-mapping.
 - **Density & recovery:** virtualized tables, bulk bars, undo/redo present; **registry import with
-  column mapping + per-row errors** (file-driven CSV, Name-column mapping, skipped/padded row
-  report) shipped (v1.7.0); column config, saved views and corrected re-submission remain.
+  column mapping + per-row errors** shipped (v1.7.0); **column config + saved views** for the
+  Features/Primers/Enzymes tables (show/hide columns; named presets of columns+sort+filter,
+  persisted) shipped (v1.8.0); corrected re-submission remains.
 
 ---
 

@@ -99,6 +99,9 @@ pub struct HelixBench {
     // Enzyme view dropdown popups
     pub combo: Option<crate::views::enzymes::ComboKind>,
     pub combo_anchor: Point<Pixels>,
+    /// Which list table's column/view options popup is open (table id).
+    pub opts: Option<String>,
+    pub opts_anchor: Point<Pixels>,
 
     // Find bar recents popup
     pub find_recents_open: bool,
@@ -150,6 +153,8 @@ impl HelixBench {
             menu_anchor: point(px(0.0), px(0.0)),
             combo: None,
             combo_anchor: point(px(0.0), px(0.0)),
+            opts: None,
+            opts_anchor: point(px(0.0), px(0.0)),
             find_recents_open: false,
             find_recents_anchor: point(px(0.0), px(0.0)),
             dlg_combo: None,

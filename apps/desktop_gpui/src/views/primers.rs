@@ -19,6 +19,16 @@ use crate::views::{
 };
 use crate::widgets::{self, Btn};
 
+const COLS: &[(usize, &str)] = &[
+    (1, "Name"),
+    (2, "Sequence 5′→3′"),
+    (3, "Length"),
+    (4, "GC%"),
+    (5, "Tm (°C)"),
+    (6, "Sites"),
+    (7, "Description"),
+];
+
 struct Row {
     id: u64,
     name: String,
@@ -168,6 +178,18 @@ impl HelixBench {
             }));
         }
         toolbar = toolbar.child(del);
+        toolbar = toolbar.child(
+            crate::views::table_opts::opts_button(
+                "pr-opts",
+                self.opts.as_deref() == Some("primers"),
+            )
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|t, ev: &gpui::MouseDownEvent, _, cx| {
+                    crate::views::table_opts::toggle_opts(t, "primers", ev, cx)
+                }),
+            ),
+        );
         toolbar = toolbar.child(div().flex_grow().flex().justify_end().child(widgets::label(
             &format!(
                 "{count} primers · Tm at {} mM Na⁺, {} nM oligo",
@@ -177,6 +199,7 @@ impl HelixBench {
             theme::MUTED,
         )));
 
+        let hid = self.app.hidden_cols("primers");
         let content_w = self.viewport.width.v() - 184.0;
         let seq_w = (content_w - 596.0).max(140.0);
         let mut header = div()
@@ -184,22 +207,30 @@ impl HelixBench {
             .items_center()
             .w_full()
             .child(header_label(window, "", 34.0));
-        header = header.child(
-            sort_header(window, "ph-1", "Name", 150.0, 1, sort).on_click(cx.listener(
-                |t, _, _, cx| {
-                    cycle_sort(&mut t.app.primer_sort, 1);
-                    cx.notify();
-                },
-            )),
-        );
-        header = header.child(header_label(window, "Sequence 5′→3′", seq_w));
+        let mut hcells: Vec<AnyElement> = Vec::new();
+        if !hid.contains(&1) {
+            hcells.push(
+                sort_header(window, "ph-1", "Name", 150.0, 1, sort)
+                    .on_click(cx.listener(|t, _, _, cx| {
+                        cycle_sort(&mut t.app.primer_sort, 1);
+                        cx.notify();
+                    }))
+                    .into_any_element(),
+            );
+        }
+        if !hid.contains(&2) {
+            hcells.push(header_label(window, "Sequence 5′→3′", seq_w).into_any_element());
+        }
         for (col, label, w) in [
             (3, "Length", 64.0),
             (4, "GC%", 60.0),
             (5, "Tm (°C)", 72.0),
             (6, "Sites", 56.0),
         ] {
-            header = header.child(
+            if hid.contains(&col) {
+                continue;
+            }
+            hcells.push(
                 sort_header(
                     window,
                     SharedString::from(format!("ph-{col}")),
@@ -211,10 +242,14 @@ impl HelixBench {
                 .on_click(cx.listener(move |t, _, _, cx| {
                     cycle_sort(&mut t.app.primer_sort, col);
                     cx.notify();
-                })),
+                }))
+                .into_any_element(),
             );
         }
-        header = header.child(header_label(window, "Description", 160.0));
+        if !hid.contains(&7) {
+            hcells.push(header_label(window, "Description", 160.0).into_any_element());
+        }
+        header = header.children(hcells);
 
         let n = rows.len();
         let scroll = self.primer_scroll.clone();
@@ -250,7 +285,7 @@ impl HelixBench {
                         } else {
                             theme::TEXT
                         };
-                        div()
+                        let row = div()
                             .id(("pr-row", id))
                             .h(px(27.0))
                             .w_full()
@@ -312,8 +347,10 @@ impl HelixBench {
                                                 });
                                             }),
                                     ),
-                            )
-                            .child(
+                            );
+                        let mut cells: Vec<AnyElement> = Vec::new();
+                        if !hid.contains(&1) {
+                            cells.push(
                                 div()
                                     .h_full()
                                     .w(px(150.0))
@@ -344,21 +381,44 @@ impl HelixBench {
                                             .child("ⓟ")
                                     } else {
                                         div()
-                                    }),
-                            )
-                            .child(cell(window, &r.seq, seq_w, theme::MUTED, true))
-                            .child(cell(window, &r.len.to_string(), 64.0, theme::TEXT, true))
-                            .child(cell(
-                                window,
-                                &format!("{:.0}", r.gc),
-                                60.0,
-                                theme::TEXT,
-                                true,
-                            ))
-                            .child(cell(window, &tm_txt, 72.0, tm_col, true))
-                            .child(cell(window, &r.sites.to_string(), 56.0, sites_col, true))
-                            .child(cell(window, &r.description, 160.0, theme::MUTED, false))
-                            .into_any_element()
+                                    })
+                                    .into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&2) {
+                            cells.push(
+                                cell(window, &r.seq, seq_w, theme::MUTED, true).into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&3) {
+                            cells.push(
+                                cell(window, &r.len.to_string(), 64.0, theme::TEXT, true)
+                                    .into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&4) {
+                            cells.push(
+                                cell(window, &format!("{:.0}", r.gc), 60.0, theme::TEXT, true)
+                                    .into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&5) {
+                            cells
+                                .push(cell(window, &tm_txt, 72.0, tm_col, true).into_any_element());
+                        }
+                        if !hid.contains(&6) {
+                            cells.push(
+                                cell(window, &r.sites.to_string(), 56.0, sites_col, true)
+                                    .into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&7) {
+                            cells.push(
+                                cell(window, &r.description, 160.0, theme::MUTED, false)
+                                    .into_any_element(),
+                            );
+                        }
+                        row.children(cells).into_any_element()
                     })
                     .collect()
             })
@@ -368,7 +428,10 @@ impl HelixBench {
             .into_any_element()
         };
 
-        table_scaffold(toolbar.into_any_element(), header.into_any_element(), body)
-            .into_any_element()
+        let mut root = table_scaffold(toolbar.into_any_element(), header.into_any_element(), body);
+        if let Some(p) = crate::views::table_opts::render_table_opts(self, cx, "primers", COLS) {
+            root = root.child(p);
+        }
+        root.into_any_element()
     }
 }

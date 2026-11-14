@@ -12,6 +12,7 @@ pub mod genbank;
 pub mod inventory;
 pub mod records;
 pub mod registry;
+pub mod views;
 pub mod workflow;
 
 use std::fs;

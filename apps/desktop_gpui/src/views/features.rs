@@ -19,6 +19,16 @@ use crate::views::{
 };
 use crate::widgets::{self, Btn};
 
+const COLS: &[(usize, &str)] = &[
+    (1, "Name"),
+    (2, "Kind"),
+    (3, "Dir"),
+    (4, "Length"),
+    (5, "Location"),
+    (6, "Translated"),
+    (7, "Product / Note"),
+];
+
 struct Row {
     id: u64,
     name: String,
@@ -171,6 +181,18 @@ impl HelixBench {
                 }),
             ),
         );
+        toolbar = toolbar.child(
+            crate::views::table_opts::opts_button(
+                "feat-opts",
+                self.opts.as_deref() == Some("features"),
+            )
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|t, ev: &gpui::MouseDownEvent, _, cx| {
+                    crate::views::table_opts::toggle_opts(t, "features", ev, cx)
+                }),
+            ),
+        );
         toolbar = toolbar.child(div().flex_grow().flex().justify_end().child(widgets::label(
             &format!("{count} features"),
             theme::T_SM,
@@ -178,6 +200,7 @@ impl HelixBench {
         )));
 
         // --- Header ---
+        let hid = self.app.hidden_cols("features");
         let content_w = self.viewport.width.v() - 184.0;
         let flexw = (content_w - 458.0).max(240.0);
         let name_w = (flexw * 0.38).clamp(150.0, 340.0);
@@ -187,6 +210,7 @@ impl HelixBench {
             .items_center()
             .w_full()
             .child(header_label(window, "", 34.0));
+        let mut hcells: Vec<AnyElement> = Vec::new();
         for (col, label, w) in [
             (1, "Name", name_w),
             (2, "Kind", 96.0),
@@ -195,6 +219,9 @@ impl HelixBench {
             (5, "Location", 128.0),
             (6, "Translated", 84.0),
         ] {
+            if hid.contains(&col) {
+                continue;
+            }
             let h = sort_header(
                 window,
                 SharedString::from(format!("fh-{col}")),
@@ -203,12 +230,18 @@ impl HelixBench {
                 col,
                 sort,
             );
-            header = header.child(h.on_click(cx.listener(move |t, _, _, cx| {
-                cycle_sort(&mut t.app.feature_sort, col);
-                cx.notify();
-            })));
+            hcells.push(
+                h.on_click(cx.listener(move |t, _, _, cx| {
+                    cycle_sort(&mut t.app.feature_sort, col);
+                    cx.notify();
+                }))
+                .into_any_element(),
+            );
         }
-        header = header.child(header_label(window, "Product / Note", prod_w));
+        if !hid.contains(&7) {
+            hcells.push(header_label(window, "Product / Note", prod_w).into_any_element());
+        }
+        header = header.children(hcells);
 
         // --- Body ---
         let n = rows.len();
@@ -286,8 +319,10 @@ impl HelixBench {
                                                 });
                                             }),
                                     ),
-                            )
-                            .child(
+                            );
+                        let mut cells: Vec<AnyElement> = Vec::new();
+                        if !hid.contains(&1) {
+                            cells.push(
                                 div()
                                     .h_full()
                                     .w(px(name_w))
@@ -310,20 +345,46 @@ impl HelixBench {
                                             .text_size(px(theme::T_BASE))
                                             .text_color(theme::TEXT)
                                             .child(name),
-                                    ),
-                            )
-                            .child(cell(window, &r.kind, 96.0, theme::MUTED, false))
-                            .child(cell(window, r.dir, 44.0, theme::ACCENT, false))
-                            .child(cell(window, &r.total.to_string(), 72.0, theme::TEXT, true))
-                            .child(cell(window, &r.loc, 128.0, theme::MUTED, true));
+                                    )
+                                    .into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&2) {
+                            cells.push(
+                                cell(window, &r.kind, 96.0, theme::MUTED, false).into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&3) {
+                            cells.push(
+                                cell(window, r.dir, 44.0, theme::ACCENT, false).into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&4) {
+                            cells.push(
+                                cell(window, &r.total.to_string(), 72.0, theme::TEXT, true)
+                                    .into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&5) {
+                            cells.push(
+                                cell(window, &r.loc, 128.0, theme::MUTED, true).into_any_element(),
+                            );
+                        }
                         let (txt, col) = match r.trans {
                             1 => ("yes", theme::OK),
                             2 => ("yes (stops)", theme::WARN),
                             _ => ("—", theme::FAINT),
                         };
-                        row.child(cell(window, txt, 84.0, col, false))
-                            .child(cell(window, &r.product, prod_w, theme::MUTED, false))
-                            .into_any_element()
+                        if !hid.contains(&6) {
+                            cells.push(cell(window, txt, 84.0, col, false).into_any_element());
+                        }
+                        if !hid.contains(&7) {
+                            cells.push(
+                                cell(window, &r.product, prod_w, theme::MUTED, false)
+                                    .into_any_element(),
+                            );
+                        }
+                        row.children(cells).into_any_element()
                     })
                     .collect()
             })
@@ -333,8 +394,11 @@ impl HelixBench {
             .into_any_element()
         };
 
-        table_scaffold(toolbar.into_any_element(), header.into_any_element(), body)
-            .into_any_element()
+        let mut root = table_scaffold(toolbar.into_any_element(), header.into_any_element(), body);
+        if let Some(p) = crate::views::table_opts::render_table_opts(self, cx, "features", COLS) {
+            root = root.child(p);
+        }
+        root.into_any_element()
     }
 }
 

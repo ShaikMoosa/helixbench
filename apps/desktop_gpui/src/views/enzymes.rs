@@ -22,6 +22,14 @@ use crate::views::{
 };
 use crate::widgets::{self, Btn};
 
+const COLS: &[(usize, &str)] = &[
+    (1, "Enzyme"),
+    (2, "Recognition"),
+    (3, "Cuts"),
+    (4, "Overhang"),
+    (5, "Cut positions"),
+];
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ComboKind {
     Set,
@@ -259,6 +267,19 @@ impl HelixBench {
             ));
         }
 
+        let row2 = row2.child(
+            crate::views::table_opts::opts_button(
+                "enz-opts",
+                self.opts.as_deref() == Some("enzymes"),
+            )
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|t, ev: &gpui::MouseDownEvent, _, cx| {
+                    crate::views::table_opts::toggle_opts(t, "enzymes", ev, cx)
+                }),
+            ),
+        );
+
         let toolbar = div()
             .flex()
             .flex_col()
@@ -326,6 +347,7 @@ impl HelixBench {
             .collect();
 
         // --- Header ---
+        let hid = self.app.hidden_cols("enzymes");
         let content_w = self.viewport.width.v() - 184.0;
         let pos_w = (content_w - 508.0).max(140.0);
         let mut header = div()
@@ -333,12 +355,16 @@ impl HelixBench {
             .items_center()
             .w_full()
             .child(header_label(window, "✓", 34.0));
+        let mut hcells: Vec<AnyElement> = Vec::new();
         for (col, label, w) in [
             (1, "Enzyme", 120.0),
             (2, "Recognition", 140.0),
             (3, "Cuts", 64.0),
         ] {
-            header = header.child(
+            if hid.contains(&col) {
+                continue;
+            }
+            hcells.push(
                 sort_header(
                     window,
                     SharedString::from(format!("eh-{col}")),
@@ -350,11 +376,17 @@ impl HelixBench {
                 .on_click(cx.listener(move |t, _, _, cx| {
                     cycle_sort(&mut t.app.enzyme_sort, col);
                     cx.notify();
-                })),
+                }))
+                .into_any_element(),
             );
         }
-        header = header.child(header_label(window, "Overhang", 150.0));
-        header = header.child(header_label(window, "Cut positions", pos_w));
+        if !hid.contains(&4) {
+            hcells.push(header_label(window, "Overhang", 150.0).into_any_element());
+        }
+        if !hid.contains(&5) {
+            hcells.push(header_label(window, "Cut positions", pos_w).into_any_element());
+        }
+        header = header.children(hcells);
 
         // --- Body ---
         let n = rows.len();
@@ -395,7 +427,7 @@ impl HelixBench {
                         } else {
                             theme::MUTED
                         };
-                        div()
+                        let row = div()
                             .id(("enz-row", idx))
                             .h(px(26.0))
                             .w_full()
@@ -449,8 +481,10 @@ impl HelixBench {
                                                 });
                                             }),
                                     ),
-                            )
-                            .child(
+                            );
+                        let mut cells: Vec<AnyElement> = Vec::new();
+                        if !hid.contains(&1) {
+                            cells.push(
                                 div()
                                     .h_full()
                                     .w(px(120.0))
@@ -465,10 +499,18 @@ impl HelixBench {
                                             .text_size(px(theme::T_SM))
                                             .text_color(name_col)
                                             .child(name_fitted),
-                                    ),
-                            )
-                            .child(cell(window, &r.site, 140.0, theme::ACCENT, true))
-                            .child(
+                                    )
+                                    .into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&2) {
+                            cells.push(
+                                cell(window, &r.site, 140.0, theme::ACCENT, true)
+                                    .into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&3) {
+                            cells.push(
                                 div()
                                     .h_full()
                                     .w(px(64.0))
@@ -483,11 +525,22 @@ impl HelixBench {
                                             .text_size(px(theme::T_SM))
                                             .text_color(cuts_col)
                                             .child(n_cuts.to_string()),
-                                    ),
-                            )
-                            .child(cell(window, &r.overhang, 150.0, theme::MUTED, false))
-                            .child(cell(window, &r.positions, pos_w, pos_col, true))
-                            .into_any_element()
+                                    )
+                                    .into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&4) {
+                            cells.push(
+                                cell(window, &r.overhang, 150.0, theme::MUTED, false)
+                                    .into_any_element(),
+                            );
+                        }
+                        if !hid.contains(&5) {
+                            cells.push(
+                                cell(window, &r.positions, pos_w, pos_col, true).into_any_element(),
+                            );
+                        }
+                        row.children(cells).into_any_element()
                     })
                     .collect()
             })
@@ -500,6 +553,9 @@ impl HelixBench {
         let mut root = table_scaffold(toolbar.into_any_element(), header.into_any_element(), body);
         if let Some(popup) = self.render_enzyme_combo(cx) {
             root = root.child(popup);
+        }
+        if let Some(p) = crate::views::table_opts::render_table_opts(self, cx, "enzymes", COLS) {
+            root = root.child(p);
         }
         root.into_any_element()
     }
