@@ -178,6 +178,10 @@ pub fn show(
         crispr(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Codon(_))) {
         codon(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Blast(_))) {
+        blast(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Combinatorial(_))) {
+        combinatorial(app, cx, max_h)
     } else {
         return None;
     };
@@ -3323,6 +3327,265 @@ fn codon(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> A
         cx,
         "Codon Optimization",
         520.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Local BLAST
+// ---------------------------------------------------------------------------
+
+fn blast(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Blast(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Local BLAST",
+                640.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let ki = app.input_entity(cx, "dlg:bl:k", &draft.k, "11", true);
+    let mi = app.input_entity(cx, "dlg:bl:max", &draft.max, "20", true);
+    let (k, max) = (ki.read(cx).text(), mi.read(cx).text());
+    if let Some(Dialog::Blast(d)) = &mut app.app.dialog {
+        d.k = k;
+        d.max = max;
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Seed-and-extend search of the current sequence against the other open documents (database).",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(field_label("Word size"))
+            .child(input_field(ki, 60.0))
+            .child(field_label("Max hits"))
+            .child(input_field(mi, 60.0))
+            .child(
+                widgets::button("bl-run", "Search", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        let mut d = match &t.app.dialog {
+                            Some(Dialog::Blast(d)) => d.clone(),
+                            _ => return,
+                        };
+                        act::run_blast(&mut t.app, &mut d);
+                        t.app.dialog = Some(Dialog::Blast(d));
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let mut list = div().flex().flex_col().gap(px(3.0));
+    for (i, h) in draft.hits.iter().enumerate() {
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .p(px(6.0))
+                .rounded(px(5.0))
+                .bg(if i % 2 == 0 {
+                    theme::SURFACE
+                } else {
+                    theme::PANEL
+                })
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(h.name.clone()),
+                )
+                .child(widgets::label(
+                    &format!("q{}..{}", h.qstart + 1, h.qend),
+                    theme::T_XS,
+                    theme::MUTED,
+                ))
+                .child(widgets::label(
+                    &format!("s{}..{}", h.sstart + 1, h.send),
+                    theme::T_XS,
+                    theme::MUTED,
+                ))
+                .child(widgets::label(
+                    &format!("{}", h.score),
+                    theme::T_XS,
+                    theme::ACCENT,
+                ))
+                .child(widgets::label(
+                    &format!("{:.0}%", h.identity),
+                    theme::T_XS,
+                    theme::MUTED,
+                )),
+        );
+    }
+    body = body.child(list);
+    let footer = footer_row(vec![widgets::button("bl-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Local BLAST",
+        680.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Combinatorial assembly
+// ---------------------------------------------------------------------------
+
+fn combinatorial(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Combinatorial(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Combinatorial Assembly",
+                620.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let ci = app.input_entity(cx, "dlg:cb:cut", &draft.cut, "1", true);
+    let capi = app.input_entity(cx, "dlg:cb:cap", &draft.cap, "24", true);
+    let (cut, cap) = (ci.read(cx).text(), capi.read(cx).text());
+    if let Some(Dialog::Combinatorial(d)) = &mut app.app.dialog {
+        d.cut = cut;
+        d.cap = cap;
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Generate constructs for every ordering of the open insert documents (capped).",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    let mut strat = div().flex().gap(px(6.0));
+    for (i, label) in ["Digest & Ligate", "Gibson", "Golden Gate"]
+        .iter()
+        .enumerate()
+    {
+        let sel = draft.strategy == i;
+        strat = strat.child(
+            widgets::button(
+                SharedString::from(format!("cb-strat-{i}")),
+                label,
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::Combinatorial(d)) = &mut t.app.dialog {
+                    d.strategy = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(strat);
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(field_label("Cut"))
+            .child(input_field(ci, 70.0))
+            .child(field_label("Cap"))
+            .child(input_field(capi, 70.0))
+            .child(
+                widgets::button("cb-run", "Generate", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        let mut d = match &t.app.dialog {
+                            Some(Dialog::Combinatorial(d)) => d.clone(),
+                            _ => return,
+                        };
+                        act::run_combinatorial(&mut t.app, &mut d);
+                        t.app.dialog = Some(Dialog::Combinatorial(d));
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let mut list = div().flex().flex_col().gap(px(3.0));
+    for (i, asm) in draft.results.iter().enumerate() {
+        let label = draft.labels.get(i).cloned().unwrap_or_default();
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .p(px(6.0))
+                .rounded(px(5.0))
+                .bg(if i % 2 == 0 {
+                    theme::SURFACE
+                } else {
+                    theme::PANEL
+                })
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::TEXT)
+                        .child(label),
+                )
+                .child(widgets::label(
+                    &format!("{} bp", asm.bases.len()),
+                    theme::T_XS,
+                    theme::MUTED,
+                ))
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("cb-create-{i}")),
+                        "Create",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        let d = match &t.app.dialog {
+                            Some(Dialog::Combinatorial(d)) => d.clone(),
+                            _ => return,
+                        };
+                        if act::create_combinatorial(&mut t.app, &d, i).is_ok() {
+                            close_dialog(t, cx);
+                        }
+                    })),
+                ),
+        );
+    }
+    body = body.child(list);
+    let footer = footer_row(vec![widgets::button("cb-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Combinatorial Assembly",
+        680.0,
         max_h,
         true,
         body.into_any_element(),

@@ -569,6 +569,90 @@ pub fn show(app: &mut AppState, ctx: &egui::Context) {
                 app.dialog = Some(Dialog::Codon(d));
             }
         }
+        Some(Dialog::Blast(mut d)) => {
+            window(ctx, "Local BLAST", 620.0, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Word size");
+                    ui.text_edit_singleline(&mut d.k);
+                    ui.label("Max hits");
+                    ui.text_edit_singleline(&mut d.max);
+                    if ui.button("Search").clicked() {
+                        appcore::actions::run_blast(app, &mut d);
+                    }
+                });
+                if let Some(e) = &d.error {
+                    ui.colored_label(egui::Color32::RED, e);
+                }
+                egui::ScrollArea::vertical()
+                    .max_height(300.0)
+                    .show(ui, |ui| {
+                        for h in &d.hits {
+                            ui.monospace(format!(
+                                "{} q{}..{} s{}..{} score {} id {:.0}%",
+                                h.name,
+                                h.qstart + 1,
+                                h.qend,
+                                h.sstart + 1,
+                                h.send,
+                                h.score,
+                                h.identity
+                            ));
+                        }
+                    });
+                if ui.button("Close").clicked() {
+                    keep = false;
+                }
+            });
+            if keep {
+                app.dialog = Some(Dialog::Blast(d));
+            }
+        }
+        Some(Dialog::Combinatorial(mut d)) => {
+            window(ctx, "Combinatorial Assembly", 620.0, |ui| {
+                ui.horizontal(|ui| {
+                    for (i, label) in ["Digest & Ligate", "Gibson", "Golden Gate"]
+                        .iter()
+                        .enumerate()
+                    {
+                        if ui.radio(d.strategy == i, *label).clicked() {
+                            d.strategy = i;
+                        }
+                    }
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Cut");
+                    ui.text_edit_singleline(&mut d.cut);
+                    ui.label("Cap");
+                    ui.text_edit_singleline(&mut d.cap);
+                    if ui.button("Generate").clicked() {
+                        appcore::actions::run_combinatorial(app, &mut d);
+                    }
+                });
+                if let Some(e) = &d.error {
+                    ui.colored_label(egui::Color32::RED, e);
+                }
+                egui::ScrollArea::vertical()
+                    .max_height(300.0)
+                    .show(ui, |ui| {
+                        for (i, asm) in d.results.iter().enumerate() {
+                            ui.horizontal(|ui| {
+                                ui.label(d.labels.get(i).cloned().unwrap_or_default());
+                                ui.label(format!("{} bp", asm.bases.len()));
+                                if ui.button("Create").clicked() {
+                                    let _ = appcore::actions::create_combinatorial(app, &d, i);
+                                    keep = false;
+                                }
+                            });
+                        }
+                    });
+                if ui.button("Close").clicked() {
+                    keep = false;
+                }
+            });
+            if keep {
+                app.dialog = Some(Dialog::Combinatorial(d));
+            }
+        }
         None => {}
     }
     if close {

@@ -78,6 +78,40 @@ pub fn assemble(
     }
 }
 
+/// Combinatorial assembly: cartesian product of part sets, one construct per
+/// combination (capped at `cap`). Each combination is assembled in order.
+pub fn combinatorial(
+    vector: &DnaSequence,
+    part_sets: &[Vec<Vec<u8>>],
+    cut: usize,
+    strategy: Strategy,
+    cap: usize,
+) -> Vec<Assembly> {
+    let mut combos: Vec<Vec<u8>> = vec![Vec::new()];
+    for set in part_sets {
+        let mut next = Vec::new();
+        for prefix in &combos {
+            for part in set {
+                if next.len() >= cap {
+                    break;
+                }
+                let mut c = prefix.clone();
+                c.extend_from_slice(part);
+                next.push(c);
+            }
+        }
+        combos = next;
+        if combos.is_empty() {
+            break;
+        }
+    }
+    combos
+        .into_iter()
+        .take(cap)
+        .map(|insert| assemble(vector, &[insert], cut, strategy))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,5 +154,28 @@ mod tests {
         let v = vec_seq();
         let a = assemble(&v, &[], 4, Strategy::DigestLigate);
         assert_eq!(a.bases, b"CCCCGGGGTTTTAAAA".to_vec());
+    }
+
+    #[test]
+    fn combinatorial_cartesian() {
+        let v = vec_seq();
+        let sets = vec![
+            vec![b"AA".to_vec(), b"CC".to_vec()],
+            vec![b"GG".to_vec(), b"TT".to_vec()],
+        ];
+        let out = combinatorial(&v, &sets, 0, Strategy::DigestLigate, 10);
+        assert_eq!(out.len(), 4);
+        assert!(out.iter().all(|a| a.bases.len() == v.len() + 4));
+    }
+
+    #[test]
+    fn combinatorial_cap() {
+        let v = vec_seq();
+        let sets = vec![
+            vec![b"AA".to_vec(), b"CC".to_vec()],
+            vec![b"GG".to_vec(), b"TT".to_vec()],
+        ];
+        let out = combinatorial(&v, &sets, 0, Strategy::Gibson, 2);
+        assert_eq!(out.len(), 2);
     }
 }

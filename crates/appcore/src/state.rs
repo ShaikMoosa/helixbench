@@ -225,6 +225,8 @@ pub enum Dialog {
     Assembly(AssemblyDraft),
     Crispr(CrisprDraft),
     Codon(CodonDraft),
+    Blast(BlastDraft),
+    Combinatorial(CombDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -293,6 +295,24 @@ pub struct CodonDraft {
     pub result: Option<Vec<u8>>,
     pub cai_before: f32,
     pub cai_after: f32,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Default)]
+pub struct BlastDraft {
+    pub k: String,
+    pub max: String,
+    pub hits: Vec<domain::blast::Hit>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct CombDraft {
+    pub strategy: usize,
+    pub cut: String,
+    pub cap: String,
+    pub results: Vec<domain::assembly::Assembly>,
+    pub labels: Vec<String>,
     pub error: Option<String>,
 }
 

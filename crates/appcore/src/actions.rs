@@ -9,9 +9,9 @@ use domain::sequence::{clean_sequence, reverse_complement};
 use domain::{ColorRegion, Document, Range, Topology};
 
 use crate::state::{
-    AlignmentDraft, AppState, AssemblyDraft, CodonDraft, ColorDraft, ColorsMode, CrisprDraft,
-    Dialog, FeatureDraft, NewSeqState, OpenDoc, PcrDraft, PendingAction, PrimerDesignDraft,
-    PrimerDraft,
+    AlignmentDraft, AppState, AssemblyDraft, BlastDraft, CodonDraft, ColorDraft, ColorsMode,
+    CombDraft, CrisprDraft, Dialog, FeatureDraft, NewSeqState, OpenDoc, PcrDraft, PendingAction,
+    PrimerDesignDraft, PrimerDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -1045,5 +1045,151 @@ pub fn apply_codon(app: &mut AppState, draft: &CodonDraft) -> Result<(), String>
         "Codon-optimized product created (CAI {:.2})",
         draft.cai_after
     ));
+    Ok(())
+}
+
+// --- P2: local BLAST + combinatorial assembly -------------------------------
+
+pub fn open_blast(app: &mut AppState) {
+    app.dialog = Some(Dialog::Blast(BlastDraft {
+        k: "11".into(),
+        max: "20".into(),
+        hits: Vec::new(),
+        error: None,
+    }));
+}
+
+pub fn run_blast(app: &mut AppState, draft: &mut BlastDraft) {
+    let k = draft.k.trim().parse::<usize>().unwrap_or(11);
+    let max = draft
+        .max
+        .trim()
+        .parse::<usize>()
+        .unwrap_or(20)
+        .clamp(1, 100);
+    let db: Vec<(String, Vec<u8>)> = app
+        .library
+        .iter()
+        .map(|od| (od.doc.name.clone(), od.doc.sequence.bases.clone()))
+        .collect();
+    if db.is_empty() {
+        draft.error =
+            Some("Open a second document (or FASTA) to serve as the BLAST database.".into());
+        draft.hits = Vec::new();
+        return;
+    }
+    draft.hits = domain::blast::search(&app.doc.sequence.bases, &db, k, max);
+    draft.error = if draft.hits.is_empty() {
+        Some("No significant hits.".into())
+    } else {
+        None
+    };
+}
+
+pub fn open_combinatorial(app: &mut AppState) {
+    app.dialog = Some(Dialog::Combinatorial(CombDraft {
+        strategy: 0,
+        cut: "1".into(),
+        cap: "24".into(),
+        results: Vec::new(),
+        labels: Vec::new(),
+        error: None,
+    }));
+}
+
+fn permutations(items: &[usize], cap: usize) -> Vec<Vec<usize>> {
+    let mut out = Vec::new();
+    let mut a: Vec<usize> = items.to_vec();
+    let n = a.len();
+    if n == 0 {
+        return out;
+    }
+    let mut c = vec![0usize; n];
+    out.push(a.clone());
+    let mut i = 0;
+    while i < n && out.len() < cap {
+        if c[i] < i {
+            if i % 2 == 0 {
+                a.swap(0, i);
+            } else {
+                a.swap(c[i], i);
+            }
+            out.push(a.clone());
+            c[i] += 1;
+            i = 0;
+        } else {
+            c[i] = 0;
+            i += 1;
+        }
+    }
+    out.truncate(cap);
+    out
+}
+
+pub fn run_combinatorial(app: &mut AppState, draft: &mut CombDraft) {
+    let strategy = match draft.strategy {
+        1 => domain::assembly::Strategy::Gibson,
+        2 => domain::assembly::Strategy::GoldenGate,
+        _ => domain::assembly::Strategy::DigestLigate,
+    };
+    let cut = draft
+        .cut
+        .trim()
+        .parse::<usize>()
+        .unwrap_or(1)
+        .saturating_sub(1);
+    let cap = draft
+        .cap
+        .trim()
+        .parse::<usize>()
+        .unwrap_or(24)
+        .clamp(1, 120);
+    let parts: Vec<(String, Vec<u8>)> = app
+        .library
+        .iter()
+        .map(|od| (od.doc.name.clone(), od.doc.sequence.bases.clone()))
+        .collect();
+    if parts.len() < 2 {
+        draft.error = Some("Open at least two insert documents to combine.".into());
+        draft.results = Vec::new();
+        draft.labels = Vec::new();
+        return;
+    }
+    let idx: Vec<usize> = (0..parts.len()).collect();
+    let perms = permutations(&idx, cap);
+    let mut results = Vec::new();
+    let mut labels = Vec::new();
+    for p in perms {
+        let inserts: Vec<Vec<u8>> = p.iter().map(|&i| parts[i].1.clone()).collect();
+        let label = p
+            .iter()
+            .map(|&i| parts[i].0.clone())
+            .collect::<Vec<_>>()
+            .join(" + ");
+        results.push(domain::assembly::assemble(
+            &app.doc.sequence,
+            &inserts,
+            cut,
+            strategy,
+        ));
+        labels.push(label);
+    }
+    draft.results = results;
+    draft.labels = labels;
+    draft.error = None;
+}
+
+pub fn create_combinatorial(
+    app: &mut AppState,
+    draft: &CombDraft,
+    idx: usize,
+) -> Result<(), String> {
+    let Some(asm) = draft.results.get(idx) else {
+        return Err("Generate combinations first.".into());
+    };
+    let name = format!("COMB{}_{}", idx + 1, sanitize_filename(&app.doc.name));
+    let doc = Document::new(name, asm.bases.clone(), Topology::Circular);
+    push_product(app, doc);
+    app.toast(format!("Combinatorial construct {} created", idx + 1));
     Ok(())
 }

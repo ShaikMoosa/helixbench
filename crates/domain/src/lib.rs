@@ -2,6 +2,7 @@
 
 pub mod align;
 pub mod assembly;
+pub mod blast;
 pub mod codon;
 pub mod common_features;
 pub mod crispr;

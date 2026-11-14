@@ -220,6 +220,8 @@ impl HelixBench {
             Some(Dialog::Assembly(_)) => "assembly".into(),
             Some(Dialog::Crispr(_)) => "crispr".into(),
             Some(Dialog::Codon(_)) => "codon".into(),
+            Some(Dialog::Blast(_)) => "blast".into(),
+            Some(Dialog::Combinatorial(_)) => "combinatorial".into(),
         }
     }
 
@@ -751,6 +753,24 @@ impl HelixBench {
                         .on_click(cx.listener(|t, _, _, cx| {
                             t.menu = None;
                             act::open_codon(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-blast", "Local BLAST…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_blast(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-comb", "Combinatorial Assembly…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_combinatorial(&mut t.app);
                             cx.notify();
                         }))
                         .into_any_element(),
