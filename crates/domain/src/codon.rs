@@ -181,18 +181,57 @@ fn max_freq_for_aa(host: Host, aa: u8) -> f32 {
     best
 }
 
-fn best_codon_for_aa(host: Host, aa: u8) -> Vec<u8> {
-    let mut best = (0.0f32, b"ATG".to_vec());
-    for (c, f) in table(host) {
-        if aa_of(c.as_bytes()) == aa && *f > best.0 {
-            best = (*f, c.as_bytes().to_vec());
-        }
-    }
-    best.1
-}
-
 /// Re-encode a coding sequence with host-preferred codons, preserving the protein.
 pub fn optimize(dna: &[u8], host: Host) -> Vec<u8> {
+    optimize_with(dna, host, &OptimizeOptions::default())
+}
+
+#[derive(Debug, Clone)]
+pub struct OptimizeOptions {
+    pub gc_min: f32,
+    pub gc_max: f32,
+    pub avoid: Vec<Vec<u8>>,
+    pub harmonize: bool,
+}
+
+impl Default for OptimizeOptions {
+    fn default() -> Self {
+        Self {
+            gc_min: 0.3,
+            gc_max: 0.7,
+            avoid: Vec::new(),
+            harmonize: false,
+        }
+    }
+}
+
+fn synonyms(aa: u8, host: Host) -> Vec<Vec<u8>> {
+    let mut v: Vec<(f32, Vec<u8>)> = table(host)
+        .iter()
+        .filter(|(c, _)| aa_of(c.as_bytes()) == aa)
+        .map(|(c, f)| (*f, c.as_bytes().to_vec()))
+        .collect();
+    v.sort_by(|a, b| b.0.total_cmp(&a.0));
+    v.into_iter().map(|(_, c)| c).collect()
+}
+
+fn gc_of(seq: &[u8]) -> f32 {
+    if seq.is_empty() {
+        return 0.0;
+    }
+    seq.iter().filter(|b| matches!(b, b'G' | b'C')).count() as f32 / seq.len() as f32
+}
+
+fn find_site(seq: &[u8], site: &[u8]) -> Option<usize> {
+    if site.is_empty() || seq.len() < site.len() {
+        return None;
+    }
+    (0..=(seq.len() - site.len())).find(|&i| &seq[i..i + site.len()] == site)
+}
+
+/// Full optimizer: preferred (or harmonized) encoding, then restriction-site
+/// avoidance and GC-window smoothing, all protein-preserving.
+pub fn optimize_with(dna: &[u8], host: Host, opts: &OptimizeOptions) -> Vec<u8> {
     let mut out = Vec::with_capacity(dna.len());
     for chunk in dna.chunks(3) {
         if chunk.len() < 3 {
@@ -202,8 +241,101 @@ pub fn optimize(dna: &[u8], host: Host) -> Vec<u8> {
         let aa = aa_of(chunk);
         if aa == b'*' {
             out.extend_from_slice(chunk);
+            continue;
+        }
+        let syn = synonyms(aa, host);
+        let chosen = if opts.harmonize {
+            // Match the source codon's usage rank (E. coli reference) in the target host.
+            let mut src: Vec<(f32, Vec<u8>)> = table(Host::EColi)
+                .iter()
+                .filter(|(c, _)| aa_of(c.as_bytes()) == aa)
+                .map(|(c, f)| (*f, c.as_bytes().to_vec()))
+                .collect();
+            src.sort_by(|a, b| b.0.total_cmp(&a.0));
+            let rank = src.iter().position(|(_, c)| c == chunk).unwrap_or(0);
+            syn.get(rank.min(syn.len() - 1))
+                .cloned()
+                .unwrap_or_else(|| syn[0].clone())
         } else {
-            out.extend_from_slice(&best_codon_for_aa(host, aa));
+            syn[0].clone()
+        };
+        out.extend_from_slice(&chosen);
+    }
+    // Restriction-site avoidance: swap overlapping codons to synonymous alternatives.
+    for site in &opts.avoid {
+        let mut guard = 0;
+        while let Some(pos) = find_site(&out, site) {
+            guard += 1;
+            if guard > 1000 {
+                break;
+            }
+            let mut fixed = false;
+            let c0 = pos / 3;
+            let c1 = ((pos + site.len()).saturating_sub(1)) / 3;
+            for ci in c0..=c1 {
+                let s = ci * 3;
+                if s + 3 > out.len() {
+                    continue;
+                }
+                let aa = aa_of(&out[s..s + 3]);
+                if aa == b'*' {
+                    continue;
+                }
+                for alt in synonyms(aa, host) {
+                    let mut trial = out.clone();
+                    trial[s..s + 3].copy_from_slice(&alt);
+                    if find_site(&trial, site).is_none() {
+                        out = trial;
+                        fixed = true;
+                        break;
+                    }
+                }
+                if fixed {
+                    break;
+                }
+            }
+            if !fixed {
+                break;
+            }
+        }
+    }
+    // GC-window smoothing.
+    let win = 30usize;
+    if out.len() >= win {
+        let mut start = 0;
+        while start + win <= out.len() {
+            let g = gc_of(&out[start..start + win]);
+            if g < opts.gc_min || g > opts.gc_max {
+                let want_up = g < opts.gc_min;
+                for ci in (start / 3)..=((start + win) / 3).min(out.len() / 3) {
+                    let s = ci * 3;
+                    if s + 3 > out.len() {
+                        continue;
+                    }
+                    let aa = aa_of(&out[s..s + 3]);
+                    if aa == b'*' {
+                        continue;
+                    }
+                    let mut syn = synonyms(aa, host);
+                    syn.sort_by(|a, b| {
+                        let ga = gc_of(a);
+                        let gb = gc_of(b);
+                        if want_up {
+                            gb.total_cmp(&ga)
+                        } else {
+                            ga.total_cmp(&gb)
+                        }
+                    });
+                    if let Some(best) = syn.first() {
+                        out[s..s + 3].copy_from_slice(best);
+                    }
+                    let g2 = gc_of(&out[start..start + win]);
+                    if g2 >= opts.gc_min && g2 <= opts.gc_max {
+                        break;
+                    }
+                }
+            }
+            start += 15;
         }
     }
     out
@@ -269,5 +401,42 @@ mod tests {
         let e = optimize(dna, Host::EColi);
         let h = optimize(dna, Host::Human);
         assert_eq!(translate(&e, &CODES[0]), translate(&h, &CODES[0]));
+    }
+
+    #[test]
+    fn avoid_site_removed_and_protein_preserved() {
+        let dna = b"ATGGAATTCGGGAAATTTCCCTGA"; // contains GAATTC (EcoRI)
+        let opts = OptimizeOptions {
+            avoid: vec![b"GAATTC".to_vec()],
+            ..Default::default()
+        };
+        let out = optimize_with(dna, Host::EColi, &opts);
+        assert_eq!(translate(&out, &CODES[0]), translate(dna, &CODES[0]));
+        assert!(find_site(&out, b"GAATTC").is_none());
+    }
+
+    #[test]
+    fn harmonize_preserves_protein() {
+        let dna = b"ATGCTGAGGAAAGATTTT";
+        let opts = OptimizeOptions {
+            harmonize: true,
+            ..Default::default()
+        };
+        let out = optimize_with(dna, Host::Human, &opts);
+        assert_eq!(translate(&out, &CODES[0]), translate(dna, &CODES[0]));
+    }
+
+    #[test]
+    fn gc_smoothing_moves_toward_range() {
+        // AT-rich input; smoothing should raise GC toward the window
+        let dna = b"ATGAAATTTAAATTTAAATTTAAATTTAAATTTAAATTTTGA";
+        let opts = OptimizeOptions {
+            gc_min: 0.4,
+            gc_max: 0.7,
+            ..Default::default()
+        };
+        let out = optimize_with(dna, Host::EColi, &opts);
+        assert_eq!(translate(&out, &CODES[0]), translate(dna, &CODES[0]));
+        assert!(gc_of(&out) > gc_of(dna));
     }
 }

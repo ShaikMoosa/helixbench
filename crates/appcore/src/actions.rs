@@ -10,8 +10,9 @@ use domain::{ColorRegion, Document, Range, Topology};
 
 use crate::state::{
     AlignmentDraft, AppState, AssemblyDraft, BlastDraft, CodonDraft, ColorDraft, ColorsMode,
-    CombDraft, CrisprDraft, Dialog, FeatureDraft, NewSeqState, OpenDoc, PcrDraft, PendingAction,
-    PrimerDesignDraft, PrimerDraft, RegistryDraft, RegistryEditDraft,
+    CombDraft, CrisprDraft, Dialog, FeatureDraft, FeatureLibDraft, NewSeqState, OpenDoc, PcrDraft,
+    PendingAction, PrimerDesignDraft, PrimerDraft, ProteinDraft, RegistryDraft, RegistryEditDraft,
+    WorkspaceDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -852,7 +853,26 @@ pub fn run_alignment(app: &mut AppState, draft: &mut AlignmentDraft) {
         return;
     }
     let ref_idx = draft.reference.min(seqs.len() - 1);
-    draft.result = Some(domain::align::align_many(&seqs, ref_idx, draft.reindex));
+    // Auto-reindex circular sequences against the reference before aligning.
+    let mut oriented: Vec<Vec<u8>> = Vec::new();
+    for (i, s) in seqs.iter().enumerate() {
+        let mut bases = s.bases.clone();
+        if draft.reindex && i != ref_idx {
+            let off = domain::align::best_rotation(s, &seqs[ref_idx].bases);
+            if off > 0 {
+                bases.rotate_left(off);
+            }
+        }
+        oriented.push(bases);
+    }
+    let rows = domain::msa::progressive(&oriented);
+    let consensus = domain::msa::consensus(&rows);
+    let identity = domain::align::identity(&rows);
+    draft.result = Some(domain::align::Alignment {
+        rows,
+        consensus,
+        identity,
+    });
     draft.error = None;
 }
 
@@ -913,8 +933,29 @@ pub fn open_assembly(app: &mut AppState) {
         strategy: 0,
         cut: "1".into(),
         inserts: vec![true; app.library.len()],
+        primers: Vec::new(),
+        gg_issues: Vec::new(),
         error: None,
     }));
+}
+
+/// Compute Gibson junction primers + Golden Gate overhang validation for the
+/// selected inserts (does not create a product).
+pub fn assembly_extras(app: &mut AppState, draft: &mut AssemblyDraft) {
+    let inserts: Vec<Vec<u8>> = app
+        .library
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| draft.inserts.get(*i).copied().unwrap_or(false))
+        .map(|(_, od)| od.doc.sequence.bases.clone())
+        .collect();
+    draft.primers = domain::assembly::gibson_primers(&app.doc.sequence.bases, &inserts, 20);
+    // Golden Gate overhangs = first 4 bases of each insert (Type IIS fusion sites).
+    let overhangs: Vec<Vec<u8>> = inserts
+        .iter()
+        .map(|i| i[..4.min(i.len())].to_vec())
+        .collect();
+    draft.gg_issues = domain::assembly::golden_gate_validate(&overhangs);
 }
 
 pub fn create_assembly(app: &mut AppState, draft: &AssemblyDraft) -> Result<(), String> {
@@ -955,6 +996,7 @@ pub fn open_crispr(app: &mut AppState) {
     app.dialog = Some(Dialog::Crispr(CrisprDraft {
         limit: "20".into(),
         guides: Vec::new(),
+        off: Vec::new(),
         error: None,
     }));
 }
@@ -971,6 +1013,19 @@ pub fn run_crispr(app: &mut AppState, draft: &mut CrisprDraft) {
         Some("No NGG PAM sites found.".into())
     } else {
         None
+    };
+    draft.off = if let Some(top) = draft.guides.first() {
+        let db: Vec<(String, Vec<u8>)> =
+            std::iter::once((app.doc.name.clone(), app.doc.sequence.bases.clone()))
+                .chain(
+                    app.library
+                        .iter()
+                        .map(|od| (od.doc.name.clone(), od.doc.sequence.bases.clone())),
+                )
+                .collect();
+        domain::crispr::off_target_sites(&top.sequence, &db, 4, 20)
+    } else {
+        Vec::new()
     };
 }
 
@@ -999,6 +1054,10 @@ pub fn add_crispr_features(app: &mut AppState, draft: &CrisprDraft) {
 pub fn open_codon(app: &mut AppState) {
     app.dialog = Some(Dialog::Codon(CodonDraft {
         host: 0,
+        gc_min: "0.3".into(),
+        gc_max: "0.7".into(),
+        avoid: String::new(),
+        harmonize: false,
         result: None,
         cai_before: 0.0,
         cai_after: 0.0,
@@ -1022,7 +1081,18 @@ pub fn run_codon(app: &mut AppState, draft: &mut CodonDraft) {
         draft.result = None;
         return;
     }
-    let opt = domain::codon::optimize(dna, host);
+    let opts = domain::codon::OptimizeOptions {
+        gc_min: draft.gc_min.trim().parse().unwrap_or(0.3),
+        gc_max: draft.gc_max.trim().parse().unwrap_or(0.7),
+        avoid: draft
+            .avoid
+            .split(',')
+            .map(|s| clean_sequence(s.trim()))
+            .filter(|v| !v.is_empty())
+            .collect(),
+        harmonize: draft.harmonize,
+    };
+    let opt = domain::codon::optimize_with(dna, host, &opts);
     draft.cai_before = domain::codon::cai(dna, host);
     draft.cai_after = domain::codon::cai(&opt, host);
     draft.result = Some(opt);
@@ -1054,6 +1124,7 @@ pub fn open_blast(app: &mut AppState) {
     app.dialog = Some(Dialog::Blast(BlastDraft {
         k: "11".into(),
         max: "20".into(),
+        db_count: app.blast_db.len(),
         hits: Vec::new(),
         error: None,
     }));
@@ -1067,14 +1138,18 @@ pub fn run_blast(app: &mut AppState, draft: &mut BlastDraft) {
         .parse::<usize>()
         .unwrap_or(20)
         .clamp(1, 100);
-    let db: Vec<(String, Vec<u8>)> = app
-        .library
-        .iter()
-        .map(|od| (od.doc.name.clone(), od.doc.sequence.bases.clone()))
-        .collect();
+    let db: Vec<(String, Vec<u8>)> = if !app.blast_db.is_empty() {
+        app.blast_db.clone()
+    } else {
+        app.library
+            .iter()
+            .map(|od| (od.doc.name.clone(), od.doc.sequence.bases.clone()))
+            .collect()
+    };
+    draft.db_count = db.len();
     if db.is_empty() {
         draft.error =
-            Some("Open a second document (or FASTA) to serve as the BLAST database.".into());
+            Some("Load a FASTA database or open a second document to search against.".into());
         draft.hits = Vec::new();
         return;
     }
@@ -1084,6 +1159,28 @@ pub fn run_blast(app: &mut AppState, draft: &mut BlastDraft) {
     } else {
         None
     };
+}
+
+/// Load an external FASTA file as the BLAST database.
+pub fn load_blast_db(app: &mut AppState) {
+    if let Some(path) = crate::fs_dialogs::pick_fasta(app.config.last_directory.as_ref()) {
+        match std::fs::read(&path) {
+            Ok(bytes) => match storage::fasta::parse_all(&bytes, "db") {
+                Ok(docs) => {
+                    app.blast_db = docs
+                        .into_iter()
+                        .map(|d| (d.name, d.sequence.bases))
+                        .collect();
+                    app.toast(format!(
+                        "BLAST database loaded ({} sequences)",
+                        app.blast_db.len()
+                    ));
+                }
+                Err(e) => app.toast(format!("FASTA parse failed: {e}")),
+            },
+            Err(e) => app.toast(format!("Read failed: {e}")),
+        }
+    }
 }
 
 pub fn open_combinatorial(app: &mut AppState) {
@@ -1281,4 +1378,162 @@ pub fn open_linked_entry(app: &mut AppState, id: u64) {
     } else {
         app.toast(format!("Linked document \"{docname}\" is not open"));
     }
+}
+
+// --- Protein analysis -------------------------------------------------------
+
+pub fn open_protein(app: &mut AppState) {
+    app.dialog = Some(Dialog::Protein(ProteinDraft::default()));
+}
+
+pub fn run_protein(app: &mut AppState, draft: &mut ProteinDraft) {
+    let code = domain::genetic_code::code_by_id(app.doc.default_genetic_code);
+    let protein = domain::translate::translate(&app.doc.sequence.bases, code);
+    draft.stats = Some(domain::protein::analyze(&protein));
+    // Align against the first library document's translation, if any.
+    draft.align = app.library.first().map(|od| {
+        let other = domain::translate::translate(&od.doc.sequence.bases, code);
+        domain::protein::align_protein(&protein, &other)
+    });
+    draft.error = None;
+}
+
+// --- Feature library + bulk auto-annotation ---------------------------------
+
+pub fn open_feature_lib(app: &mut AppState) {
+    app.dialog = Some(Dialog::FeatureLib(FeatureLibDraft::default()));
+}
+
+pub fn add_lib_feature(app: &mut AppState, name: &str, kind: &str, motif: &str) {
+    let motif = clean_sequence(motif);
+    if name.trim().is_empty() || motif.is_empty() {
+        app.toast("Name and motif are required");
+        return;
+    }
+    app.feature_lib.push(domain::feature_lib::LibFeature {
+        name: name.trim().to_string(),
+        kind: kind.trim().to_string(),
+        motif,
+        color: [0x5a, 0xa2, 0xf0],
+    });
+    let _ = storage::feature_lib::save(&app.feature_lib);
+    app.toast("Library feature added");
+}
+
+pub fn delete_lib_feature(app: &mut AppState, idx: usize) {
+    if idx < app.feature_lib.len() {
+        app.feature_lib.remove(idx);
+        let _ = storage::feature_lib::save(&app.feature_lib);
+    }
+}
+
+/// Bulk auto-annotate the active document AND all open library documents.
+pub fn bulk_annotate(app: &mut AppState) {
+    let lib = app.feature_lib.clone();
+    let mut total = 0usize;
+    let existing = app.doc.features.clone();
+    let add = domain::feature_lib::auto_annotate(&app.doc.sequence, &lib, &existing);
+    total += add.len();
+    if !add.is_empty() {
+        app.mutate("Bulk auto-annotate", Vec::new(), |doc| {
+            for f in add {
+                doc.add_feature(f);
+            }
+        });
+    }
+    for od in app.library.iter_mut() {
+        let ex = od.doc.features.clone();
+        let add = domain::feature_lib::auto_annotate(&od.doc.sequence, &lib, &ex);
+        total += add.len();
+        for f in add {
+            od.doc.add_feature(f);
+        }
+    }
+    app.toast(format!(
+        "Auto-annotated {total} features across open documents"
+    ));
+}
+
+// --- Workspace: tags + bulk operations --------------------------------------
+
+pub fn open_workspace(app: &mut AppState) {
+    let n = app.library.len() + 1;
+    app.dialog = Some(Dialog::Workspace(WorkspaceDraft {
+        selected: vec![false; n],
+        tag: String::new(),
+        error: None,
+    }));
+}
+
+fn workspace_docs(selected: &[bool]) -> Vec<usize> {
+    // index 0 = active doc, 1.. = library
+    selected
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| **s)
+        .map(|(i, _)| i)
+        .collect()
+}
+
+pub fn bulk_tag(app: &mut AppState, draft: &WorkspaceDraft) {
+    let tag = draft.tag.trim().to_string();
+    if tag.is_empty() {
+        app.toast("Enter a tag");
+        return;
+    }
+    let idxs = workspace_docs(&draft.selected);
+    for i in idxs {
+        let doc = if i == 0 {
+            &mut app.doc
+        } else {
+            &mut app.library[i - 1].doc
+        };
+        if !doc.tags.contains(&tag) {
+            doc.tags.push(tag.clone());
+        }
+    }
+    app.dirty = true;
+    app.toast("Tag applied to selected documents");
+}
+
+pub fn bulk_export(app: &mut AppState, draft: &WorkspaceDraft) {
+    let idxs = workspace_docs(&draft.selected);
+    if idxs.is_empty() {
+        app.toast("Select documents to export");
+        return;
+    }
+    if let Some(dir) = crate::fs_dialogs::pick_folder() {
+        let mut n = 0;
+        for i in idxs {
+            let doc = if i == 0 {
+                &app.doc
+            } else {
+                &app.library[i - 1].doc
+            };
+            let path = dir.join(format!("{}.fasta", sanitize_filename(&doc.name)));
+            if std::fs::write(&path, storage::fasta::export(doc)).is_ok() {
+                n += 1;
+            }
+        }
+        app.toast(format!("Exported {n} documents to {}", dir.display()));
+    }
+}
+
+pub fn bulk_delete(app: &mut AppState, draft: &WorkspaceDraft) {
+    let idxs = workspace_docs(&draft.selected);
+    // delete library docs (skip active index 0)
+    let mut lib_idx: Vec<usize> = idxs.into_iter().filter(|i| *i > 0).map(|i| i - 1).collect();
+    lib_idx.sort_unstable();
+    lib_idx.dedup();
+    for i in lib_idx.into_iter().rev() {
+        if i < app.library.len() {
+            app.library.remove(i);
+        }
+    }
+    app.toast("Selected documents closed");
+}
+
+pub fn set_tags(app: &mut AppState, tags: Vec<String>) {
+    app.doc.tags = tags;
+    app.dirty = true;
 }

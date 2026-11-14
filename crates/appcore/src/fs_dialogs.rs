@@ -36,3 +36,21 @@ pub fn pick_save(
     }
     d.save_file()
 }
+
+/// Pick a FASTA file to use as a BLAST database.
+pub fn pick_fasta(last_dir: Option<&PathBuf>) -> Option<PathBuf> {
+    let mut d = rfd::FileDialog::new()
+        .set_title("Load BLAST Database (FASTA)")
+        .add_filter("FASTA", &["fa", "fasta", "fna", "faa", "txt"]);
+    if let Some(dir) = last_dir {
+        d = d.set_directory(dir);
+    }
+    d.pick_file()
+}
+
+/// Pick a directory (for bulk export).
+pub fn pick_folder() -> Option<PathBuf> {
+    rfd::FileDialog::new()
+        .set_title("Export to folder")
+        .pick_folder()
+}

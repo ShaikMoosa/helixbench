@@ -224,6 +224,9 @@ impl HelixBench {
             Some(Dialog::Combinatorial(_)) => "combinatorial".into(),
             Some(Dialog::Registry(_)) => "registry".into(),
             Some(Dialog::RegistryEditor(_)) => "registry-editor".into(),
+            Some(Dialog::Protein(_)) => "protein".into(),
+            Some(Dialog::FeatureLib(_)) => "feature-lib".into(),
+            Some(Dialog::Workspace(_)) => "workspace".into(),
         }
     }
 
@@ -782,6 +785,33 @@ impl HelixBench {
                         .on_click(cx.listener(|t, _, _, cx| {
                             t.menu = None;
                             act::open_registry(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-protein", "Protein Analysis…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_protein(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-featlib", "Feature Library…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_feature_lib(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-workspace", "Workspace / Bulk…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_workspace(&mut t.app);
                             cx.notify();
                         }))
                         .into_any_element(),

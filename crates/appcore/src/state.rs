@@ -229,6 +229,9 @@ pub enum Dialog {
     Combinatorial(CombDraft),
     Registry(RegistryDraft),
     RegistryEditor(RegistryEditDraft),
+    Protein(ProteinDraft),
+    FeatureLib(FeatureLibDraft),
+    Workspace(WorkspaceDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -281,6 +284,8 @@ pub struct AssemblyDraft {
     pub strategy: usize,
     pub cut: String,
     pub inserts: Vec<bool>,
+    pub primers: Vec<domain::assembly::JunctionPrimers>,
+    pub gg_issues: Vec<String>,
     pub error: Option<String>,
 }
 
@@ -288,12 +293,17 @@ pub struct AssemblyDraft {
 pub struct CrisprDraft {
     pub limit: String,
     pub guides: Vec<domain::crispr::Guide>,
+    pub off: Vec<domain::crispr::OffTarget>,
     pub error: Option<String>,
 }
 
 #[derive(Clone)]
 pub struct CodonDraft {
     pub host: usize,
+    pub gc_min: String,
+    pub gc_max: String,
+    pub avoid: String,
+    pub harmonize: bool,
     pub result: Option<Vec<u8>>,
     pub cai_before: f32,
     pub cai_after: f32,
@@ -304,7 +314,30 @@ pub struct CodonDraft {
 pub struct BlastDraft {
     pub k: String,
     pub max: String,
+    pub db_count: usize,
     pub hits: Vec<domain::blast::Hit>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Default)]
+pub struct ProteinDraft {
+    pub stats: Option<domain::protein::ProteinStats>,
+    pub align: Option<(Vec<u8>, Vec<u8>, i32)>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Default)]
+pub struct FeatureLibDraft {
+    pub name: String,
+    pub kind: String,
+    pub motif: String,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Default)]
+pub struct WorkspaceDraft {
+    pub selected: Vec<bool>,
+    pub tag: String,
     pub error: Option<String>,
 }
 
@@ -364,6 +397,10 @@ pub struct AppState {
     pub library: Vec<OpenDoc>,
     /// Local offline catalog of plasmids / strains / primers.
     pub registry: domain::registry::Registry,
+    /// Reusable feature library for bulk auto-annotation.
+    pub feature_lib: Vec<domain::feature_lib::LibFeature>,
+    /// External BLAST database (loaded FASTA); empty = use open documents.
+    pub blast_db: Vec<(String, Vec<u8>)>,
     pub path: Option<PathBuf>,
     pub dirty: bool,
     /// History depth at the last save/open; `None` once a branch makes that state unreachable.
@@ -415,6 +452,8 @@ impl AppState {
             doc,
             library: Vec::new(),
             registry: storage::registry::load(),
+            feature_lib: storage::feature_lib::load(),
+            blast_db: Vec::new(),
             path: None,
             dirty: false,
             saved_depth: Some(0),

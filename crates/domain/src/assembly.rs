@@ -78,6 +78,78 @@ pub fn assemble(
     }
 }
 
+/// Gibson junction primers for each insert: forward = prev-fragment tail +
+/// insert head; reverse = rc(insert tail + next-fragment head), using `overlap`
+/// homology bases on each side.
+#[derive(Debug, Clone)]
+pub struct JunctionPrimers {
+    pub name: String,
+    pub forward: Vec<u8>,
+    pub reverse: Vec<u8>,
+}
+
+pub fn gibson_primers(
+    backbone: &[u8],
+    inserts: &[Vec<u8>],
+    overlap: usize,
+) -> Vec<JunctionPrimers> {
+    let ov = overlap.max(1);
+    let mut frags: Vec<Vec<u8>> = vec![backbone.to_vec()];
+    frags.extend(inserts.iter().cloned());
+    let n = frags.len();
+    let mut out = Vec::new();
+    for i in 1..n {
+        let ins = &frags[i];
+        let prev = &frags[i - 1];
+        let next = &frags[(i + 1) % n];
+        let mut forward = prev[prev.len().saturating_sub(ov)..].to_vec();
+        forward.extend_from_slice(&ins[..ov.min(ins.len())]);
+        let mut rev_src = ins[ins.len().saturating_sub(ov)..].to_vec();
+        rev_src.extend_from_slice(&next[..ov.min(next.len())]);
+        let reverse = crate::sequence::reverse_complement(&rev_src);
+        out.push(JunctionPrimers {
+            name: format!("Insert {}", i),
+            forward,
+            reverse,
+        });
+    }
+    out
+}
+
+/// Validate Golden Gate (Type IIS) overhangs: equal length, unique, no
+/// reverse-complement duplicates, no palindromes. Returns a list of issues.
+pub fn golden_gate_validate(overhangs: &[Vec<u8>]) -> Vec<String> {
+    let mut issues = Vec::new();
+    if overhangs.is_empty() {
+        return issues;
+    }
+    let len = overhangs[0].len();
+    for (i, o) in overhangs.iter().enumerate() {
+        if o.len() != len {
+            issues.push(format!("Overhang {} length differs", i + 1));
+        }
+        let rc = crate::sequence::reverse_complement(o);
+        if &rc == o {
+            issues.push(format!("Overhang {} is palindromic", i + 1));
+        }
+        for (j, p) in overhangs.iter().enumerate() {
+            if j <= i {
+                continue;
+            }
+            if p == o {
+                issues.push(format!("Overhangs {} and {} are identical", i + 1, j + 1));
+            } else if p == &rc {
+                issues.push(format!(
+                    "Overhangs {} and {} are reverse complements",
+                    i + 1,
+                    j + 1
+                ));
+            }
+        }
+    }
+    issues
+}
+
 /// Combinatorial assembly: cartesian product of part sets, one construct per
 /// combination (capped at `cap`). Each combination is assembled in order.
 pub fn combinatorial(
@@ -177,5 +249,26 @@ mod tests {
         ];
         let out = combinatorial(&v, &sets, 0, Strategy::Gibson, 2);
         assert_eq!(out.len(), 2);
+    }
+
+    #[test]
+    fn gibson_primers_have_overlaps() {
+        let backbone = b"AAAACCCCGGGGTTTT";
+        let inserts = vec![b"ACGTACGTACGT".to_vec()];
+        let p = gibson_primers(backbone, &inserts, 4);
+        assert_eq!(p.len(), 1);
+        assert_eq!(p[0].forward.len(), 8);
+        assert_eq!(p[0].reverse.len(), 8);
+        assert!(p[0].forward.starts_with(b"TTTT"));
+    }
+
+    #[test]
+    fn golden_gate_detects_duplicates_and_palindromes() {
+        let dup = vec![b"AGTC".to_vec(), b"AGTC".to_vec()];
+        assert!(!golden_gate_validate(&dup).is_empty());
+        let pal = vec![b"AGCT".to_vec()]; // rc(AGCT)=AGCT
+        assert!(!golden_gate_validate(&pal).is_empty());
+        let ok = vec![b"AGTC".to_vec(), b"TTGA".to_vec()];
+        assert!(golden_gate_validate(&ok).is_empty());
     }
 }

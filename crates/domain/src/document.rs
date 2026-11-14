@@ -49,6 +49,9 @@ pub struct Document {
     /// Saved snapshots (newest last); each snapshot's own `versions` is empty.
     #[serde(default)]
     pub versions: Vec<Version>,
+    /// Free-form organization tags.
+    #[serde(default)]
+    pub tags: Vec<String>,
     next_id: u64,
 }
 
@@ -64,6 +67,7 @@ impl Document {
             color_regions: Vec::new(),
             default_genetic_code: 1,
             versions: Vec::new(),
+            tags: Vec::new(),
             next_id: 1,
         }
     }

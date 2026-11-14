@@ -748,6 +748,113 @@ pub fn show(app: &mut AppState, ctx: &egui::Context) {
                 app.dialog = Some(Dialog::RegistryEditor(d));
             }
         }
+        Some(Dialog::Protein(mut d)) => {
+            window(ctx, "Protein Analysis", 560.0, |ui| {
+                if ui.button("Analyze").clicked() {
+                    appcore::actions::run_protein(app, &mut d);
+                }
+                if let Some(s) = &d.stats {
+                    ui.label(format!(
+                        "Length {} aa · MW {:.1} Da · pI {:.2}",
+                        s.len, s.mw, s.pi
+                    ));
+                    ui.label(format!(
+                        "GRAVY {:.2} · charge(pH7) {:.2} · Ext {:.0}",
+                        s.gravy, s.charge_ph7, s.ext_coeff
+                    ));
+                }
+                if let Some((a, b, score)) = &d.align {
+                    ui.label(format!("BLOSUM62 alignment score {score}"));
+                    ui.monospace(String::from_utf8_lossy(a));
+                    ui.monospace(String::from_utf8_lossy(b));
+                }
+                if ui.button("Close").clicked() {
+                    keep = false;
+                }
+            });
+            if keep {
+                app.dialog = Some(Dialog::Protein(d));
+            }
+        }
+        Some(Dialog::FeatureLib(mut d)) => {
+            window(ctx, "Feature Library", 640.0, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Name");
+                    ui.text_edit_singleline(&mut d.name);
+                    ui.label("kind");
+                    ui.text_edit_singleline(&mut d.kind);
+                });
+                ui.horizontal(|ui| {
+                    ui.label("motif");
+                    ui.text_edit_singleline(&mut d.motif);
+                    if ui.button("Add").clicked() {
+                        appcore::actions::add_lib_feature(app, &d.name, &d.kind, &d.motif);
+                    }
+                });
+                egui::ScrollArea::vertical()
+                    .max_height(240.0)
+                    .show(ui, |ui| {
+                        for (i, lf) in app.feature_lib.clone().iter().enumerate() {
+                            ui.horizontal(|ui| {
+                                ui.label(&lf.name);
+                                ui.monospace(String::from_utf8_lossy(&lf.motif));
+                                if ui.button("Delete").clicked() {
+                                    appcore::actions::delete_lib_feature(app, i);
+                                }
+                            });
+                        }
+                    });
+                ui.horizontal(|ui| {
+                    if ui.button("Bulk auto-annotate").clicked() {
+                        appcore::actions::bulk_annotate(app);
+                    }
+                    if ui.button("Close").clicked() {
+                        keep = false;
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::FeatureLib(d));
+            }
+        }
+        Some(Dialog::Workspace(mut d)) => {
+            window(ctx, "Workspace / Bulk", 620.0, |ui| {
+                let mut names = vec![app.doc.name.clone()];
+                for od in &app.library {
+                    names.push(od.doc.name.clone());
+                }
+                for (i, n) in names.iter().enumerate() {
+                    let mut on = d.selected.get(i).copied().unwrap_or(false);
+                    if ui.checkbox(&mut on, n).changed() {
+                        if let Some(b) = d.selected.get_mut(i) {
+                            *b = on;
+                        }
+                    }
+                }
+                ui.horizontal(|ui| {
+                    ui.label("Tag");
+                    ui.text_edit_singleline(&mut d.tag);
+                    if ui.button("Apply tag").clicked() {
+                        appcore::actions::bulk_tag(app, &d);
+                    }
+                });
+                ui.horizontal(|ui| {
+                    if ui.button("Export FASTA").clicked() {
+                        appcore::actions::bulk_export(app, &d);
+                    }
+                    if ui.button("Close selected").clicked() {
+                        appcore::actions::bulk_delete(app, &d);
+                        appcore::actions::open_workspace(app);
+                    }
+                    if ui.button("Close").clicked() {
+                        keep = false;
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::Workspace(d));
+            }
+        }
         None => {}
     }
     if close {

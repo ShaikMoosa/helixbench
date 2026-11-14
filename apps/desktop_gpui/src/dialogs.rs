@@ -186,6 +186,12 @@ pub fn show(
         registry(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::RegistryEditor(_))) {
         registry_editor(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Protein(_))) {
+        protein(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::FeatureLib(_))) {
+        feature_lib(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Workspace(_))) {
+        workspace(app, cx, max_h)
     } else {
         return None;
     };
@@ -3071,6 +3077,68 @@ fn assembly(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -
     if let Some(e) = &draft.error {
         body = body.child(error_label(e));
     }
+    body = body.child(
+        widgets::button(
+            "as-extras",
+            "Design Gibson primers / validate overhangs",
+            Btn::Outline,
+        )
+        .on_click(cx.listener(|t, _, _, cx| {
+            let mut d = match &t.app.dialog {
+                Some(Dialog::Assembly(d)) => d.clone(),
+                _ => return,
+            };
+            act::assembly_extras(&mut t.app, &mut d);
+            t.app.dialog = Some(Dialog::Assembly(d));
+            cx.notify();
+        })),
+    );
+    if !draft.primers.is_empty() {
+        body = body.child(widgets::label(
+            "Gibson junction primers",
+            theme::T_SM,
+            theme::FAINT,
+        ));
+        let mut pl = div().flex().flex_col().gap(px(2.0));
+        for p in &draft.primers {
+            pl = pl.child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(1.0))
+                    .p(px(4.0))
+                    .rounded(px(4.0))
+                    .bg(theme::SURFACE)
+                    .child(widgets::label(&p.name, theme::T_XS, theme::TEXT))
+                    .child(
+                        div()
+                            .text_size(px(theme::T_XS))
+                            .font_family(theme::MONO_FONT)
+                            .text_color(theme::MUTED)
+                            .child(format!("F: {}", String::from_utf8_lossy(&p.forward))),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(theme::T_XS))
+                            .font_family(theme::MONO_FONT)
+                            .text_color(theme::MUTED)
+                            .child(format!("R: {}", String::from_utf8_lossy(&p.reverse))),
+                    ),
+            );
+        }
+        body = body.child(pl);
+    }
+    if !draft.gg_issues.is_empty() {
+        for issue in &draft.gg_issues {
+            body = body.child(error_label(issue));
+        }
+    } else if !draft.primers.is_empty() {
+        body = body.child(widgets::label(
+            "Golden Gate overhangs OK (unique, non-palindromic)",
+            theme::T_XS,
+            theme::OK,
+        ));
+    }
     let footer = footer_row(vec![
         widgets::button("as-cancel", "Cancel", Btn::Ghost)
             .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
@@ -3209,6 +3277,53 @@ fn crispr(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> 
         );
     }
     body = body.child(list);
+    if !draft.off.is_empty() {
+        body = body.child(widgets::label(
+            "CFD off-target sites (top guide)",
+            theme::T_SM,
+            theme::FAINT,
+        ));
+        let mut ol = div().flex().flex_col().gap(px(2.0));
+        for o in draft.off.iter().take(8) {
+            ol = ol.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(8.0))
+                    .p(px(4.0))
+                    .rounded(px(4.0))
+                    .bg(theme::SURFACE)
+                    .child(
+                        div()
+                            .flex_grow()
+                            .text_size(px(theme::T_XS))
+                            .text_color(theme::TEXT)
+                            .child(o.name.clone()),
+                    )
+                    .child(widgets::label(
+                        &format!("{}..{}", o.position + 1, o.position + 21),
+                        theme::T_XS,
+                        theme::MUTED,
+                    ))
+                    .child(widgets::label(
+                        if o.strand == Strand::Top { "+" } else { "-" },
+                        theme::T_XS,
+                        theme::MUTED,
+                    ))
+                    .child(widgets::label(
+                        &format!("mm {}", o.mismatches),
+                        theme::T_XS,
+                        theme::FAINT,
+                    ))
+                    .child(widgets::label(
+                        &format!("CFD {:.2}", o.cfd),
+                        theme::T_XS,
+                        theme::ACCENT,
+                    )),
+            );
+        }
+        body = body.child(ol);
+    }
     let footer = footer_row(vec![
         widgets::button("cr-close", "Close", Btn::Ghost)
             .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
@@ -3280,6 +3395,52 @@ fn codon(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> A
         );
     }
     body = body.child(hosts);
+    let gmin = app.input_entity(cx, "dlg:cd:gmin", &draft.gc_min, "0.3", true);
+    let gmax = app.input_entity(cx, "dlg:cd:gmax", &draft.gc_max, "0.7", true);
+    let av = app.input_entity(
+        cx,
+        "dlg:cd:avoid",
+        &draft.avoid,
+        "sites to avoid, comma-sep",
+        true,
+    );
+    let (gmin_s, gmax_s, av_s) = (
+        gmin.read(cx).text(),
+        gmax.read(cx).text(),
+        av.read(cx).text(),
+    );
+    if let Some(Dialog::Codon(d)) = &mut app.app.dialog {
+        d.gc_min = gmin_s;
+        d.gc_max = gmax_s;
+        d.avoid = av_s;
+    }
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(field_label("GC min"))
+            .child(input_field(gmin, 60.0))
+            .child(field_label("GC max"))
+            .child(input_field(gmax, 60.0))
+            .child(
+                check_box("cd-harm", draft.harmonize).on_click(cx.listener(|t, _, _, cx| {
+                    if let Some(Dialog::Codon(d)) = &mut t.app.dialog {
+                        d.harmonize = !d.harmonize;
+                    }
+                    cx.notify();
+                })),
+            )
+            .child(widgets::label("harmonize", theme::T_XS, theme::MUTED)),
+    );
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(field_label("Avoid"))
+            .child(input_field(av, 260.0)),
+    );
     body = body.child(
         widgets::button("cd-run", "Optimize", Btn::Outline).on_click(cx.listener(|t, _, _, cx| {
             let mut d = match &t.app.dialog {
@@ -3367,10 +3528,32 @@ fn blast(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> A
     }
     let mut body = div().flex().flex_col().size_full().gap(px(10.0));
     body = body.child(widgets::label(
-        "Seed-and-extend search of the current sequence against the other open documents (database).",
+        "Seed-and-extend search of the current sequence against a database (loaded FASTA or open documents).",
         theme::T_SM,
         theme::MUTED,
     ));
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(
+                widgets::button("bl-load", "Load FASTA database", Btn::Outline).on_click(
+                    cx.listener(|t, _, _, cx| {
+                        act::load_blast_db(&mut t.app);
+                        if let Some(Dialog::Blast(d)) = &mut t.app.dialog {
+                            d.db_count = t.app.blast_db.len();
+                        }
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(widgets::label(
+                &format!("db: {} sequences", draft.db_count),
+                theme::T_XS,
+                theme::FAINT,
+            )),
+    );
     body = body.child(
         div()
             .flex()
@@ -3876,6 +4059,359 @@ fn registry_editor(
             "New Registry Entry"
         },
         560.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Protein analysis
+// ---------------------------------------------------------------------------
+
+fn protein(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Protein(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Protein Analysis",
+                560.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Translate the current sequence and compute physicochemical properties; align against the first open document.",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    body = body.child(
+        widgets::button("pr-run", "Analyze", Btn::Outline).on_click(cx.listener(|t, _, _, cx| {
+            let mut d = match &t.app.dialog {
+                Some(Dialog::Protein(d)) => d.clone(),
+                _ => return,
+            };
+            act::run_protein(&mut t.app, &mut d);
+            t.app.dialog = Some(Dialog::Protein(d));
+            cx.notify();
+        })),
+    );
+    if let Some(s) = &draft.stats {
+        let mut grid = div()
+            .flex()
+            .flex_col()
+            .gap(px(4.0))
+            .p(px(8.0))
+            .rounded(px(6.0))
+            .bg(theme::SURFACE);
+        for (k, v) in [
+            ("Length", format!("{} aa", s.len)),
+            ("Molecular weight", format!("{:.1} Da", s.mw)),
+            ("Isoelectric point (pI)", format!("{:.2}", s.pi)),
+            ("GRAVY (hydropathy)", format!("{:.2}", s.gravy)),
+            ("Charge at pH 7", format!("{:.2}", s.charge_ph7)),
+            ("Extinction coeff", format!("{:.0} M-1cm-1", s.ext_coeff)),
+        ] {
+            grid = grid.child(
+                div()
+                    .flex()
+                    .justify_between()
+                    .gap(px(8.0))
+                    .child(widgets::label(k, theme::T_SM, theme::MUTED))
+                    .child(widgets::label(&v, theme::T_SM, theme::TEXT)),
+            );
+        }
+        body = body.child(grid);
+        let comp: String = s
+            .composition
+            .iter()
+            .map(|(c, n)| format!("{c}:{n}"))
+            .collect::<Vec<_>>()
+            .join("  ");
+        body = body.child(widgets::label(
+            &format!("Composition  {comp}"),
+            theme::T_XS,
+            theme::FAINT,
+        ));
+    }
+    if let Some((a, b, score)) = &draft.align {
+        body = body.child(widgets::label(
+            &format!("BLOSUM62 alignment vs first open doc (score {score})",),
+            theme::T_SM,
+            theme::FAINT,
+        ));
+        let mut al = div()
+            .flex()
+            .flex_col()
+            .gap(px(2.0))
+            .p(px(6.0))
+            .rounded(px(5.0))
+            .bg(theme::SURFACE);
+        for row in [a, b] {
+            al = al.child(
+                div()
+                    .text_size(px(theme::T_XS))
+                    .font_family(theme::MONO_FONT)
+                    .text_color(theme::TEXT)
+                    .child(String::from_utf8_lossy(row).into_owned()),
+            );
+        }
+        body = body.child(al);
+    }
+    let footer = footer_row(vec![widgets::button("pr-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Protein Analysis",
+        620.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Feature library + bulk auto-annotation
+// ---------------------------------------------------------------------------
+
+fn feature_lib(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let ni = app.input_entity(cx, "dlg:fl:name", "", "Name", false);
+    let ki = app.input_entity(cx, "dlg:fl:kind", "", "kind", false);
+    let mi = app.input_entity(cx, "dlg:fl:motif", "", "DNA motif", true);
+    let (name, kind, motif) = (ni.read(cx).text(), ki.read(cx).text(), mi.read(cx).text());
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Reusable motif library. Bulk auto-annotate scans the active document and all open documents on both strands.",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(input_field(ni, 140.0))
+            .child(input_field(ki, 90.0))
+            .child(input_field(mi, 160.0))
+            .child(
+                widgets::button("fl-add", "Add", Btn::Outline).on_click(cx.listener(
+                    move |t, _, _, cx| {
+                        act::add_lib_feature(&mut t.app, &name, &kind, &motif);
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    let mut list = div().flex().flex_col().gap(px(3.0));
+    for (i, lf) in app.app.feature_lib.iter().enumerate() {
+        let motif_s = String::from_utf8_lossy(&lf.motif).into_owned();
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .p(px(6.0))
+                .rounded(px(5.0))
+                .bg(theme::SURFACE)
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(lf.name.clone()),
+                )
+                .child(
+                    div()
+                        .w(px(70.0))
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::FAINT)
+                        .child(lf.kind.clone()),
+                )
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_XS))
+                        .font_family(theme::MONO_FONT)
+                        .text_color(theme::MUTED)
+                        .child(motif_s),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("fl-del-{i}")),
+                        "Delete",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::delete_lib_feature(&mut t.app, i);
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    body = body.child(list);
+    let footer = footer_row(vec![
+        widgets::button("fl-close", "Close", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("fl-bulk", "Bulk auto-annotate", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                act::bulk_annotate(&mut t.app);
+                cx.notify();
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Feature Library",
+        700.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Workspace / bulk operations + tags
+// ---------------------------------------------------------------------------
+
+fn workspace(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Workspace(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Workspace",
+                620.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let ti = app.input_entity(cx, "dlg:ws:tag", &draft.tag, "tag", false);
+    let tag = ti.read(cx).text();
+    if let Some(Dialog::Workspace(d)) = &mut app.app.dialog {
+        d.tag = tag.clone();
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Select documents for bulk tag / export / close. Index 1 is the active document.",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    let mut names = vec![app.app.doc.name.clone()];
+    for od in &app.app.library {
+        names.push(od.doc.name.clone());
+    }
+    let mut list = div().flex().flex_col().gap(px(3.0));
+    for (i, n) in names.iter().enumerate() {
+        let on = draft.selected.get(i).copied().unwrap_or(false);
+        let tags = if i == 0 {
+            app.app.doc.tags.clone()
+        } else {
+            app.app.library[i - 1].doc.tags.clone()
+        };
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .p(px(6.0))
+                .rounded(px(5.0))
+                .bg(theme::SURFACE)
+                .child(
+                    check_box(SharedString::from(format!("ws-sel-{i}")), on).on_click(cx.listener(
+                        move |t, _, _, cx| {
+                            if let Some(Dialog::Workspace(d)) = &mut t.app.dialog {
+                                if let Some(b) = d.selected.get_mut(i) {
+                                    *b = !*b;
+                                }
+                            }
+                            cx.notify();
+                        },
+                    )),
+                )
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(n.clone()),
+                )
+                .child(
+                    div()
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::FAINT)
+                        .child(tags.join(", ")),
+                ),
+        );
+    }
+    body = body.child(list);
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(field_label("Tag"))
+            .child(input_field(ti, 140.0))
+            .child(
+                widgets::button("ws-tag", "Apply tag", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        let d = match &t.app.dialog {
+                            Some(Dialog::Workspace(d)) => d.clone(),
+                            _ => return,
+                        };
+                        act::bulk_tag(&mut t.app, &d);
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    let footer = footer_row(vec![
+        widgets::button("ws-close", "Close", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("ws-export", "Export FASTA", Btn::Outline)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::Workspace(d)) => d.clone(),
+                    _ => return,
+                };
+                act::bulk_export(&mut t.app, &d);
+                cx.notify();
+            }))
+            .into_any_element(),
+        widgets::button("ws-delete", "Close selected", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::Workspace(d)) => d.clone(),
+                    _ => return,
+                };
+                act::bulk_delete(&mut t.app, &d);
+                act::open_workspace(&mut t.app);
+                cx.notify();
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Workspace / Bulk",
+        680.0,
         max_h,
         true,
         body.into_any_element(),

@@ -5,6 +5,7 @@
 
 pub mod config;
 pub mod fasta;
+pub mod feature_lib;
 pub mod genbank;
 pub mod registry;
 
