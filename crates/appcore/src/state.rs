@@ -495,6 +495,15 @@ pub const OVERHANG_OPTIONS: [&str; 5] = [
 ];
 pub const SITE_LEN_OPTIONS: [&str; 5] = ["Any length", "4 bp", "5 bp", "6 bp", "≥ 7 bp"];
 
+/// Editor map presentation: follow topology, force a shape, or show metadata.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum MapMode {
+    Auto,
+    Plasmid,
+    Linear,
+    Metadata,
+}
+
 pub struct AppState {
     pub doc: Document,
     /// Other open documents (e.g. PCR products); `doc` is the active one.
@@ -528,6 +537,7 @@ pub struct AppState {
     pub selected_feature: Option<u64>,
     pub selected_primer: Option<u64>,
     pub view: View,
+    pub map_mode: MapMode,
     pub prefs: UiPrefs,
     pub config: Config,
     pub search: SearchState,
@@ -586,6 +596,7 @@ impl AppState {
             selected_feature: None,
             selected_primer: None,
             view: View::Map,
+            map_mode: MapMode::Auto,
             prefs,
             config,
             search: SearchState::default(),
@@ -613,6 +624,15 @@ impl AppState {
     pub fn recompute(&mut self) {
         self.analysis = crate::analysis::compute(&self.doc, &self.prefs);
         self.analysis_dirty = false;
+    }
+
+    /// Effective map shape for the current view mode (Auto follows topology).
+    pub fn map_circular(&self) -> bool {
+        match self.map_mode {
+            MapMode::Plasmid => true,
+            MapMode::Linear => false,
+            _ => self.doc.sequence.topology == domain::Topology::Circular,
+        }
     }
 
     pub fn ensure_analysis(&mut self) {

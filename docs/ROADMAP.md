@@ -143,9 +143,9 @@ Goal: analyze and transform local data; reusable pipelines.
 ## 5. UI/UX roadmap (grounded in the screens)
 
 - **Molecular Biology (mol-bio screens):** keep light plasmid map w/ concentric pastel rings + rotated
-  labels + ruler; add **LINEAR MAP / PLASMID / METADATA** tabs and **Split Workspace** (compare two
-  sequences side-by-side); status bar tied to selection (already present). Add saved-alignments list,
-  primer secondary-structure preview, enzyme "find by cuts/region".
+  labels + ruler; **PLASMID / LINEAR / METADATA** view tabs shipped (v1.1.0); add **Split Workspace**
+  (compare two sequences side-by-side); status bar tied to selection (already present). Add
+  saved-alignments list, primer secondary-structure preview, enzyme "find by cuts/region".
 - **Notebook/Registry/Inventory screens:** adopt schema-driven forms, structured tables with a clear
   **Submit** persistence boundary, template editor with locked columns, review badges, Entity Map graph,
   plate grid + fill-wells, storage tree.

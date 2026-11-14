@@ -2,6 +2,7 @@
 //! double-stranded sequence panel on the right, and description / properties /
 //! legend cards along the bottom. Pastel feature fills on a white canvas.
 
+use appcore::state::MapMode;
 use domain::Range;
 use gpui::{
     canvas, div, point, prelude::*, px, size, AnyElement, Bounds, Context, MouseButton,
@@ -316,14 +317,16 @@ pub fn render_editor(this: &mut HelixBench, cx: &mut Context<HelixBench>) -> Any
             cx.listener(HelixBench::editor_slider_down),
         )
         .on_mouse_move(cx.listener(HelixBench::editor_slider_move));
-    let map_panel = div()
+    let mut map_panel = div()
         .relative()
         .flex_grow()
         .h_full()
         .overflow_hidden()
         .child(map)
-        .child(minimap)
         .child(slider);
+    if this.app.map_circular() {
+        map_panel = map_panel.child(minimap);
+    }
 
     // Right: annotated sequence panel.
     let sd = SeqDraw::build(&this.app, this.editor_scroll);
@@ -352,6 +355,20 @@ pub fn render_editor(this: &mut HelixBench, cx: &mut Context<HelixBench>) -> Any
 
     let cards = bottom_cards(this, cx);
 
+    let left_body = if this.app.map_mode == MapMode::Metadata {
+        metadata_panel(this)
+    } else {
+        map_panel.into_any_element()
+    };
+    let left = div()
+        .flex()
+        .flex_col()
+        .flex_grow()
+        .h_full()
+        .overflow_hidden()
+        .child(map_tabs(this, cx))
+        .child(left_body);
+
     div()
         .flex()
         .flex_col()
@@ -363,10 +380,124 @@ pub fn render_editor(this: &mut HelixBench, cx: &mut Context<HelixBench>) -> Any
                 .flex_row()
                 .flex_grow()
                 .overflow_hidden()
-                .child(map_panel)
+                .child(left)
                 .child(seq),
         )
         .child(cards)
+        .into_any_element()
+}
+
+fn map_tabs(this: &mut HelixBench, cx: &mut Context<HelixBench>) -> gpui::Div {
+    let eff = if this.app.map_mode == MapMode::Metadata {
+        MapMode::Metadata
+    } else if this.app.map_circular() {
+        MapMode::Plasmid
+    } else {
+        MapMode::Linear
+    };
+    let mut row = div()
+        .flex()
+        .flex_row()
+        .gap(px(4.0))
+        .px(px(10.0))
+        .py(px(6.0))
+        .bg(theme::PANEL)
+        .border_b_1()
+        .border_color(theme::BORDER);
+    for (mode, label) in [
+        (MapMode::Plasmid, "Plasmid"),
+        (MapMode::Linear, "Linear"),
+        (MapMode::Metadata, "Metadata"),
+    ] {
+        let active = eff == mode;
+        row = row.child(
+            div()
+                .id(gpui::SharedString::from(format!("map-tab-{label}")))
+                .h(px(26.0))
+                .px(px(12.0))
+                .flex()
+                .items_center()
+                .rounded(px(6.0))
+                .cursor_pointer()
+                .text_size(px(theme::T_SM))
+                .bg(if active {
+                    theme::SURFACE_2
+                } else {
+                    theme::transparent()
+                })
+                .text_color(if active { theme::TEXT } else { theme::MUTED })
+                .hover(|s| s.bg(theme::SURFACE))
+                .child(label)
+                .on_click(cx.listener(move |t, _, _, cx| {
+                    t.app.map_mode = mode;
+                    cx.notify();
+                })),
+        );
+    }
+    row
+}
+
+fn mcard(title: &str) -> gpui::Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap(px(6.0))
+        .p(px(12.0))
+        .bg(theme::PANEL)
+        .border_1()
+        .border_color(theme::BORDER)
+        .rounded(px(8.0))
+        .child(
+            div()
+                .text_size(px(theme::T_SM))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(theme::TEXT)
+                .child(title.to_owned()),
+        )
+}
+
+fn metadata_panel(this: &HelixBench) -> AnyElement {
+    let d = &this.app.doc;
+    let l = d.sequence.len();
+    let overview = mcard("Overview")
+        .child(kv("Name", d.name.clone()))
+        .child(kv("Topology", d.sequence.topology.label().to_string()))
+        .child(kv("Length", format!("{l} bp")))
+        .child(kv("GC content", format!("{:.1}%", d.sequence.gc_content())))
+        .child(kv("Genetic code", d.default_genetic_code.to_string()))
+        .child(kv(
+            "Description",
+            if d.description.is_empty() {
+                "—".into()
+            } else {
+                d.description.clone()
+            },
+        ));
+    let contents = mcard("Contents")
+        .child(kv("Features", d.features.len().to_string()))
+        .child(kv("Primers", d.primers.len().to_string()))
+        .child(kv("Enzymes (chosen)", d.chosen_enzymes.len().to_string()))
+        .child(kv("ORFs", this.app.analysis.orfs.len().to_string()))
+        .child(kv("Versions", d.versions.len().to_string()))
+        .child(kv(
+            "Tags",
+            if d.tags.is_empty() {
+                "—".into()
+            } else {
+                d.tags.join(", ")
+            },
+        ));
+    div()
+        .id("map-metadata")
+        .flex_1()
+        .min_h(px(0.0))
+        .overflow_y_scroll()
+        .p(px(12.0))
+        .flex()
+        .flex_col()
+        .gap(px(10.0))
+        .child(overview)
+        .child(contents)
         .into_any_element()
 }
 

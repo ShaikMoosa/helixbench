@@ -7,7 +7,7 @@ use gpui::{
 };
 
 use appcore::state::AppState;
-use domain::{Direction, Range, Strand, Topology};
+use domain::{Direction, Range, Strand};
 
 use crate::app::HelixBench;
 use crate::draw::{self, Align, PxVal};
@@ -227,7 +227,7 @@ impl MapDraw {
         let hits = crate::util::search_hit_ranges(app);
         MapDraw {
             l,
-            circular: app.doc.sequence.topology == Topology::Circular,
+            circular: app.map_circular(),
             name: app.doc.name.clone(),
             gc: app.doc.sequence.gc_content(),
             selection: app.selection,
@@ -1034,10 +1034,7 @@ impl HelixBench {
 
     fn map_geom(&self) -> Option<Geom> {
         let b = self.map_bounds?;
-        Some(geom(
-            b,
-            self.app.doc.sequence.topology == Topology::Circular,
-        ))
+        Some(geom(b, self.app.map_circular()))
     }
 
     fn map_mouse_down(&mut self, ev: &MouseDownEvent, _w: &mut Window, cx: &mut Context<Self>) {
