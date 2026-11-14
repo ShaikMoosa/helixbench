@@ -25,6 +25,7 @@ pub mod notebook;
 pub mod pcr;
 pub mod primer;
 pub mod primer_design;
+pub mod primer_struct;
 pub mod project;
 pub mod protein;
 pub mod registry;

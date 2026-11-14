@@ -145,8 +145,9 @@ Goal: analyze and transform local data; reusable pipelines.
 - **Molecular Biology (mol-bio screens):** keep light plasmid map w/ concentric pastel rings + rotated
   labels + ruler; **PLASMID / LINEAR / METADATA** view tabs shipped (v1.1.0); **Split Workspace**
   (compare two sequences side-by-side) shipped (v1.2.0); **saved-alignments list** (save / load /
-  delete named alignment snapshots) shipped (v1.3.0); status bar tied to selection (already present).
-  Add primer secondary-structure preview, enzyme "find by cuts/region".
+  delete named alignment snapshots) shipped (v1.3.0); **primer secondary-structure preview**
+  (hairpin stem/loop + self-dimer, live in primer editor and as design-candidate badges) shipped
+  (v1.4.0); status bar tied to selection (already present). Add enzyme "find by cuts/region".
 - **Notebook/Registry/Inventory screens:** adopt schema-driven forms, structured tables with a clear
   **Submit** persistence boundary, template editor with locked columns, review badges, Entity Map graph,
   plate grid + fill-wells, storage tree.

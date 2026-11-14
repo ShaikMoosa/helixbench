@@ -1061,6 +1061,50 @@ fn primer_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
         ));
         body = body.child(props);
 
+        let ss = domain::primer_struct::analyze(&cleaned);
+        let mut ss_row = div().flex().items_center().gap(px(10.0)).mt(px(4.0));
+        ss_row = ss_row.child(widgets::label(
+            "Secondary structure:",
+            theme::T_XS,
+            theme::FAINT,
+        ));
+        match ss.hairpin {
+            Some((stem, loop_len)) => {
+                let col = if ss.hairpin_warn() {
+                    theme::WARN
+                } else {
+                    theme::MUTED
+                };
+                ss_row = ss_row.child(
+                    div()
+                        .font_family(theme::MONO_FONT)
+                        .text_size(px(theme::T_SM))
+                        .text_color(col)
+                        .child(format!("hairpin {stem} bp stem / {loop_len} nt loop")),
+                );
+            }
+            None => {
+                ss_row = ss_row.child(widgets::label("no hairpin", theme::T_SM, theme::MUTED));
+            }
+        }
+        let dcol = if ss.dimer_warn() {
+            theme::WARN
+        } else {
+            theme::MUTED
+        };
+        ss_row = ss_row.child(
+            div()
+                .font_family(theme::MONO_FONT)
+                .text_size(px(theme::T_SM))
+                .text_color(dcol)
+                .child(format!(
+                    "self-dimer {} bp{}",
+                    ss.dimer,
+                    if ss.dimer_3prime { " (3′)" } else { "" }
+                )),
+        );
+        body = body.child(ss_row);
+
         let sites = binding_sites(&p, &app.app.doc.sequence, &params);
         if sites.is_empty() {
             body = body.child(
@@ -2589,14 +2633,32 @@ fn primer_design(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
                     )
                     .child(widgets::label(
                         &format!(
-                            "{}bp · Tm {:.1} · GC {:.0}%{}",
+                            "{}bp · Tm {:.1} · GC {:.0}%{}{}",
                             c.len,
                             c.tm,
                             c.gc,
-                            if c.clamp { " · clamp" } else { "" }
+                            if c.clamp { " · clamp" } else { "" },
+                            {
+                                let ss = domain::primer_struct::analyze(&c.sequence);
+                                let mut s = String::new();
+                                if let Some((stem, _)) = ss.hairpin {
+                                    s.push_str(&format!(" · hp{stem}"));
+                                }
+                                if ss.dimer >= 3 {
+                                    s.push_str(&format!(" · dim{}", ss.dimer));
+                                }
+                                s
+                            }
                         ),
                         theme::T_XS,
-                        theme::MUTED,
+                        {
+                            let ss = domain::primer_struct::analyze(&c.sequence);
+                            if ss.hairpin_warn() || ss.dimer_warn() {
+                                theme::WARN
+                            } else {
+                                theme::MUTED
+                            }
+                        },
                     ))
                     .on_click(cx.listener(move |t, _, _, cx| {
                         if let Some(Dialog::PrimerDesign(d)) = &mut t.app.dialog {
