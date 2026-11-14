@@ -9,8 +9,9 @@ use domain::sequence::{clean_sequence, reverse_complement};
 use domain::{ColorRegion, Document, Range, Topology};
 
 use crate::state::{
-    AlignmentDraft, AppState, ColorDraft, ColorsMode, Dialog, FeatureDraft, NewSeqState, OpenDoc,
-    PcrDraft, PendingAction, PrimerDesignDraft, PrimerDraft,
+    AlignmentDraft, AppState, AssemblyDraft, CodonDraft, ColorDraft, ColorsMode, CrisprDraft,
+    Dialog, FeatureDraft, NewSeqState, OpenDoc, PcrDraft, PendingAction, PrimerDesignDraft,
+    PrimerDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -885,4 +886,164 @@ pub fn restore_version(app: &mut AppState, idx: usize) {
         app.dirty = true;
         app.toast("Version restored");
     }
+}
+
+// --- P1: assembly / CRISPR / codon optimization -----------------------------
+
+fn push_product(app: &mut AppState, doc: Document) {
+    let cur = OpenDoc {
+        doc: std::mem::replace(&mut app.doc, doc),
+        path: app.path.take(),
+        dirty: app.dirty,
+    };
+    app.library.push(cur);
+    app.dirty = true;
+    app.saved_depth = None;
+    app.history.clear();
+    app.future.clear();
+    app.selection = None;
+    app.selected_feature = None;
+    app.zoom_start = 0;
+    app.zoom_width = app.doc.sequence.len().max(1);
+    app.analysis_dirty = true;
+}
+
+pub fn open_assembly(app: &mut AppState) {
+    app.dialog = Some(Dialog::Assembly(AssemblyDraft {
+        strategy: 0,
+        cut: "1".into(),
+        inserts: vec![true; app.library.len()],
+        error: None,
+    }));
+}
+
+pub fn create_assembly(app: &mut AppState, draft: &AssemblyDraft) -> Result<(), String> {
+    let strategy = match draft.strategy {
+        1 => domain::assembly::Strategy::Gibson,
+        2 => domain::assembly::Strategy::GoldenGate,
+        _ => domain::assembly::Strategy::DigestLigate,
+    };
+    let cut = draft
+        .cut
+        .trim()
+        .parse::<usize>()
+        .unwrap_or(1)
+        .saturating_sub(1);
+    let inserts: Vec<Vec<u8>> = app
+        .library
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| draft.inserts.get(*i).copied().unwrap_or(false))
+        .map(|(_, od)| od.doc.sequence.bases.clone())
+        .collect();
+    if inserts.is_empty() {
+        return Err("Select at least one insert document.".into());
+    }
+    let asm = domain::assembly::assemble(&app.doc.sequence, &inserts, cut, strategy);
+    let name = format!("ASM_{}", sanitize_filename(&app.doc.name));
+    let doc = Document::new(name, asm.bases, Topology::Circular);
+    push_product(app, doc);
+    app.toast(format!(
+        "{} assembly created ({} junctions)",
+        strategy.label(),
+        asm.junctions.len()
+    ));
+    Ok(())
+}
+
+pub fn open_crispr(app: &mut AppState) {
+    app.dialog = Some(Dialog::Crispr(CrisprDraft {
+        limit: "20".into(),
+        guides: Vec::new(),
+        error: None,
+    }));
+}
+
+pub fn run_crispr(app: &mut AppState, draft: &mut CrisprDraft) {
+    let limit = draft
+        .limit
+        .trim()
+        .parse::<usize>()
+        .unwrap_or(20)
+        .clamp(1, 100);
+    draft.guides = domain::crispr::scan(&app.doc.sequence, limit);
+    draft.error = if draft.guides.is_empty() {
+        Some("No NGG PAM sites found.".into())
+    } else {
+        None
+    };
+}
+
+pub fn add_crispr_features(app: &mut AppState, draft: &CrisprDraft) {
+    let guides = draft.guides.clone();
+    app.mutate("Add CRISPR guide features", Vec::new(), |doc| {
+        for g in &guides {
+            let mut f = Feature::new(
+                0,
+                format!("gRNA {}", g.position + 1),
+                "crispr".into(),
+                vec![Range::new(g.position, g.sequence.len())],
+            );
+            f.direction = if g.strand == domain::Strand::Top {
+                Direction::Forward
+            } else {
+                Direction::Reverse
+            };
+            f.color = [0x8b, 0x5c, 0xf6];
+            doc.add_feature(f);
+        }
+    });
+    app.toast(format!("Added {} guide features", guides.len()));
+}
+
+pub fn open_codon(app: &mut AppState) {
+    app.dialog = Some(Dialog::Codon(CodonDraft {
+        host: 0,
+        result: None,
+        cai_before: 0.0,
+        cai_after: 0.0,
+        error: None,
+    }));
+}
+
+fn host_of(idx: usize) -> domain::codon::Host {
+    if idx == 1 {
+        domain::codon::Host::Human
+    } else {
+        domain::codon::Host::EColi
+    }
+}
+
+pub fn run_codon(app: &mut AppState, draft: &mut CodonDraft) {
+    let host = host_of(draft.host);
+    let dna = &app.doc.sequence.bases;
+    if dna.len() < 3 {
+        draft.error = Some("Sequence too short to optimize.".into());
+        draft.result = None;
+        return;
+    }
+    let opt = domain::codon::optimize(dna, host);
+    draft.cai_before = domain::codon::cai(dna, host);
+    draft.cai_after = domain::codon::cai(&opt, host);
+    draft.result = Some(opt);
+    draft.error = None;
+}
+
+pub fn apply_codon(app: &mut AppState, draft: &CodonDraft) -> Result<(), String> {
+    let Some(opt) = &draft.result else {
+        return Err("Run optimization first.".into());
+    };
+    let host = host_of(draft.host);
+    let name = format!(
+        "CODON_{}_{}",
+        host.label().replace(['.', ' '], ""),
+        sanitize_filename(&app.doc.name)
+    );
+    let doc = Document::new(name, opt.clone(), app.doc.sequence.topology);
+    push_product(app, doc);
+    app.toast(format!(
+        "Codon-optimized product created (CAI {:.2})",
+        draft.cai_after
+    ));
+    Ok(())
 }

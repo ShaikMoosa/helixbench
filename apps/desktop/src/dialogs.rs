@@ -444,6 +444,131 @@ pub fn show(app: &mut AppState, ctx: &egui::Context) {
                 app.dialog = Some(Dialog::Alignment(d));
             }
         }
+        Some(Dialog::Assembly(mut d)) => {
+            window(ctx, "Assembly Wizard", 480.0, |ui| {
+                ui.horizontal(|ui| {
+                    for (i, label) in ["Digest & Ligate", "Gibson", "Golden Gate"]
+                        .iter()
+                        .enumerate()
+                    {
+                        if ui.radio(d.strategy == i, *label).clicked() {
+                            d.strategy = i;
+                        }
+                    }
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Cut position");
+                    ui.text_edit_singleline(&mut d.cut);
+                });
+                ui.label("Inserts:");
+                for (i, od) in app.library.iter().enumerate() {
+                    let mut on = d.inserts.get(i).copied().unwrap_or(false);
+                    if ui.checkbox(&mut on, &od.doc.name).changed() {
+                        if let Some(b) = d.inserts.get_mut(i) {
+                            *b = on;
+                        }
+                    }
+                }
+                if let Some(e) = &d.error {
+                    ui.colored_label(egui::Color32::RED, e);
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("Cancel").clicked() {
+                        keep = false;
+                    }
+                    if ui.button("Assemble").clicked() {
+                        match appcore::actions::create_assembly(app, &d) {
+                            Ok(()) => keep = false,
+                            Err(e) => d.error = Some(e),
+                        }
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::Assembly(d));
+            }
+        }
+        Some(Dialog::Crispr(mut d)) => {
+            window(ctx, "CRISPR Guides", 620.0, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Max guides");
+                    ui.text_edit_singleline(&mut d.limit);
+                    if ui.button("Scan").clicked() {
+                        appcore::actions::run_crispr(app, &mut d);
+                    }
+                });
+                if let Some(e) = &d.error {
+                    ui.colored_label(egui::Color32::RED, e);
+                }
+                egui::ScrollArea::vertical()
+                    .max_height(300.0)
+                    .show(ui, |ui| {
+                        for g in &d.guides {
+                            ui.monospace(format!(
+                                "{} {} {} score {:.2} off:{}",
+                                String::from_utf8_lossy(&g.sequence),
+                                g.pam,
+                                if g.strand == domain::Strand::Top {
+                                    "+"
+                                } else {
+                                    "-"
+                                },
+                                g.score,
+                                g.off_targets
+                            ));
+                        }
+                    });
+                ui.horizontal(|ui| {
+                    if ui.button("Close").clicked() {
+                        keep = false;
+                    }
+                    if ui.button("Add as features").clicked() {
+                        appcore::actions::add_crispr_features(app, &d);
+                        keep = false;
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::Crispr(d));
+            }
+        }
+        Some(Dialog::Codon(mut d)) => {
+            window(ctx, "Codon Optimization", 480.0, |ui| {
+                ui.horizontal(|ui| {
+                    for (i, label) in ["E. coli", "Human"].iter().enumerate() {
+                        if ui.radio(d.host == i, *label).clicked() {
+                            d.host = i;
+                        }
+                    }
+                });
+                if ui.button("Optimize").clicked() {
+                    appcore::actions::run_codon(app, &mut d);
+                }
+                if let Some(e) = &d.error {
+                    ui.colored_label(egui::Color32::RED, e);
+                }
+                if d.result.is_some() {
+                    ui.label(format!(
+                        "CAI before {:.2} → after {:.2}",
+                        d.cai_before, d.cai_after
+                    ));
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("Close").clicked() {
+                        keep = false;
+                    }
+                    if ui.button("Create optimized product").clicked() {
+                        match appcore::actions::apply_codon(app, &d) {
+                            Ok(()) => keep = false,
+                            Err(e) => d.error = Some(e),
+                        }
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::Codon(d));
+            }
+        }
         None => {}
     }
     if close {

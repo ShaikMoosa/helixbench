@@ -222,6 +222,9 @@ pub enum Dialog {
     PrimerDesign(PrimerDesignDraft),
     Digest,
     Alignment(AlignmentDraft),
+    Assembly(AssemblyDraft),
+    Crispr(CrisprDraft),
+    Codon(CodonDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -266,6 +269,30 @@ pub struct AlignmentDraft {
     pub reference: usize,
     pub reindex: bool,
     pub result: Option<domain::align::Alignment>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct AssemblyDraft {
+    pub strategy: usize,
+    pub cut: String,
+    pub inserts: Vec<bool>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Default)]
+pub struct CrisprDraft {
+    pub limit: String,
+    pub guides: Vec<domain::crispr::Guide>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct CodonDraft {
+    pub host: usize,
+    pub result: Option<Vec<u8>>,
+    pub cai_before: f32,
+    pub cai_after: f32,
     pub error: Option<String>,
 }
 

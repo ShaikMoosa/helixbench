@@ -172,6 +172,12 @@ pub fn show(
         digest(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Alignment(_))) {
         alignment(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Assembly(_))) {
+        assembly(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Crispr(_))) {
+        crispr(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Codon(_))) {
+        codon(app, cx, max_h)
     } else {
         return None;
     };
@@ -2951,6 +2957,372 @@ fn alignment(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
         cx,
         "Sequence Alignment",
         700.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Assembly wizard
+// ---------------------------------------------------------------------------
+
+fn assembly(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Assembly(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Assembly Wizard",
+                520.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Join insert documents into the current vector (linearized at the cut site). Gibson trims homologous overlaps.",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    body = body.child(widgets::label("Strategy", theme::T_SM, theme::FAINT));
+    let mut strat = div().flex().gap(px(6.0));
+    for (i, label) in ["Digest & Ligate", "Gibson", "Golden Gate"]
+        .iter()
+        .enumerate()
+    {
+        let sel = draft.strategy == i;
+        strat = strat.child(
+            widgets::button(
+                SharedString::from(format!("as-strat-{i}")),
+                label,
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::Assembly(d)) = &mut t.app.dialog {
+                    d.strategy = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(strat);
+    let ci = app.input_entity(cx, "dlg:as:cut", &draft.cut, "1", true);
+    let cut = ci.read(cx).text();
+    if let Some(Dialog::Assembly(d)) = &mut app.app.dialog {
+        d.cut = cut;
+    }
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(field_label("Cut position"))
+            .child(input_field(ci, 90.0)),
+    );
+    body = body.child(widgets::label(
+        "Inserts (open documents)",
+        theme::T_SM,
+        theme::FAINT,
+    ));
+    if app.app.library.is_empty() {
+        body = body.child(widgets::label(
+            "Open a second document (e.g. PCR product) to use as an insert.",
+            theme::T_SM,
+            theme::FAINT,
+        ));
+    }
+    for (i, od) in app.app.library.iter().enumerate() {
+        let on = draft.inserts.get(i).copied().unwrap_or(false);
+        let name = od.doc.name.clone();
+        body = body.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .child(
+                    check_box(SharedString::from(format!("as-ins-{i}")), on).on_click(cx.listener(
+                        move |t, _, _, cx| {
+                            if let Some(Dialog::Assembly(d)) = &mut t.app.dialog {
+                                if let Some(b) = d.inserts.get_mut(i) {
+                                    *b = !*b;
+                                }
+                            }
+                            cx.notify();
+                        },
+                    )),
+                )
+                .child(widgets::label(&name, theme::T_SM, theme::TEXT)),
+        );
+    }
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("as-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("as-go", "Assemble", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::Assembly(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::create_assembly(&mut t.app, &d) {
+                    Ok(()) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::Assembly(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Assembly Wizard",
+        520.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// CRISPR guides
+// ---------------------------------------------------------------------------
+
+fn crispr(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Crispr(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "CRISPR Guides",
+                620.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let li = app.input_entity(cx, "dlg:cr:limit", &draft.limit, "20", true);
+    let limit = li.read(cx).text();
+    if let Some(Dialog::Crispr(d)) = &mut app.app.dialog {
+        d.limit = limit;
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Scan both strands for NGG PAMs; guides ranked by on-target score with off-target counts.",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(field_label("Max guides"))
+            .child(input_field(li, 70.0))
+            .child(
+                widgets::button("cr-scan", "Scan", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        let mut d = match &t.app.dialog {
+                            Some(Dialog::Crispr(d)) => d.clone(),
+                            _ => return,
+                        };
+                        act::run_crispr(&mut t.app, &mut d);
+                        t.app.dialog = Some(Dialog::Crispr(d));
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let mut list = div().flex().flex_col().gap(px(3.0));
+    for (i, g) in draft.guides.iter().enumerate() {
+        let seq = String::from_utf8_lossy(&g.sequence).into_owned();
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .p(px(6.0))
+                .rounded(px(5.0))
+                .bg(if i % 2 == 0 {
+                    theme::SURFACE
+                } else {
+                    theme::PANEL
+                })
+                .child(
+                    div()
+                        .w(px(24.0))
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::FAINT)
+                        .child(format!("{}", i + 1)),
+                )
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_XS))
+                        .font_family(theme::MONO_FONT)
+                        .text_color(theme::TEXT)
+                        .child(seq),
+                )
+                .child(widgets::label(&g.pam, theme::T_XS, theme::MUTED))
+                .child(widgets::label(
+                    if g.strand == Strand::Top { "+" } else { "-" },
+                    theme::T_XS,
+                    theme::MUTED,
+                ))
+                .child(widgets::label(
+                    &format!("{:.2}", g.score),
+                    theme::T_XS,
+                    theme::ACCENT,
+                ))
+                .child(widgets::label(
+                    &format!("off:{}", g.off_targets),
+                    theme::T_XS,
+                    theme::FAINT,
+                )),
+        );
+    }
+    body = body.child(list);
+    let footer = footer_row(vec![
+        widgets::button("cr-close", "Close", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("cr-add", "Add as features", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::Crispr(d)) => d.clone(),
+                    _ => return,
+                };
+                act::add_crispr_features(&mut t.app, &d);
+                close_dialog(t, cx);
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "CRISPR Guides",
+        680.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Codon optimization
+// ---------------------------------------------------------------------------
+
+fn codon(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Codon(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Codon Optimization",
+                520.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Re-encode the current sequence with host-preferred codons, preserving the protein.",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    let mut hosts = div().flex().gap(px(6.0));
+    for (i, label) in ["E. coli", "Human"].iter().enumerate() {
+        let sel = draft.host == i;
+        hosts = hosts.child(
+            widgets::button(
+                SharedString::from(format!("cd-host-{i}")),
+                label,
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::Codon(d)) = &mut t.app.dialog {
+                    d.host = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(hosts);
+    body = body.child(
+        widgets::button("cd-run", "Optimize", Btn::Outline).on_click(cx.listener(|t, _, _, cx| {
+            let mut d = match &t.app.dialog {
+                Some(Dialog::Codon(d)) => d.clone(),
+                _ => return,
+            };
+            act::run_codon(&mut t.app, &mut d);
+            t.app.dialog = Some(Dialog::Codon(d));
+            cx.notify();
+        })),
+    );
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    if draft.result.is_some() {
+        body = body.child(widgets::label(
+            &format!(
+                "CAI before {:.2} → after {:.2}",
+                draft.cai_before, draft.cai_after
+            ),
+            theme::T_SM,
+            theme::TEXT,
+        ));
+    }
+    let footer = footer_row(vec![
+        widgets::button("cd-close", "Close", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("cd-apply", "Create optimized product", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::Codon(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::apply_codon(&mut t.app, &d) {
+                    Ok(()) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::Codon(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Codon Optimization",
+        520.0,
         max_h,
         true,
         body.into_any_element(),

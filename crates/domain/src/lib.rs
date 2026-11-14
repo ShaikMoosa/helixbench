@@ -1,7 +1,10 @@
 //! HelixBench domain: pure molecular-biology logic with no UI, OS, or network dependencies.
 
 pub mod align;
+pub mod assembly;
+pub mod codon;
 pub mod common_features;
+pub mod crispr;
 pub mod demo;
 pub mod digest;
 pub mod document;

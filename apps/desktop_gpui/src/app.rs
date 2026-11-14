@@ -217,6 +217,9 @@ impl HelixBench {
             Some(Dialog::PrimerDesign(_)) => "pdesign".into(),
             Some(Dialog::Digest) => "digest".into(),
             Some(Dialog::Alignment(_)) => "alignment".into(),
+            Some(Dialog::Assembly(_)) => "assembly".into(),
+            Some(Dialog::Crispr(_)) => "crispr".into(),
+            Some(Dialog::Codon(_)) => "codon".into(),
         }
     }
 
@@ -721,6 +724,33 @@ impl HelixBench {
                         .on_click(cx.listener(|t, _, _, cx| {
                             t.menu = None;
                             act::open_alignment(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-assembly", "Assembly Wizard…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_assembly(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-crispr", "CRISPR Guides…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_crispr(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-codon", "Codon Optimization…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_codon(&mut t.app);
                             cx.notify();
                         }))
                         .into_any_element(),
