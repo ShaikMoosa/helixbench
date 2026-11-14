@@ -6,7 +6,15 @@
 
 <p align="center">
   A local-first DNA &amp; plasmid workbench for Windows, written in pure Rust.<br />
-  Restriction mapping, features, primers, ORFs and 6-frame translation — native, offline, no account.
+  Restriction mapping, features, primers, ORFs, 6-frame translation, cloning &amp; analysis tools —
+  native, offline, no account.
+</p>
+
+<p align="center">
+  <a href="https://github.com/ShaikMoosa/helixbench/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ShaikMoosa/helixbench?color=0e9aa8"></a>
+  <img alt="Pure Rust" src="https://img.shields.io/badge/pure-Rust-0e9aa8">
+  <img alt="Offline / local-first" src="https://img.shields.io/badge/offline-local--first-0e9aa8">
+  <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-0e9aa8">
 </p>
 
 ---
@@ -14,8 +22,9 @@
 HelixBench is a desktop sequence editor in the spirit of classic plasmid tools: open a sequence,
 see it annotated on a circular map and as a double-stranded sequence view, cut it with restriction
 enzymes, design primers, translate open reading frames, and search DNA or protein — all without
-leaving your machine. Documents are plain files on disk; saves are atomic and versioned. There is
-no cloud, no telemetry, and no sign-in.
+leaving your machine. On top of the editor it ships a full molecular-biology toolset (PCR, cloning,
+CRISPR, codon optimization, alignment, BLAST) and an offline lab-materials registry. Documents are
+plain files on disk; saves are atomic and versioned. There is no cloud, no telemetry, and no sign-in.
 
 ## Preview
 
@@ -35,36 +44,74 @@ Two native shells share one framework-agnostic core:
 Both dispatch the same typed commands from `appcore` over the same `domain` + `storage` crates, so
 behavior and file formats are identical across shells.
 
+## Install
+
+Download the latest installer or portable build from
+[**Releases**](https://github.com/ShaikMoosa/helixbench/releases/latest):
+
+- `HelixBench-Setup-<version>.exe` — per-user Windows installer (Start Menu + optional desktop
+  shortcut, Add/Remove Programs entry + uninstaller). No admin required.
+- `helixbench_gpui.exe` — portable standalone build; run directly, no install.
+
+Or build from source (below).
+
 ## Features
 
-- **Circular map** — features, enzyme cut sites, primers and ORFs drawn on a plasmid map with a
-  ruler, zoom window and topology (linear / circular).
+### Editor
+- **Circular map** — features, enzyme cut sites, primers and ORFs on a plasmid map with ruler,
+  zoom window, minimap and topology (linear / circular).
 - **Sequence view** — annotated double-stranded rows with complement strand, per-base colors,
   selection, zoom + minimap, and inline translations.
 - **Restriction analysis** — curated enzyme database, enzyme sets, cut-site filters (cutters,
-  methylation-sensitive, unique / double / non-cutters), and per-enzyme cut positions.
+  methylation-sensitive, unique / double / non-cutters), per-enzyme cut positions.
 - **Features** — create / edit / delete annotations, translated CDS products, segments, and
   one-click **Detect Common Features** (promoters, terminators, origins, markers, …).
-- **Primers** — design and list primers with length, GC%, melting temperature (Tm) and direction;
-  phosphorylation flag.
+- **Primers** — list primers with length, GC%, melting temperature (Tm), direction, phosphorylation.
 - **Translation & ORFs** — 6-frame translation, ORF detection with a minimum-length threshold, and
   **7 genetic codes** (Standard, Vertebrate / Yeast / Mold / Invertebrate Mitochondrial,
   Ciliate, Bacterial / Plastid).
 - **Search** — DNA, protein or feature-name search with IUPAC ambiguity codes, match navigation and
   on-sequence highlighting.
 - **Sequence colors** — None, History (edit provenance) or Custom DNA color regions.
-- **History** — full undo / redo with an audit list; history coloring shows what changed.
-- **Six views** — Map, Sequence, Features, Primers, Enzymes, History.
+- **History & versions** — full undo / redo with an audit list, plus persistent named version
+  snapshots you can restore.
+- **Multi-document** — open several documents (and PCR/assembly products) as tabs.
+
+### Molecular tools (Tools menu)
+- **In-silico PCR** — amplify between a primer pair; preview amplicon (bp, coords, Tm); create the
+  product as a new document with optional feature copy.
+- **Primer design** — parameter-driven forward/reverse candidates scored by Tm, GC% and 3′ GC-clamp,
+  with optional 5′ overhangs; add the chosen pair.
+- **Virtual digest & gel** — fragment sizes for the selected enzymes plus an agarose-gel simulation
+  (ladder + digest lanes, log-scale migration).
+- **Sequence alignment** — Needleman–Wunsch / Smith–Waterman and center-star multiple alignment with
+  a consensus row, identity %, and circular auto-reindex.
+- **Assembly wizard** — Digest & Ligate, Gibson (overlap trimming) and Golden Gate; join inserts into
+  a linearized vector with junction reporting.
+- **Combinatorial assembly** — generate constructs for every ordering of the open inserts (capped).
+- **CRISPR guides** — NGG PAM scan on both strands, ranked 20 nt guides with on-target score and
+  off-target counts; add as features.
+- **Codon optimization** — host-aware (E. coli / Human) protein-preserving re-encode with CAI
+  before/after.
+- **Local BLAST** — seed-and-extend similarity search of the current sequence against the other open
+  documents.
+
+### Local registry
+- Offline catalog of **plasmids, strains and primers** (strain fields follow the Benchling strain
+  template: organism, host/parent strain, resistance, plasmids, medium, genotype, status, …).
+- Add / edit / delete entries, **link** an entry to the active document and **open** the linked doc.
+- Persisted to a versioned, atomic `registry.json` in the config dir. No multi-user / sync.
 
 ## File formats
 
 | Direction | Formats |
 | --- | --- |
 | Open / import | `.hbx` (native), GenBank (`.gb` `.gbk` `.genbank` `.gp`), FASTA (`.fa` `.fasta` `.fna` `.faa`), raw sequence text |
-| Save | `.hbx` — versioned JSON, written atomically (temp file + rename) |
+| Save | `.hbx` — versioned JSON, written atomically (temp file + rename); includes version snapshots |
 | Export | FASTA, GenBank, plain text |
+| Registry | `registry.json` — versioned, atomic, in the config dir |
 
-## Getting started
+## Getting started (build from source)
 
 Requirements: **Windows 10/11 (x64)** and a **Rust stable toolchain (MSVC)** with the Visual Studio
 C++ build tools. No Node.js, no webview, no runtime downloads.
@@ -95,18 +142,20 @@ is populated and explorable immediately.
 | `Ctrl+F` | Find (DNA / protein / name) |
 | `Ctrl+A` / `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Select all / copy / cut / paste |
 
-Zoom is enabled via **View → Zoom controls** (or the sidebar / Options toggle), then driven by the
-zoom bar (`+`, `−`, Fit, center-on-selection) and the draggable minimap in the Sequence view.
+Zoom is enabled via **View → Zoom controls**, then driven by the zoom bar (`+`, `−`, Fit,
+center-on-selection) and the draggable minimap in the Sequence view.
 
 ## Architecture
 
 ```
 helixbench/
 ├── crates/
-│   ├── domain/      # pure entities & algorithms: sequence, codes, translation, ORFs,
-│   │                # enzymes, features, primers, search. No UI / OS / network deps.
-│   ├── storage/     # versioned .hbx persistence, FASTA / GenBank IO, atomic writes, config
-│   └── appcore/     # framework-agnostic AppState + typed commands (actions), undo/redo
+│   ├── domain/      # pure entities & algorithms: sequence, codes, translation, ORFs, enzymes,
+│   │                # features, primers, search, pcr, primer_design, digest, align, assembly,
+│   │                # crispr, codon, blast, registry. No UI / OS / network deps.
+│   ├── storage/     # versioned .hbx persistence, FASTA / GenBank IO, atomic writes, config,
+│   │                # registry persistence
+│   └── appcore/     # framework-agnostic AppState + typed commands (actions), undo/redo, versions
 └── apps/
     ├── desktop_gpui/  # GPUI shell: views, dialogs, theme, icons (primary)
     └── desktop/       # egui/eframe shell (fallback)
@@ -125,6 +174,9 @@ double-stranded sequence panel (right), with description / properties / legend c
 icon rail switches views and actions; monochrome stroke icons, nested radii (8/6/4) and a 4px grid
 keep the chrome quiet so the sequence stays the focus.
 
+The matching Figma design system (tokens, components, screens, dialogs) is authored by
+`design/figma-plugin/` (a Figma Plugin API script).
+
 ## Development
 
 ```bash
@@ -134,8 +186,12 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo build --workspace --all-targets --all-features
 ```
 
-The domain, storage and appcore crates are covered by unit tests (translation, ORFs, enzyme
-cutting, search, `.hbx` round-trips, atomic-write behavior).
+The domain, storage and appcore crates are covered by ~90 unit tests (translation, ORFs, enzyme
+cutting, search, PCR, primer design, digest, alignment, assembly, CRISPR, codon/CAI, BLAST, registry,
+`.hbx`/registry round-trips, atomic-write behavior).
+
+The improvement roadmap derived from the Benchling training resources lives in
+[`docs/PRODUCT_IMPROVEMENTS.md`](docs/PRODUCT_IMPROVEMENTS.md).
 
 ## License
 
