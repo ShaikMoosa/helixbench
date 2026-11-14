@@ -68,7 +68,7 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "appcore"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "domain",
  "rfd",
@@ -1288,7 +1288,7 @@ dependencies = [
 
 [[package]]
 name = "desktop_gpui"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "appcore",
  "domain",
@@ -1400,7 +1400,7 @@ dependencies = [
 
 [[package]]
 name = "domain"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -5070,7 +5070,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "storage"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "domain",
  "serde",
