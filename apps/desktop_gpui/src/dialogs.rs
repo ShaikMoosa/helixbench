@@ -170,6 +170,8 @@ pub fn show(
         primer_design(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Digest)) {
         digest(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Alignment(_))) {
+        alignment(app, cx, max_h)
     } else {
         return None;
     };
@@ -2750,6 +2752,205 @@ fn digest(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> 
         cx,
         "Virtual Digest & Gel",
         520.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Sequence alignment
+// ---------------------------------------------------------------------------
+
+fn alignment(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Alignment(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Sequence Alignment",
+                640.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let mut names = vec![app.app.doc.name.clone()];
+    for od in &app.app.library {
+        names.push(od.doc.name.clone());
+    }
+
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Center-star alignment of the open documents against a reference, with a consensus row. Circular sequences can be auto-reindexed.",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    body = body.child(widgets::label("Reference", theme::T_SM, theme::FAINT));
+    let mut refs = div().flex().flex_col().gap(px(4.0));
+    for (i, n) in names.iter().enumerate() {
+        let selected = i == draft.reference;
+        refs = refs.child(
+            div()
+                .id(SharedString::from(format!("al-ref-{i}")))
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .p(px(6.0))
+                .rounded(px(5.0))
+                .cursor_pointer()
+                .bg(if selected {
+                    theme::SURFACE_2
+                } else {
+                    theme::SURFACE
+                })
+                .border_1()
+                .border_color(if selected {
+                    theme::ACCENT
+                } else {
+                    theme::BORDER
+                })
+                .child(check_box(
+                    SharedString::from(format!("al-refc-{i}")),
+                    selected,
+                ))
+                .child(widgets::label(n, theme::T_SM, theme::TEXT))
+                .on_click(cx.listener(move |t, _, _, cx| {
+                    if let Some(Dialog::Alignment(d)) = &mut t.app.dialog {
+                        d.reference = i;
+                    }
+                    cx.notify();
+                })),
+        );
+    }
+    body = body.child(refs);
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(
+                check_box("al-reindex", draft.reindex).on_click(cx.listener(|t, _, _, cx| {
+                    if let Some(Dialog::Alignment(d)) = &mut t.app.dialog {
+                        d.reindex = !d.reindex;
+                    }
+                    cx.notify();
+                })),
+            )
+            .child(widgets::label(
+                "Auto-reindex circular sequences",
+                theme::T_SM,
+                theme::MUTED,
+            )),
+    );
+    body = body.child(
+        widgets::button("al-run", "Align", Btn::Outline).on_click(cx.listener(|t, _, _, cx| {
+            let mut d = match &t.app.dialog {
+                Some(Dialog::Alignment(d)) => d.clone(),
+                _ => return,
+            };
+            act::run_alignment(&mut t.app, &mut d);
+            t.app.dialog = Some(Dialog::Alignment(d));
+            cx.notify();
+        })),
+    );
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    if let Some(al) = &draft.result {
+        body = body.child(widgets::label(
+            &format!(
+                "{} columns · identity {:.1}%",
+                al.consensus.len(),
+                al.identity
+            ),
+            theme::T_SM,
+            theme::TEXT,
+        ));
+        let block = 60usize;
+        let cols = al.consensus.len();
+        let mut start = 0usize;
+        let mut blocks = 0usize;
+        while start < cols && blocks < 12 {
+            let end = (start + block).min(cols);
+            let mut grid = div()
+                .flex()
+                .flex_col()
+                .gap(px(2.0))
+                .p(px(6.0))
+                .rounded(px(5.0))
+                .bg(theme::SURFACE);
+            for (i, row) in al.rows.iter().enumerate() {
+                let label = names
+                    .get(i)
+                    .cloned()
+                    .unwrap_or_else(|| format!("seq{}", i + 1));
+                let seg = String::from_utf8_lossy(&row[start..end]).into_owned();
+                grid = grid.child(
+                    div()
+                        .flex()
+                        .gap(px(8.0))
+                        .child(
+                            div()
+                                .w(px(90.0))
+                                .text_size(px(theme::T_XS))
+                                .text_color(theme::FAINT)
+                                .child(label),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(theme::T_XS))
+                                .font_family(theme::MONO_FONT)
+                                .text_color(theme::TEXT)
+                                .child(seg),
+                        ),
+                );
+            }
+            let cseg = String::from_utf8_lossy(&al.consensus[start..end]).into_owned();
+            grid = grid.child(
+                div()
+                    .flex()
+                    .gap(px(8.0))
+                    .child(
+                        div()
+                            .w(px(90.0))
+                            .text_size(px(theme::T_XS))
+                            .text_color(theme::ACCENT)
+                            .child("Consensus"),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(theme::T_XS))
+                            .font_family(theme::MONO_FONT)
+                            .text_color(theme::ACCENT)
+                            .child(cseg),
+                    ),
+            );
+            body = body.child(grid);
+            start = end;
+            blocks += 1;
+        }
+        if start < cols {
+            body = body.child(widgets::label(
+                &format!("… {} more columns", cols - start),
+                theme::T_XS,
+                theme::FAINT,
+            ));
+        }
+    }
+
+    let footer = footer_row(vec![widgets::button("al-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Sequence Alignment",
+        700.0,
         max_h,
         true,
         body.into_any_element(),

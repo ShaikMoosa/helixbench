@@ -216,6 +216,7 @@ impl HelixBench {
             Some(Dialog::Pcr(_)) => "pcr".into(),
             Some(Dialog::PrimerDesign(_)) => "pdesign".into(),
             Some(Dialog::Digest) => "digest".into(),
+            Some(Dialog::Alignment(_)) => "alignment".into(),
         }
     }
 
@@ -711,6 +712,15 @@ impl HelixBench {
                         .on_click(cx.listener(|t, _, _, cx| {
                             t.menu = None;
                             act::open_digest(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-align", "Sequence Alignment…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_alignment(&mut t.app);
                             cx.notify();
                         }))
                         .into_any_element(),

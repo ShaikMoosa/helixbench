@@ -28,6 +28,14 @@ pub struct ColorRegion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Version {
+    pub label: String,
+    /// Unix seconds when the snapshot was taken.
+    pub created: u64,
+    pub doc: Document,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Document {
     pub name: String,
     pub description: String,
@@ -38,6 +46,9 @@ pub struct Document {
     pub color_regions: Vec<ColorRegion>,
     /// NCBI genetic code id used for ORFs and features without an override.
     pub default_genetic_code: u8,
+    /// Saved snapshots (newest last); each snapshot's own `versions` is empty.
+    #[serde(default)]
+    pub versions: Vec<Version>,
     next_id: u64,
 }
 
@@ -52,6 +63,7 @@ impl Document {
             chosen_enzymes: Vec::new(),
             color_regions: Vec::new(),
             default_genetic_code: 1,
+            versions: Vec::new(),
             next_id: 1,
         }
     }
@@ -64,6 +76,34 @@ impl Document {
         let id = self.next_id;
         self.next_id += 1;
         id
+    }
+
+    /// Snapshot the current state as a named version (newest last, capped at 20).
+    pub fn save_version(&mut self, label: String, created: u64) {
+        let mut doc = self.clone();
+        doc.versions = Vec::new();
+        self.versions.push(Version {
+            label,
+            created,
+            doc,
+        });
+        if self.versions.len() > 20 {
+            self.versions.remove(0);
+        }
+    }
+
+    /// Restore a snapshot by index, preserving the version list and id counter.
+    pub fn restore_version(&mut self, idx: usize) -> bool {
+        let Some(v) = self.versions.get(idx) else {
+            return false;
+        };
+        let snap = v.doc.clone();
+        let versions = std::mem::take(&mut self.versions);
+        let next = self.next_id;
+        *self = snap;
+        self.versions = versions;
+        self.next_id = next.max(self.next_id);
+        true
     }
 
     pub fn add_feature(&mut self, mut feature: Feature) -> u64 {
@@ -355,5 +395,20 @@ mod tests {
         d.replace_range(Range::new(4, 4), b"TT");
         assert_eq!(d.sequence.bases, b"AAAATTGGGGTTTT".to_vec());
         assert_eq!(d.features[0].segments[0], Range::new(4, 6));
+    }
+
+    #[test]
+    fn version_snapshot_and_restore() {
+        let mut d = doc_with_feature();
+        let original = d.sequence.bases.clone();
+        d.save_version("before edit".into(), 1);
+        d.replace_range(Range::new(0, 4), b"CCCC");
+        assert_ne!(d.sequence.bases, original);
+        assert_eq!(d.versions.len(), 1);
+        assert!(d.versions[0].doc.versions.is_empty());
+        assert!(d.restore_version(0));
+        assert_eq!(d.sequence.bases, original);
+        assert_eq!(d.versions.len(), 1); // list preserved
+        assert!(!d.restore_version(9));
     }
 }

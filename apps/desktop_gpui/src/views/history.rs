@@ -1,8 +1,12 @@
 //! History view: the operation log with history colors and revert. Newest first,
 //! a "current state" marker on top; click to highlight, double-click to revert.
 
-use gpui::{div, prelude::*, px, uniform_list, AnyElement, Context, Entity, MouseButton, Window};
+use gpui::{
+    div, prelude::*, px, uniform_list, AnyElement, Context, Entity, MouseButton, SharedString,
+    Window,
+};
 
+use appcore::actions as act;
 use appcore::state::ColorsMode;
 
 use crate::app::HelixBench;
@@ -80,6 +84,77 @@ impl HelixBench {
             theme::FAINT,
         )));
 
+        // Saved version snapshots (persistent, restorable).
+        let mut vpanel = div()
+            .flex()
+            .flex_col()
+            .gap(px(4.0))
+            .px(px(12.0))
+            .py(px(8.0))
+            .bg(theme::PANEL)
+            .border_b_1()
+            .border_color(theme::BORDER);
+        vpanel = vpanel.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .child(widgets::label("Versions", theme::T_SM, theme::FAINT))
+                .child(
+                    widgets::button("hist-savever", "Save version", Btn::Outline).on_click(
+                        cx.listener(|t, _, _, cx| {
+                            act::save_version(&mut t.app, "");
+                            cx.notify();
+                        }),
+                    ),
+                ),
+        );
+        let mut vlist = div()
+            .id("hist-versions")
+            .flex()
+            .flex_col()
+            .gap(px(3.0))
+            .max_h(px(140.0))
+            .overflow_y_scroll();
+        if self.app.doc.versions.is_empty() {
+            vlist = vlist.child(widgets::label(
+                "No saved versions yet. Save a snapshot to restore it later.",
+                theme::T_XS,
+                theme::FAINT,
+            ));
+        }
+        for (i, v) in self.app.doc.versions.iter().enumerate().rev() {
+            let label = v.label.clone();
+            vlist = vlist.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(8.0))
+                    .p(px(6.0))
+                    .rounded(px(5.0))
+                    .bg(theme::SURFACE)
+                    .child(
+                        div()
+                            .flex_grow()
+                            .text_size(px(theme::T_SM))
+                            .text_color(theme::TEXT)
+                            .child(label),
+                    )
+                    .child(
+                        widgets::button(
+                            SharedString::from(format!("hist-restore-{i}")),
+                            "Restore",
+                            Btn::Subtle,
+                        )
+                        .on_click(cx.listener(move |t, _, _, cx| {
+                            act::restore_version(&mut t.app, i);
+                            cx.notify();
+                        })),
+                    ),
+            );
+        }
+        vpanel = vpanel.child(vlist);
+
         if self.app.history.is_empty() {
             let empty = div()
                 .size_full()
@@ -113,6 +188,7 @@ impl HelixBench {
                 .flex_col()
                 .bg(theme::BG)
                 .child(toolbar)
+                .child(vpanel)
                 .child(div().flex_1().min_h(px(0.0)).child(empty))
                 .into_any_element();
         }
@@ -302,6 +378,7 @@ impl HelixBench {
             .flex_col()
             .bg(theme::BG)
             .child(toolbar)
+            .child(vpanel)
             .child(div().flex_1().min_h(px(0.0)).overflow_hidden().child(body))
             .into_any_element()
     }

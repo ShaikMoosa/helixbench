@@ -397,6 +397,53 @@ pub fn show(app: &mut AppState, ctx: &egui::Context) {
                 app.dialog = Some(Dialog::Digest);
             }
         }
+        Some(Dialog::Alignment(mut d)) => {
+            window(ctx, "Sequence Alignment", 640.0, |ui| {
+                ui.label("Reference document:");
+                let mut names = vec![app.doc.name.clone()];
+                for od in &app.library {
+                    names.push(od.doc.name.clone());
+                }
+                for (i, n) in names.iter().enumerate() {
+                    if ui.radio(d.reference == i, n).clicked() {
+                        d.reference = i;
+                    }
+                }
+                ui.checkbox(&mut d.reindex, "Auto-reindex circular sequences");
+                if ui.button("Align").clicked() {
+                    appcore::actions::run_alignment(app, &mut d);
+                }
+                if let Some(e) = &d.error {
+                    ui.colored_label(egui::Color32::RED, e);
+                }
+                if let Some(al) = &d.result {
+                    ui.label(format!(
+                        "{} columns · identity {:.1}%",
+                        al.consensus.len(),
+                        al.identity
+                    ));
+                    egui::ScrollArea::both().max_height(300.0).show(ui, |ui| {
+                        for (i, row) in al.rows.iter().enumerate() {
+                            ui.monospace(format!(
+                                "{}: {}",
+                                names.get(i).cloned().unwrap_or_default(),
+                                String::from_utf8_lossy(row)
+                            ));
+                        }
+                        ui.monospace(format!(
+                            "Consensus: {}",
+                            String::from_utf8_lossy(&al.consensus)
+                        ));
+                    });
+                }
+                if ui.button("Close").clicked() {
+                    keep = false;
+                }
+            });
+            if keep {
+                app.dialog = Some(Dialog::Alignment(d));
+            }
+        }
         None => {}
     }
     if close {

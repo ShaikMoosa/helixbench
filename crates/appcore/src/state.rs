@@ -221,6 +221,7 @@ pub enum Dialog {
     Pcr(PcrDraft),
     PrimerDesign(PrimerDesignDraft),
     Digest,
+    Alignment(AlignmentDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -256,6 +257,15 @@ pub struct PrimerDesignDraft {
     pub rev: Vec<domain::primer_design::Candidate>,
     pub fwd_pick: usize,
     pub rev_pick: usize,
+    pub error: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct AlignmentDraft {
+    /// Index into `AppState::library` used as the reference.
+    pub reference: usize,
+    pub reindex: bool,
+    pub result: Option<domain::align::Alignment>,
     pub error: Option<String>,
 }
 

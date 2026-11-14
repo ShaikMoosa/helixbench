@@ -9,8 +9,8 @@ use domain::sequence::{clean_sequence, reverse_complement};
 use domain::{ColorRegion, Document, Range, Topology};
 
 use crate::state::{
-    AppState, ColorDraft, ColorsMode, Dialog, FeatureDraft, NewSeqState, OpenDoc, PcrDraft,
-    PendingAction, PrimerDesignDraft, PrimerDraft,
+    AlignmentDraft, AppState, ColorDraft, ColorsMode, Dialog, FeatureDraft, NewSeqState, OpenDoc,
+    PcrDraft, PendingAction, PrimerDesignDraft, PrimerDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -827,4 +827,62 @@ pub fn digest_fragments(app: &AppState) -> Vec<domain::digest::Fragment> {
         app.doc.sequence.len(),
         app.doc.sequence.is_circular(),
     )
+}
+
+// --- Alignment + version history -------------------------------------------
+
+pub fn open_alignment(app: &mut AppState) {
+    app.dialog = Some(Dialog::Alignment(AlignmentDraft {
+        reference: if app.library.is_empty() { 0 } else { 1 },
+        reindex: true,
+        result: None,
+        error: None,
+    }));
+}
+
+pub fn run_alignment(app: &mut AppState, draft: &mut AlignmentDraft) {
+    let mut seqs = vec![app.doc.sequence.clone()];
+    for od in &app.library {
+        seqs.push(od.doc.sequence.clone());
+    }
+    if seqs.len() < 2 {
+        draft.error = Some("Open a second document (e.g. a PCR product) to align against.".into());
+        draft.result = None;
+        return;
+    }
+    let ref_idx = draft.reference.min(seqs.len() - 1);
+    draft.result = Some(domain::align::align_many(&seqs, ref_idx, draft.reindex));
+    draft.error = None;
+}
+
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+pub fn save_version(app: &mut AppState, label: &str) {
+    let label = if label.trim().is_empty() {
+        format!("Version {}", app.doc.versions.len() + 1)
+    } else {
+        label.trim().to_string()
+    };
+    app.doc.save_version(label.clone(), unix_now());
+    app.dirty = true;
+    app.toast(format!("Saved version \"{label}\""));
+}
+
+pub fn restore_version(app: &mut AppState, idx: usize) {
+    if app.doc.restore_version(idx) {
+        app.history.clear();
+        app.future.clear();
+        app.selection = None;
+        app.selected_feature = None;
+        app.zoom_start = 0;
+        app.zoom_width = app.doc.sequence.len().max(1);
+        app.analysis_dirty = true;
+        app.dirty = true;
+        app.toast("Version restored");
+    }
 }
