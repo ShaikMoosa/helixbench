@@ -252,6 +252,78 @@ impl MapDraw {
             hits,
         }
     }
+
+    /// Read-only snapshot of a document for the Split Workspace compare panes.
+    pub fn build_compare(doc: &domain::Document, prefs: &storage::config::UiPrefs) -> Self {
+        let analysis = appcore::analysis::compute(doc, prefs);
+        let l = doc.sequence.len();
+        let features = doc
+            .features
+            .iter()
+            .filter(|f| f.visible && !f.segments.is_empty())
+            .map(|f| FeatDraw {
+                name: f.name.clone(),
+                color: theme::pastel(f.color),
+                dir: f.direction,
+                span: f.span(l),
+                multi: f.segments.len() > 1,
+                selected: false,
+            })
+            .collect();
+        let primers = doc
+            .primers
+            .iter()
+            .filter(|p| p.visible)
+            .map(|p| PrimerDraw {
+                name: p.name.clone(),
+                color: theme::rgb_arr(p.color),
+                seq_len: p.sequence.len(),
+                sites: analysis
+                    .primer_sites
+                    .get(&p.id)
+                    .map(|s| {
+                        s.iter()
+                            .map(|b| (b.start, b.len, b.strand == Strand::Top))
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+            })
+            .collect();
+        let mut enzymes = Vec::new();
+        for (e, sites) in &analysis.chosen {
+            for s in sites {
+                enzymes.push(EnzDraw {
+                    name: e.name.clone(),
+                    position: s.position,
+                });
+            }
+        }
+        MapDraw {
+            l,
+            circular: doc.sequence.topology == domain::Topology::Circular,
+            name: doc.name.clone(),
+            gc: doc.sequence.gc_content(),
+            selection: None,
+            show_orfs: prefs.show_orfs,
+            show_enzymes: prefs.show_enzymes,
+            show_primers: prefs.show_primers,
+            show_zoom: false,
+            zoom_start: 0,
+            zoom_width: l.max(1),
+            orfs: analysis
+                .orfs
+                .iter()
+                .map(|o| (o.start, o.len, o.strand == Strand::Top))
+                .collect(),
+            enzymes,
+            primers,
+            features,
+            regions: Vec::new(),
+            hits: Vec::new(),
+            hit_current: 0,
+            has_hits: false,
+        }
+    }
 }
 
 pub fn paint(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {

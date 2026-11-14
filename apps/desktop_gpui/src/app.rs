@@ -1568,28 +1568,35 @@ impl HelixBench {
         // clears itself, so unrelated repaints never spawn extra timers.
         if self.toast_armed != Some(when) {
             self.toast_armed = Some(when);
-            cx.spawn(async move |this, cx| loop {
+            cx.spawn(async move |this, cx| {
+                // Idle while fully visible: repainting every 50ms here caused
+                // continuous re-layout that swallowed mouse clicks elsewhere.
                 cx.background_executor()
-                    .timer(std::time::Duration::from_millis(50))
+                    .timer(std::time::Duration::from_millis(3000))
                     .await;
-                let cont = this
-                    .update(cx, |this, cx| match &this.app.toast {
-                        Some((_, w)) if *w == when => {
-                            if w.elapsed().as_secs_f32() > 3.5 {
-                                this.app.toast = None;
-                                this.toast_armed = None;
+                loop {
+                    cx.background_executor()
+                        .timer(std::time::Duration::from_millis(50))
+                        .await;
+                    let cont = this
+                        .update(cx, |this, cx| match &this.app.toast {
+                            Some((_, w)) if *w == when => {
+                                if w.elapsed().as_secs_f32() > 3.5 {
+                                    this.app.toast = None;
+                                    this.toast_armed = None;
+                                }
+                                cx.notify();
+                                this.app.toast.is_some()
                             }
-                            cx.notify();
-                            this.app.toast.is_some()
-                        }
-                        _ => {
-                            this.toast_armed = None;
-                            false
-                        }
-                    })
-                    .unwrap_or(false);
-                if !cont {
-                    break;
+                            _ => {
+                                this.toast_armed = None;
+                                false
+                            }
+                        })
+                        .unwrap_or(false);
+                    if !cont {
+                        break;
+                    }
                 }
             })
             .detach();
@@ -1637,6 +1644,7 @@ impl HelixBench {
             View::Workflows => crate::lab::render_workflows(self, cx),
             View::Insights => crate::lab::render_insights(self, cx),
             View::Automation => crate::lab::render_automation(self, cx),
+            View::Split => crate::lab::render_split(self, cx),
         }
     }
 

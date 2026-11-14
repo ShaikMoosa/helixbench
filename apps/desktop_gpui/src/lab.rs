@@ -10,6 +10,7 @@ use appcore::state::{Dialog, View};
 use crate::app::HelixBench;
 use crate::draw::{self, PxVal};
 use crate::theme;
+use crate::views::map::{paint as paint_map, MapDraw};
 use crate::widgets::{self, Btn};
 
 fn page(title: &str, subtitle: &str) -> gpui::Div {
@@ -772,5 +773,111 @@ pub fn render_automation(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> 
         }
     }
     p = p.child(body);
+    p.into_any_element()
+}
+
+fn split_pane(d: MapDraw, name: String, subtitle: String) -> gpui::Div {
+    div()
+        .flex()
+        .flex_col()
+        .flex_1()
+        .min_w(px(0.0))
+        .h_full()
+        .rounded(px(8.0))
+        .bg(theme::PANEL)
+        .border_1()
+        .border_color(theme::BORDER)
+        .overflow_hidden()
+        .child(
+            div()
+                .px(px(10.0))
+                .py(px(6.0))
+                .border_b_1()
+                .border_color(theme::BORDER)
+                .flex()
+                .items_center()
+                .justify_between()
+                .child(
+                    div()
+                        .text_size(px(theme::T_SM))
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_color(theme::TEXT)
+                        .child(name),
+                )
+                .child(widgets::label(&subtitle, theme::T_XS, theme::FAINT)),
+        )
+        .child(
+            canvas(
+                move |_, _, _| {},
+                move |b, _s, w, cx| paint_map(&d, b, w, cx),
+            )
+            .size_full(),
+        )
+}
+
+pub fn render_split(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
+    let mut p = page("Split Workspace", "Compare two open documents side-by-side");
+    let lib_len = app.app.library.len();
+    if lib_len == 0 {
+        let body = scroll("split-scroll").child(widgets::label(
+            "Open a second document (e.g. a PCR product) to compare it with the active one.",
+            theme::T_SM,
+            theme::FAINT,
+        ));
+        p = p.child(body);
+        return p.into_any_element();
+    }
+    let sel = app.app.split_sel.min(lib_len - 1);
+    let left = MapDraw::build_compare(&app.app.doc, &app.app.prefs);
+    let right_doc = app.app.library[sel].doc.clone();
+    let right = MapDraw::build_compare(&right_doc, &app.app.prefs);
+    let left_name = app.app.doc.name.clone();
+    let right_name = right_doc.name.clone();
+    let left_sub = format!(
+        "{} bp · {}",
+        app.app.doc.sequence.len(),
+        app.app.doc.sequence.topology.label()
+    );
+    let right_sub = format!(
+        "{} bp · {}",
+        right_doc.sequence.len(),
+        right_doc.sequence.topology.label()
+    );
+    let mut pick = div().flex().flex_row().gap(px(6.0)).items_center();
+    pick = pick.child(widgets::label("Right pane:", theme::T_XS, theme::FAINT));
+    for (i, od) in app.app.library.iter().enumerate() {
+        let active = i == sel;
+        let name = od.doc.name.clone();
+        pick = pick.child(
+            widgets::button(
+                SharedString::from(format!("split-pick-{i}")),
+                &name,
+                if active { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                t.app.split_sel = i;
+                cx.notify();
+            })),
+        );
+    }
+    let panes = div()
+        .flex()
+        .flex_row()
+        .gap(px(10.0))
+        .flex_1()
+        .min_h(px(0.0))
+        .child(split_pane(left, left_name, left_sub))
+        .child(split_pane(right, right_name, right_sub));
+    let content = div()
+        .flex()
+        .flex_col()
+        .flex_1()
+        .min_h(px(0.0))
+        .px(px(16.0))
+        .py(px(12.0))
+        .gap(px(10.0))
+        .child(pick)
+        .child(panes);
+    p = p.child(content);
     p.into_any_element()
 }

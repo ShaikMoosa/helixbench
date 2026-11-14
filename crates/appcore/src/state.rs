@@ -25,6 +25,7 @@ pub enum View {
     Workflows,
     Insights,
     Automation,
+    Split,
 }
 
 impl View {
@@ -37,7 +38,7 @@ impl View {
         View::History,
     ];
 
-    pub const LAB: [View; 7] = [
+    pub const LAB: [View; 8] = [
         View::Home,
         View::Notebook,
         View::Registry,
@@ -45,6 +46,7 @@ impl View {
         View::Workflows,
         View::Insights,
         View::Automation,
+        View::Split,
     ];
 
     pub fn label(self) -> &'static str {
@@ -62,6 +64,7 @@ impl View {
             View::Workflows => "Workflows",
             View::Insights => "Insights",
             View::Automation => "Automation",
+            View::Split => "Split",
         }
     }
 
@@ -80,6 +83,7 @@ impl View {
             View::Workflows => "⇄",
             View::Insights => "◔",
             View::Automation => "⚙",
+            View::Split => "⧉",
         }
     }
 }
@@ -538,6 +542,8 @@ pub struct AppState {
     pub selected_primer: Option<u64>,
     pub view: View,
     pub map_mode: MapMode,
+    /// Split Workspace: index into `library` of the document in the right pane.
+    pub split_sel: usize,
     pub prefs: UiPrefs,
     pub config: Config,
     pub search: SearchState,
@@ -597,6 +603,7 @@ impl AppState {
             selected_primer: None,
             view: View::Map,
             map_mode: MapMode::Auto,
+            split_sel: 0,
             prefs,
             config,
             search: SearchState::default(),

@@ -52,6 +52,7 @@ icons! {
     "colors" => "<path d=\"M12 22a10 10 0 1 1 10-10c0 1.66-1.34 3-3 3h-2.6a2.4 2.4 0 0 0-1.8 4 2.4 2.4 0 0 1-1.8 4Z\"/><circle cx=\"13.5\" cy=\"6.5\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/><circle cx=\"17.5\" cy=\"10.5\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/><circle cx=\"8.5\" cy=\"7.5\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/><circle cx=\"6.5\" cy=\"12.5\" r=\"1\" fill=\"currentColor\" stroke=\"none\"/>",
     "circle" => "<circle cx=\"12\" cy=\"12\" r=\"9\"/>",
     "circle-dot" => "<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"2.5\" fill=\"currentColor\" stroke=\"none\"/>",
+    "split" => "<rect x=\"3\" y=\"4\" width=\"7\" height=\"16\" rx=\"1\"/><rect x=\"14\" y=\"4\" width=\"7\" height=\"16\" rx=\"1\"/>",
 }
 
 pub struct Assets;
@@ -117,5 +118,6 @@ pub fn view_icon(v: View) -> &'static str {
         View::Workflows => "redo",
         View::Insights => "translation",
         View::Automation => "sliders",
+        View::Split => "split",
     }
 }
