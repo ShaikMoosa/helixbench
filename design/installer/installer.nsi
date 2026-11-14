@@ -3,7 +3,7 @@ Unicode true
 RequestExecutionLevel user
 
 !define PRODUCT_NAME "HelixBench"
-!define PRODUCT_VERSION "0.4.0"
+!define PRODUCT_VERSION "0.5.0"
 !define PRODUCT_PUBLISHER "Shaik Moosa"
 !define PRODUCT_WEB_SITE "https://github.com/ShaikMoosa/helixbench"
 !define UNINSTALL_REG "Software\Microsoft\Windows\CurrentVersion\Uninstall\HelixBench"
@@ -17,7 +17,7 @@ UninstallIcon "..\..\apps\desktop_gpui\assets\helixbench.ico"
 ShowInstDetails show
 ShowUnInstDetails show
 
-VIProductVersion "0.4.0.0"
+VIProductVersion "0.5.0.0"
 VIAddVersionKey "ProductName" "${PRODUCT_NAME}"
 VIAddVersionKey "ProductVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey "FileVersion" "${PRODUCT_VERSION}"
