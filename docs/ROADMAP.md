@@ -147,7 +147,8 @@ Goal: analyze and transform local data; reusable pipelines.
   (compare two sequences side-by-side) shipped (v1.2.0); **saved-alignments list** (save / load /
   delete named alignment snapshots) shipped (v1.3.0); **primer secondary-structure preview**
   (hairpin stem/loop + self-dimer, live in primer editor and as design-candidate badges) shipped
-  (v1.4.0); status bar tied to selection (already present). Add enzyme "find by cuts/region".
+  (v1.4.0); **enzyme find by cuts/region** (cut-count filter + selection / custom-range region
+  filter, combinable) shipped (v1.5.0); status bar tied to selection (already present).
 - **Notebook/Registry/Inventory screens:** adopt schema-driven forms, structured tables with a clear
   **Submit** persistence boundary, template editor with locked columns, review badges, Entity Map graph,
   plate grid + fill-wells, storage tree.

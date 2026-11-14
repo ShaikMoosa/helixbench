@@ -482,7 +482,12 @@ pub struct EnzymeFilterState {
     pub cut_count: usize, // index into CUT_COUNT_OPTIONS
     pub overhang: usize,  // index into OVERHANG_OPTIONS
     pub site_len: usize,  // index into SITE_LEN_OPTIONS
+    pub region: usize,    // index into REGION_OPTIONS
+    pub region_start: String,
+    pub region_end: String,
 }
+
+pub const REGION_OPTIONS: [&str; 3] = ["Anywhere", "In selection", "Custom range"];
 
 pub const CUT_COUNT_OPTIONS: [&str; 6] = [
     "Any cuts",
@@ -644,6 +649,39 @@ impl AppState {
             MapMode::Plasmid => true,
             MapMode::Linear => false,
             _ => self.doc.sequence.topology == domain::Topology::Circular,
+        }
+    }
+
+    /// Region used by the enzyme "find by region" filter, if any.
+    /// Custom bounds are 1-based inclusive; selection is used as-is.
+    pub fn enzyme_region(&self) -> Option<Range> {
+        let l = self.doc.sequence.len();
+        match self.enzyme_filter.region {
+            1 => self.selection,
+            2 => {
+                let start = self
+                    .enzyme_filter
+                    .region_start
+                    .trim()
+                    .parse::<usize>()
+                    .unwrap_or(1);
+                let end = self
+                    .enzyme_filter
+                    .region_end
+                    .trim()
+                    .parse::<usize>()
+                    .unwrap_or(l);
+                if l == 0 || start == 0 || end == 0 {
+                    return None;
+                }
+                let start = start.min(l);
+                let end = end.min(l);
+                if end < start {
+                    return None;
+                }
+                Some(Range::new(start - 1, end - start + 1))
+            }
+            _ => None,
         }
     }
 

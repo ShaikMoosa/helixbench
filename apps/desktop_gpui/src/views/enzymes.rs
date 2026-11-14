@@ -6,7 +6,9 @@ use gpui::{
     ElementId, Entity, MouseButton, SharedString, Stateful, Window,
 };
 
-use appcore::state::{AppState, SortDir, CUT_COUNT_OPTIONS, OVERHANG_OPTIONS, SITE_LEN_OPTIONS};
+use appcore::state::{
+    AppState, SortDir, CUT_COUNT_OPTIONS, OVERHANG_OPTIONS, REGION_OPTIONS, SITE_LEN_OPTIONS,
+};
 use domain::enzyme::Overhang;
 use domain::{enzyme_db, Enzyme, EnzymeSet};
 
@@ -26,6 +28,7 @@ pub enum ComboKind {
     CutCount,
     Overhang,
     SiteLen,
+    Region,
 }
 
 struct Row {
@@ -205,6 +208,57 @@ impl HelixBench {
                     )),
                 );
 
+        let region = self.app.enzyme_filter.region;
+        let rs_seed = self.app.enzyme_filter.region_start.clone();
+        let re_seed = self.app.enzyme_filter.region_end.clone();
+        let rs_inp = self.input_entity(cx, "filter:enz-rstart", &rs_seed, "start", false);
+        let re_inp = self.input_entity(cx, "filter:enz-rend", &re_seed, "end", false);
+        self.app.enzyme_filter.region_start = rs_inp.read(cx).text();
+        self.app.enzyme_filter.region_end = re_inp.read(cx).text();
+        let mut row3 = div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(widgets::label("Region", theme::T_SM, theme::MUTED))
+            .child(
+                combo_btn(
+                    "enz-region",
+                    REGION_OPTIONS[region],
+                    self.combo == Some(ComboKind::Region),
+                )
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|t, ev: &gpui::MouseDownEvent, _, cx| {
+                        if t.combo == Some(ComboKind::Region) {
+                            t.combo = None;
+                        } else {
+                            t.combo = Some(ComboKind::Region);
+                            t.combo_anchor = ev.position;
+                        }
+                        cx.notify();
+                    }),
+                ),
+            );
+        if region == 2 {
+            row3 = row3
+                .child(div().w(px(80.0)).child(rs_inp))
+                .child(widgets::label("..", theme::T_SM, theme::FAINT))
+                .child(div().w(px(80.0)).child(re_inp));
+        } else if region == 1 {
+            let summary = match self.app.selection {
+                Some(sel) => format!("selection {}..{}", sel.start + 1, sel.start + sel.len),
+                None => "no selection".into(),
+            };
+            row3 = row3.child(widgets::label(&summary, theme::T_SM, theme::FAINT));
+        }
+        if let Some(r) = self.app.enzyme_region() {
+            row3 = row3.child(widgets::label(
+                &format!("cuts in {}..{}", r.start + 1, r.start + r.len),
+                theme::T_XS,
+                theme::ACCENT,
+            ));
+        }
+
         let toolbar = div()
             .flex()
             .flex_col()
@@ -215,7 +269,8 @@ impl HelixBench {
             .border_b_1()
             .border_color(theme::BORDER)
             .child(row1)
-            .child(row2);
+            .child(row2)
+            .child(row3);
 
         // --- Filter + sort ---
         let mut items = filtered_enzymes(&self.app);
@@ -307,7 +362,7 @@ impl HelixBench {
         let body = if n == 0 {
             empty_state(
                 "No enzymes match",
-                "Adjust the name, cut-count, overhang or length filters.",
+                "Adjust the name, cut-count, overhang, length or region filters.",
             )
         } else {
             uniform_list("enzymes-list", n, move |range, window, _cx| {
@@ -527,6 +582,20 @@ impl HelixBench {
                     );
                 }
             }
+            ComboKind::Region => {
+                for (i, opt) in REGION_OPTIONS.iter().enumerate() {
+                    let sel = self.app.enzyme_filter.region == i;
+                    rows.push(
+                        widgets::menu_check(SharedString::from(format!("combo-rg-{i}")), opt, sel)
+                            .on_click(cx.listener(move |t, _, _, cx| {
+                                t.combo = None;
+                                t.app.enzyme_filter.region = i;
+                                cx.notify();
+                            }))
+                            .into_any_element(),
+                    );
+                }
+            }
         }
 
         let mut card = div()
@@ -613,13 +682,28 @@ fn passes_filter(app: &AppState, e: &Enzyme, n: usize) -> bool {
         return false;
     }
     let sl = e.site_len();
-    match f.site_len {
+    let len_ok = match f.site_len {
         0 => true,
         1 => sl == 4,
         2 => sl == 5,
         3 => sl == 6,
         _ => sl >= 7,
+    };
+    if !len_ok {
+        return false;
     }
+    if let Some(r) = app.enzyme_region() {
+        let empty = Vec::new();
+        let sites = app.analysis.all_sites.get(&e.name).unwrap_or(&empty);
+        let end = r.start + r.len;
+        let in_region = sites.iter().any(|s| {
+            (s.cut_top >= r.start && s.cut_top < end) || (s.position >= r.start && s.position < end)
+        });
+        if !in_region {
+            return false;
+        }
+    }
+    true
 }
 
 fn filtered_enzymes(app: &AppState) -> Vec<(Enzyme, usize)> {
