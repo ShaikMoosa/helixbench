@@ -84,17 +84,25 @@ Or build from source (below).
   with optional 5′ overhangs; add the chosen pair.
 - **Virtual digest & gel** — fragment sizes for the selected enzymes plus an agarose-gel simulation
   (ladder + digest lanes, log-scale migration).
-- **Sequence alignment** — Needleman–Wunsch / Smith–Waterman and center-star multiple alignment with
-  a consensus row, identity %, and circular auto-reindex.
-- **Assembly wizard** — Digest & Ligate, Gibson (overlap trimming) and Golden Gate; join inserts into
-  a linearized vector with junction reporting.
+- **Sequence alignment** — progressive multiple alignment (Feng–Doolittle: UPGMA guide tree +
+  profile–profile NW) with consensus and identity %, circular auto-reindex, and bulk alignment of
+  all open documents.
+- **Assembly wizard** — Digest & Ligate, Gibson and Golden Gate; join inserts into a linearized
+  vector with junction reporting, **Gibson junction primer design** and **Golden Gate overhang
+  validation** (unique / non-palindromic fusion sites).
 - **Combinatorial assembly** — generate constructs for every ordering of the open inserts (capped).
-- **CRISPR guides** — NGG PAM scan on both strands, ranked 20 nt guides with on-target score and
-  off-target counts; add as features.
-- **Codon optimization** — host-aware (E. coli / Human) protein-preserving re-encode with CAI
-  before/after.
-- **Local BLAST** — seed-and-extend similarity search of the current sequence against the other open
-  documents.
+- **CRISPR guides** — NGG PAM scan on both strands; **Doench Rule-Set-2 on-target scoring** and
+  **CFD off-target scoring** with a per-site off-target list; add guides as features.
+- **Codon optimization** — host-aware (E. coli / Human) protein-preserving re-encode with CAI,
+  **GC-window smoothing, restriction-site avoidance and codon harmonization**.
+- **Local BLAST** — seed-and-extend similarity search against a **loaded FASTA database** or the
+  open documents.
+- **Protein analysis** — BLOSUM62 protein alignment plus MW, pI, GRAVY/hydropathy, charge at pH 7,
+  extinction coefficient and amino-acid composition.
+- **Feature library** — reusable motif library with **bulk auto-annotation** across all open
+  documents (both strands).
+- **Workspace / bulk** — multi-document selection with bulk tag / FASTA export / close; per-document
+  tags for organization.
 
 ### Local registry
 - Offline catalog of **plasmids, strains and primers** (strain fields follow the Benchling strain
