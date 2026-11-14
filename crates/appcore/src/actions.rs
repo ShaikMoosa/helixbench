@@ -1842,55 +1842,120 @@ pub fn open_registry_import(app: &mut AppState) {
     app.dialog = Some(Dialog::RegistryImport(RegistryImportDraft::default()));
 }
 
+/// Load a CSV file from disk as the registry-import source.
+pub fn registry_import_load_csv(app: &mut AppState) {
+    let Some(path) = crate::fs_dialogs::pick_csv(app.config.last_directory.as_ref()) else {
+        return;
+    };
+    match std::fs::read_to_string(&path) {
+        Ok(text) => {
+            if let Some(Dialog::RegistryImport(d)) = &mut app.dialog {
+                d.csv = text;
+                d.row_errors = Vec::new();
+                d.imported = 0;
+                d.error = None;
+            }
+            app.toast(format!("Loaded {}", path.display()));
+        }
+        Err(e) => app.toast(format!("Read failed: {e}")),
+    }
+}
+
 /// Parse CSV (header + rows) and register entries of the chosen kind.
 /// Returns (imported, errors). Validates required Name column.
 pub fn run_registry_import(app: &mut AppState, draft: &mut RegistryImportDraft) {
     let kind = domain::registry::Kind::ALL[draft.kind.min(2)];
-    let mut lines = draft.csv.lines().filter(|l| !l.trim().is_empty());
-    let Some(header) = lines.next() else {
-        draft.error = Some("CSV is empty".into());
-        return;
-    };
-    let cols: Vec<String> = split_csv(header)
-        .iter()
-        .map(|s| s.trim().to_string())
-        .collect();
-    let name_idx = cols.iter().position(|c| c.eq_ignore_ascii_case("name"));
-    let Some(nc) = name_idx else {
-        draft.error = Some("CSV must have a Name column".into());
-        return;
+    let (rows, row_errors) = match parse_registry_rows(&draft.csv, draft.name_col) {
+        Ok(v) => v,
+        Err(e) => {
+            draft.error = Some(e);
+            draft.row_errors = Vec::new();
+            return;
+        }
     };
     let now = unix_now();
-    let mut imported = 0;
-    let mut errors = 0;
-    for line in lines {
-        let row = split_csv(line);
-        let name = row.get(nc).cloned().unwrap_or_default();
-        if name.trim().is_empty() {
-            errors += 1;
-            continue;
-        }
-        let mut values = std::collections::BTreeMap::new();
-        for (i, c) in cols.iter().enumerate() {
-            values.insert(c.clone(), row.get(i).cloned().unwrap_or_default());
-        }
-        app.registry.add(kind, values, now);
-        imported += 1;
+    for values in &rows {
+        app.registry.add(kind, values.clone(), now);
     }
+    let imported = rows.len();
     let _ = storage::registry::save(&app.registry);
     audit(
         app,
         "registry",
         "imported",
-        &format!("{imported} rows, {errors} errors"),
+        &format!("{imported} rows, {} row issues", row_errors.len()),
     );
     draft.imported = imported;
+    draft.row_errors = row_errors;
     draft.error = if imported == 0 {
         Some("No valid rows imported".into())
     } else {
         None
     };
-    app.toast(format!("Imported {imported} entries ({errors} skipped)"));
+    app.toast(format!("Imported {imported} entries"));
+}
+
+/// Pure CSV parse for registry import: map a chosen column to Name and collect
+/// per-row issues (empty name skipped, short rows padded). No persistence.
+pub type ImportParse = (Vec<std::collections::BTreeMap<String, String>>, Vec<String>);
+
+pub fn parse_registry_rows(csv: &str, name_col: Option<usize>) -> Result<ImportParse, String> {
+    let mut lines = csv.lines().filter(|l| !l.trim().is_empty());
+    let Some(header) = lines.next() else {
+        return Err("CSV is empty".into());
+    };
+    let cols: Vec<String> = split_csv(header)
+        .iter()
+        .map(|s| s.trim().to_string())
+        .collect();
+    if cols.is_empty() {
+        return Err("CSV header is empty".into());
+    }
+    let nc = match name_col {
+        Some(i) if i < cols.len() => i,
+        Some(_) => return Err("Selected Name column is out of range".into()),
+        None => cols
+            .iter()
+            .position(|c| c.eq_ignore_ascii_case("name"))
+            .unwrap_or(0),
+    };
+    let mut rows = Vec::new();
+    let mut errs = Vec::new();
+    for (ln, line) in lines.enumerate() {
+        let row = split_csv(line);
+        let name = row.get(nc).cloned().unwrap_or_default();
+        if name.trim().is_empty() {
+            errs.push(format!("row {}: empty name — skipped", ln + 2));
+            continue;
+        }
+        if row.len() < cols.len() {
+            errs.push(format!(
+                "row {}: {} of {} columns — padded",
+                ln + 2,
+                row.len(),
+                cols.len()
+            ));
+        }
+        let mut values = std::collections::BTreeMap::new();
+        for (i, c) in cols.iter().enumerate() {
+            let val = row.get(i).cloned().unwrap_or_default();
+            if i == nc {
+                values.insert("Name".into(), val);
+            } else if !c.eq_ignore_ascii_case("name") {
+                values.insert(c.clone(), val);
+            }
+        }
+        rows.push(values);
+    }
+    Ok((rows, errs))
+}
+
+/// Header column names of a CSV (trimmed), for import column mapping.
+pub fn csv_columns(csv: &str) -> Vec<String> {
+    csv.lines()
+        .find(|l| !l.trim().is_empty())
+        .map(|h| split_csv(h).iter().map(|s| s.trim().to_string()).collect())
+        .unwrap_or_default()
 }
 
 fn split_csv(line: &str) -> Vec<String> {

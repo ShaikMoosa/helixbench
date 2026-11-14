@@ -157,8 +157,9 @@ Goal: analyze and transform local data; reusable pipelines.
   collaborators) with "uses mine / has its own" permissions remain.
 - **States to design for every module:** empty, loading, long-running, validation-error, partial-select,
   async-creating, locked, archived, view-only, no-access, review-pending, failed-mapping.
-- **Density & recovery:** virtualized tables, column config, saved views, bulk bars, import mapping with
-  per-row errors, undo/redo, corrected re-submission.
+- **Density & recovery:** virtualized tables, bulk bars, undo/redo present; **registry import with
+  column mapping + per-row errors** (file-driven CSV, Name-column mapping, skipped/padded row
+  report) shipped (v1.7.0); column config, saved views and corrected re-submission remain.
 
 ---
 

@@ -426,6 +426,9 @@ pub struct EntityMapDraft {}
 pub struct RegistryImportDraft {
     pub csv: String,
     pub kind: usize,
+    /// Column mapped to Name; None = auto-detect a "Name" header (else first).
+    pub name_col: Option<usize>,
+    pub row_errors: Vec<String>,
     pub error: Option<String>,
     pub imported: usize,
 }
@@ -1119,5 +1122,28 @@ mod tests {
         assert!(!a.dirty);
         assert!(a.history.is_empty());
         assert!(!a.undo());
+    }
+
+    #[test]
+    fn import_auto_detects_name_and_reports_row_issues() {
+        let csv = "Name,Organism\np1,E. coli\n,E. coli\np2\n";
+        let (rows, errs) = crate::actions::parse_registry_rows(csv, None).unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].get("Name").unwrap(), "p1");
+        assert_eq!(errs.len(), 2); // empty name skipped + short row padded
+        assert!(errs[0].contains("row 3"));
+        assert!(errs[1].contains("row 4"));
+    }
+
+    #[test]
+    fn import_maps_chosen_column_to_name() {
+        let csv = "Id,Label\n1,alpha\n2,beta\n";
+        let (rows, errs) = crate::actions::parse_registry_rows(csv, Some(1)).unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].get("Name").unwrap(), "alpha");
+        assert!(!rows[0].contains_key("Label"));
+        assert!(errs.is_empty());
+        assert!(crate::actions::parse_registry_rows(csv, Some(9)).is_err());
+        assert_eq!(crate::actions::csv_columns(csv), vec!["Id", "Label"]);
     }
 }

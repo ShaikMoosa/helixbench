@@ -5278,17 +5278,6 @@ fn registry_import(
             )
         }
     };
-    let ci = app.input_entity(
-        cx,
-        "dlg:ri:csv",
-        &draft.csv,
-        "Name,Organism,...\nDH5a,E. coli,...",
-        true,
-    );
-    let csv = ci.read(cx).text();
-    if let Some(Dialog::RegistryImport(d)) = &mut app.app.dialog {
-        d.csv = csv;
-    }
     let mut body = div().flex().flex_col().size_full().gap(px(8.0));
     let mut kinds = div().flex().gap(px(6.0));
     for (i, k) in domain::registry::Kind::ALL.iter().enumerate() {
@@ -5308,7 +5297,90 @@ fn registry_import(
         );
     }
     body = body.child(kinds);
-    body = body.child(input_field(ci, 560.0));
+    let data_rows = draft
+        .csv
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .count()
+        .saturating_sub(1);
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(
+                widgets::button("ri-load", "Load CSV…", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        act::registry_import_load_csv(&mut t.app);
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(widgets::label(
+                &format!("{data_rows} data row(s)"),
+                theme::T_XS,
+                theme::FAINT,
+            )),
+    );
+    let mut prev = div()
+        .flex()
+        .flex_col()
+        .gap(px(2.0))
+        .p(px(6.0))
+        .rounded(px(5.0))
+        .bg(theme::SURFACE)
+        .max_h(px(90.0))
+        .overflow_hidden();
+    for l in draft.csv.lines().filter(|l| !l.trim().is_empty()).take(4) {
+        prev = prev.child(
+            div()
+                .font_family(theme::MONO_FONT)
+                .text_size(px(theme::T_XS))
+                .text_color(theme::MUTED)
+                .child(l.to_owned()),
+        );
+    }
+    body = body.child(prev);
+    let cols = act::csv_columns(&draft.csv);
+    if !cols.is_empty() {
+        let mut map = div().flex().flex_wrap().items_center().gap(px(6.0));
+        map = map.child(widgets::label("Name column:", theme::T_XS, theme::FAINT));
+        map = map.child(
+            widgets::button(
+                "ri-auto",
+                "Auto",
+                if draft.name_col.is_none() {
+                    Btn::Primary
+                } else {
+                    Btn::Outline
+                },
+            )
+            .on_click(cx.listener(|t, _, _, cx| {
+                if let Some(Dialog::RegistryImport(d)) = &mut t.app.dialog {
+                    d.name_col = None;
+                }
+                cx.notify();
+            })),
+        );
+        for (i, c) in cols.iter().enumerate().take(12) {
+            let sel = draft.name_col == Some(i);
+            let label = c.clone();
+            map = map.child(
+                widgets::button(
+                    SharedString::from(format!("ri-col-{i}")),
+                    &label,
+                    if sel { Btn::Primary } else { Btn::Outline },
+                )
+                .on_click(cx.listener(move |t, _, _, cx| {
+                    if let Some(Dialog::RegistryImport(d)) = &mut t.app.dialog {
+                        d.name_col = Some(i);
+                    }
+                    cx.notify();
+                })),
+            );
+        }
+        body = body.child(map);
+    }
     if let Some(e) = &draft.error {
         body = body.child(error_label(e));
     }
@@ -5318,6 +5390,29 @@ fn registry_import(
             theme::T_SM,
             theme::OK,
         ));
+    }
+    if !draft.row_errors.is_empty() {
+        body = body.child(widgets::label(
+            &format!("{} row issue(s):", draft.row_errors.len()),
+            theme::T_SM,
+            theme::WARN,
+        ));
+        let mut list = div()
+            .flex()
+            .flex_col()
+            .gap(px(2.0))
+            .max_h(px(120.0))
+            .overflow_hidden();
+        for e in draft.row_errors.iter().take(20) {
+            list = list.child(
+                div()
+                    .font_family(theme::MONO_FONT)
+                    .text_size(px(theme::T_XS))
+                    .text_color(theme::WARN)
+                    .child(e.clone()),
+            );
+        }
+        body = body.child(list);
     }
     let footer = footer_row(vec![
         widgets::button("ri-close", "Close", Btn::Ghost)
