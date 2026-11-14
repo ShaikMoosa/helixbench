@@ -75,24 +75,38 @@ topology; light Benchling-style editor; installer + release.
 
 ---
 
-## 4. Gap analysis
+## 4. Gap analysis (current status, v0.6.0)
 
-| Capability | Benchling | HelixBench today | Gap | Priority |
+The table below was originally a pre-implementation snapshot. As of **v0.6.0** every compute /
+organization row is **shipped**; only the enterprise lab-logistics row remains open (deliberately
+out-of-core for a local-first, single-user product).
+
+| Capability | Benchling | HelixBench v0.6.0 | Status | Released |
 | --- | --- | --- | --- | --- |
-| In-silico PCR | yes | no | build product from primer pair, copy features | **P0** |
-| Primer design assistant | yes | manual list only | auto-design w/ Tm/GC/clamp + overhangs | **P0** |
-| Virtual digest / gel preview | yes | cut sites only | fragment sizes + gel simulation | **P0** |
-| Pairwise / consensus alignment | yes | no | NW/SW + consensus, auto-reindex circular | **P0** |
-| Version history + restore | yes | in-memory undo only | persistent snapshots + restore | **P0** |
-| Assembly wizard (RE/Gibson/Golden Gate) | yes | no | simulate assemblies → new construct | **P1** |
-| CRISPR gRNA + on/off-target | yes | no | PAM scan + scoring + off-target search | **P1** |
-| Codon optimization | yes | no | host codon table + CAI + site avoidance | **P1** |
-| Features library / bulk auto-annotation | yes | Detect Common only | curated library + batch apply | **P1** |
-| Protein / AA analysis | yes | translation only | AA alignment + pI/MW/hydropathy/charge | **P1** |
-| Bulk / expanded workspace + projects/tags | yes | single doc | multi-doc table, folders, tags | **P1** |
-| BLAST (local DB) | yes | no | local similarity search | **P2** |
-| Combinatorial / bulk assembly | yes | no | multi-fragment combinatorics | **P2** |
-| Registry / ELN / worklists / purchasing | yes | no | lab logistics | **P2 / out-of-core** |
+| In-silico PCR | yes | amplicon preview + product w/ feature copy | **Shipped** | v0.2.0 |
+| Primer design assistant | yes | Tm/GC/clamp scoring + overhangs | **Shipped** | v0.2.0 |
+| Virtual digest / gel preview | yes | fragments + agarose-gel simulation | **Shipped** | v0.2.0 |
+| Pairwise / consensus alignment | yes | progressive MSA (UPGMA+profile) + consensus + auto-reindex + bulk | **Shipped** | v0.2.0 / v0.6.0 |
+| Version history + restore | yes | persistent named snapshots + restore | **Shipped** | v0.3.0 |
+| Assembly wizard (RE/Gibson/Golden Gate) | yes | assemblies + Gibson primer design + GG overhang validation | **Shipped** | v0.3.0 / v0.6.0 |
+| CRISPR gRNA + on/off-target | yes | PAM scan + Doench-2 on-target + CFD off-target list | **Shipped** | v0.3.0 / v0.6.0 |
+| Codon optimization | yes | host tables + CAI + GC-window + site avoidance + harmonization | **Shipped** | v0.3.0 / v0.6.0 |
+| Features library / bulk auto-annotation | yes | reusable library + bulk apply across docs | **Shipped** | v0.6.0 |
+| Protein / AA analysis | yes | BLOSUM62 alignment + pI/MW/GRAVY/charge/extinction | **Shipped** | v0.6.0 |
+| Bulk / expanded workspace + projects/tags | yes | multi-doc tabs + tags + bulk tag/export/close | **Shipped** | v0.5.0 / v0.6.0 |
+| BLAST (local DB) | yes | seed-and-extend vs loaded FASTA or open docs | **Shipped** | v0.4.0 / v0.6.0 |
+| Combinatorial / bulk assembly | yes | all insert orderings (capped) | **Shipped** | v0.4.0 |
+| Registry | yes | offline plasmid/strain/primer catalog + link-to-doc | **Shipped** | v0.5.0 |
+| ELN / worklists / purchasing | yes | not implemented | **Open (out-of-core)** | — |
+| Multi-user / collaboration / cloud sync | yes | not implemented (local-first by design) | **Open (out-of-core)** | — |
+
+### Remaining gaps (scope decisions, not compute)
+- **ELN / worklists / purchasing** and **multi-user / cloud sync** are enterprise lab-logistics
+  features. They conflict with the local-first, single-user, offline design; adding them is a
+  product-direction change (accounts, sync, permissions), not a compute gap.
+- Depth nuance: MSA uses a progressive heuristic (not MAFFT/ClustalOmega), CRISPR off-target is
+  within-open-documents (not genome-wide), BLAST is local (no NCBI). These are reasonable offline
+  equivalents; upgrading to external databases/genomes would require network or large bundled data.
 
 ---
 
