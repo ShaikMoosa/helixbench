@@ -218,6 +218,9 @@ pub enum Dialog {
         checked: Vec<bool>,
     },
     ColorSelection(ColorDraft),
+    Pcr(PcrDraft),
+    PrimerDesign(PrimerDesignDraft),
+    Digest,
 }
 
 #[derive(Clone, Copy)]
@@ -225,6 +228,35 @@ pub struct ColorDraft {
     pub range: Range,
     pub color: [u8; 3],
     pub strands: StrandMask,
+}
+
+/// A non-active open document (template kept while viewing a PCR product, etc.).
+#[derive(Clone)]
+pub struct OpenDoc {
+    pub doc: Document,
+    pub path: Option<PathBuf>,
+    pub dirty: bool,
+}
+
+#[derive(Clone, Default)]
+pub struct PcrDraft {
+    pub fwd: String,
+    pub rev: String,
+    pub copy_features: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct PrimerDesignDraft {
+    pub start: String,
+    pub len: String,
+    pub target_tm: String,
+    pub overhang: String,
+    pub fwd: Vec<domain::primer_design::Candidate>,
+    pub rev: Vec<domain::primer_design::Candidate>,
+    pub fwd_pick: usize,
+    pub rev_pick: usize,
+    pub error: Option<String>,
 }
 
 #[derive(Default)]
@@ -254,6 +286,8 @@ pub const SITE_LEN_OPTIONS: [&str; 5] = ["Any length", "4 bp", "5 bp", "6 bp", "
 
 pub struct AppState {
     pub doc: Document,
+    /// Other open documents (e.g. PCR products); `doc` is the active one.
+    pub library: Vec<OpenDoc>,
     pub path: Option<PathBuf>,
     pub dirty: bool,
     /// History depth at the last save/open; `None` once a branch makes that state unreachable.
@@ -303,6 +337,7 @@ impl AppState {
         let zoom_width = doc.sequence.len().max(1);
         let mut s = Self {
             doc,
+            library: Vec::new(),
             path: None,
             dirty: false,
             saved_depth: Some(0),

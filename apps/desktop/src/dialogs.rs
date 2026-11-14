@@ -283,6 +283,120 @@ pub fn show(app: &mut AppState, ctx: &egui::Context) {
                 app.dialog = Some(Dialog::ColorSelection(d));
             }
         }
+        Some(Dialog::Pcr(mut d)) => {
+            window(ctx, "In-silico PCR", 460.0, |ui| {
+                ui.label("Forward primer (name or 5'-3'):");
+                ui.text_edit_singleline(&mut d.fwd);
+                ui.label("Reverse primer (name or 5'-3'):");
+                ui.text_edit_singleline(&mut d.rev);
+                ui.checkbox(&mut d.copy_features, "Copy contained features into product");
+                if let Some(p) = appcore::actions::pcr_preview(app, &d) {
+                    ui.label(format!(
+                        "Amplicon {} bp · {}..{} · fwd Tm {:.1} · rev Tm {:.1}",
+                        p.len,
+                        p.start + 1,
+                        p.end,
+                        p.fwd_site.tm,
+                        p.rev_site.tm
+                    ));
+                } else {
+                    ui.label("No amplicon yet — primers must bind in opposite orientations.");
+                }
+                if let Some(e) = &d.error {
+                    ui.colored_label(egui::Color32::RED, e);
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("Cancel").clicked() {
+                        keep = false;
+                    }
+                    if ui.button("Create product").clicked() {
+                        match appcore::actions::create_pcr_product(app, &d) {
+                            Ok(()) => keep = false,
+                            Err(e) => d.error = Some(e),
+                        }
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::Pcr(d));
+            }
+        }
+        Some(Dialog::PrimerDesign(mut d)) => {
+            window(ctx, "Primer Design", 560.0, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Start");
+                    ui.text_edit_singleline(&mut d.start);
+                    ui.label("Length");
+                    ui.text_edit_singleline(&mut d.len);
+                    ui.label("Tm");
+                    ui.text_edit_singleline(&mut d.target_tm);
+                });
+                ui.horizontal(|ui| {
+                    ui.label("5' overhang");
+                    ui.text_edit_singleline(&mut d.overhang);
+                    if ui.button("Design").clicked() {
+                        appcore::actions::run_primer_design(app, &mut d);
+                    }
+                });
+                if let Some(e) = &d.error {
+                    ui.colored_label(egui::Color32::RED, e);
+                }
+                for (label, cands, pick, is_fwd) in [
+                    ("Forward", &d.fwd, &mut d.fwd_pick, true),
+                    ("Reverse", &d.rev, &mut d.rev_pick, false),
+                ] {
+                    ui.label(label);
+                    for (i, c) in cands.iter().enumerate() {
+                        let seq = String::from_utf8_lossy(&c.sequence).into_owned();
+                        let txt = format!("{}  ({}bp Tm {:.1} GC {:.0}%)", seq, c.len, c.tm, c.gc);
+                        if ui.radio(*pick == i, txt).clicked() {
+                            *pick = i;
+                        }
+                        let _ = is_fwd;
+                    }
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("Cancel").clicked() {
+                        keep = false;
+                    }
+                    if ui.button("Add primer pair").clicked() {
+                        match appcore::actions::add_designed_primers(app, &d) {
+                            Ok(()) => keep = false,
+                            Err(e) => d.error = Some(e),
+                        }
+                    }
+                });
+            });
+            if keep {
+                app.dialog = Some(Dialog::PrimerDesign(d));
+            }
+        }
+        Some(Dialog::Digest) => {
+            window(ctx, "Virtual Digest & Gel", 460.0, |ui| {
+                let frags = appcore::actions::digest_fragments(app);
+                let total: usize = frags.iter().map(|f| f.size).sum();
+                ui.label(format!("{} fragment(s) · {} bp total", frags.len(), total));
+                egui::ScrollArea::vertical()
+                    .max_height(300.0)
+                    .show(ui, |ui| {
+                        for (i, f) in frags.iter().enumerate() {
+                            ui.label(format!(
+                                "#{}  {} bp  ({}..{})",
+                                i + 1,
+                                f.size,
+                                f.start + 1,
+                                f.end
+                            ));
+                        }
+                    });
+                if ui.button("Close").clicked() {
+                    keep = false;
+                }
+            });
+            if keep {
+                app.dialog = Some(Dialog::Digest);
+            }
+        }
         None => {}
     }
     if close {

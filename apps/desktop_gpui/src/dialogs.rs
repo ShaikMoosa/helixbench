@@ -10,7 +10,9 @@ use gpui::{
 };
 
 use appcore::actions as act;
-use appcore::state::{AppState, ColorsMode, Dialog, FeatureDraft, PendingAction, PrimerDraft};
+use appcore::state::{
+    AppState, ColorsMode, Dialog, FeatureDraft, PcrDraft, PendingAction, PrimerDraft,
+};
 use domain::feature::{kind_color, Direction, Feature, FEATURE_KINDS};
 use domain::genetic_code::{code_by_id, CODES};
 use domain::primer::{binding_sites, melting_temperature, HybridizationParams, Primer};
@@ -162,6 +164,12 @@ pub fn show(
         detect_common(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::ColorSelection(_))) {
         color_selection(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Pcr(_))) {
+        pcr(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::PrimerDesign(_))) {
+        primer_design(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Digest)) {
+        digest(app, cx, max_h)
     } else {
         return None;
     };
@@ -2249,5 +2257,502 @@ fn render_dlg_combo(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> Optio
         )
         .with_priority(55)
         .into_any_element(),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// In-silico PCR
+// ---------------------------------------------------------------------------
+
+fn pcr(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let (fseed, rseed, copy, error) = match &app.app.dialog {
+        Some(Dialog::Pcr(d)) => (
+            d.fwd.clone(),
+            d.rev.clone(),
+            d.copy_features,
+            d.error.clone(),
+        ),
+        _ => (String::new(), String::new(), true, None),
+    };
+    let fi = app.input_entity(
+        cx,
+        "dlg:pcr:fwd",
+        &fseed,
+        "Forward primer: name or 5'-3'",
+        true,
+    );
+    let ri = app.input_entity(
+        cx,
+        "dlg:pcr:rev",
+        &rseed,
+        "Reverse primer: name or 5'-3'",
+        true,
+    );
+    let f = fi.read(cx).text();
+    let r = ri.read(cx).text();
+    if let Some(Dialog::Pcr(d)) = &mut app.app.dialog {
+        d.fwd = f.clone();
+        d.rev = r.clone();
+    }
+    let draft = match &app.app.dialog {
+        Some(Dialog::Pcr(d)) => d.clone(),
+        _ => PcrDraft::default(),
+    };
+    let preview = act::pcr_preview(&app.app, &draft);
+
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Amplify the current template between a forward and reverse primer. Primers may be given by name or sequence.",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(10.0))
+            .child(field_label("Forward"))
+            .child(input_field(fi, 260.0)),
+    );
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(10.0))
+            .child(field_label("Reverse"))
+            .child(input_field(ri, 260.0)),
+    );
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(
+                check_box("pcr-copy", copy).on_click(cx.listener(|t, _, _, cx| {
+                    if let Some(Dialog::Pcr(d)) = &mut t.app.dialog {
+                        d.copy_features = !d.copy_features;
+                    }
+                    cx.notify();
+                })),
+            )
+            .child(widgets::label(
+                "Copy contained features into the product",
+                theme::T_SM,
+                theme::MUTED,
+            )),
+    );
+    match &preview {
+        Some(p) => {
+            body = body.child(
+                div()
+                    .p(px(10.0))
+                    .rounded(px(6.0))
+                    .bg(theme::SURFACE)
+                    .border_1()
+                    .border_color(theme::BORDER)
+                    .child(widgets::label(
+                        &format!(
+                            "Amplicon {} bp · {}..{} · fwd Tm {:.1}°C · rev Tm {:.1}°C",
+                            p.len,
+                            p.start + 1,
+                            p.end,
+                            p.fwd_site.tm,
+                            p.rev_site.tm
+                        ),
+                        theme::T_SM,
+                        theme::TEXT,
+                    )),
+            )
+        }
+        None => {
+            body = body.child(widgets::label(
+                "No amplicon yet — primers must bind in opposite orientations.",
+                theme::T_SM,
+                theme::FAINT,
+            ))
+        }
+    }
+    if let Some(e) = error {
+        body = body.child(error_label(&e));
+    }
+
+    let footer = footer_row(vec![
+        widgets::button("pcr-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("pcr-create", "Create product", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::Pcr(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::create_pcr_product(&mut t.app, &d) {
+                    Ok(()) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::Pcr(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "In-silico PCR",
+        480.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Primer design
+// ---------------------------------------------------------------------------
+
+fn primer_design(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let (sseed, lseed, tseed, oseed, error) = match &app.app.dialog {
+        Some(Dialog::PrimerDesign(d)) => (
+            d.start.clone(),
+            d.len.clone(),
+            d.target_tm.clone(),
+            d.overhang.clone(),
+            d.error.clone(),
+        ),
+        _ => (
+            String::new(),
+            String::new(),
+            "60".into(),
+            String::new(),
+            None,
+        ),
+    };
+    let si = app.input_entity(cx, "dlg:pd:start", &sseed, "1", true);
+    let li = app.input_entity(cx, "dlg:pd:len", &lseed, "bp", true);
+    let ti = app.input_entity(cx, "dlg:pd:tm", &tseed, "60", true);
+    let oi = app.input_entity(cx, "dlg:pd:ov", &oseed, "optional 5' overhang", true);
+    let (s, l, tm, ov) = (
+        si.read(cx).text(),
+        li.read(cx).text(),
+        ti.read(cx).text(),
+        oi.read(cx).text(),
+    );
+    if let Some(Dialog::PrimerDesign(d)) = &mut app.app.dialog {
+        d.start = s;
+        d.len = l;
+        d.target_tm = tm;
+        d.overhang = ov;
+    }
+    let draft = match &app.app.dialog {
+        Some(Dialog::PrimerDesign(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Primer Design",
+                560.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        "Design forward/reverse primers flanking a target region, scored by Tm, GC and 3' GC-clamp.",
+        theme::T_SM,
+        theme::MUTED,
+    ));
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(field_label("Start"))
+            .child(input_field(si, 70.0))
+            .child(field_label("Length"))
+            .child(input_field(li, 70.0))
+            .child(field_label("Tm"))
+            .child(input_field(ti, 60.0))
+            .child(field_label("Overhang"))
+            .child(input_field(oi, 120.0)),
+    );
+    body = body.child(
+        widgets::button("pd-run", "Design primers", Btn::Outline).on_click(cx.listener(
+            |t, _, _, cx| {
+                let mut d = match &t.app.dialog {
+                    Some(Dialog::PrimerDesign(d)) => d.clone(),
+                    _ => return,
+                };
+                act::run_primer_design(&mut t.app, &mut d);
+                t.app.dialog = Some(Dialog::PrimerDesign(d));
+                cx.notify();
+            },
+        )),
+    );
+    if let Some(e) = &error {
+        body = body.child(error_label(e));
+    }
+    for (label, cands, pick, is_fwd) in [
+        ("Forward candidates", &draft.fwd, draft.fwd_pick, true),
+        ("Reverse candidates", &draft.rev, draft.rev_pick, false),
+    ] {
+        body = body.child(widgets::label(label, theme::T_SM, theme::FAINT));
+        let mut list = div().flex().flex_col().gap(px(4.0));
+        if cands.is_empty() {
+            list = list.child(widgets::label(
+                "Run design to list candidates.",
+                theme::T_SM,
+                theme::FAINT,
+            ));
+        }
+        for (i, c) in cands.iter().enumerate() {
+            let seq = String::from_utf8_lossy(&c.sequence).into_owned();
+            let selected = i == pick;
+            list = list.child(
+                div()
+                    .id(SharedString::from(format!(
+                        "pd-{}-{}",
+                        if is_fwd { "f" } else { "r" },
+                        i
+                    )))
+                    .flex()
+                    .items_center()
+                    .gap(px(8.0))
+                    .p(px(6.0))
+                    .rounded(px(5.0))
+                    .cursor_pointer()
+                    .bg(if selected {
+                        theme::SURFACE_2
+                    } else {
+                        theme::SURFACE
+                    })
+                    .border_1()
+                    .border_color(if selected {
+                        theme::ACCENT
+                    } else {
+                        theme::BORDER
+                    })
+                    .child(
+                        div()
+                            .flex_grow()
+                            .text_size(px(theme::T_SM))
+                            .font_family(theme::MONO_FONT)
+                            .text_color(theme::TEXT)
+                            .child(seq),
+                    )
+                    .child(widgets::label(
+                        &format!(
+                            "{}bp · Tm {:.1} · GC {:.0}%{}",
+                            c.len,
+                            c.tm,
+                            c.gc,
+                            if c.clamp { " · clamp" } else { "" }
+                        ),
+                        theme::T_XS,
+                        theme::MUTED,
+                    ))
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        if let Some(Dialog::PrimerDesign(d)) = &mut t.app.dialog {
+                            if is_fwd {
+                                d.fwd_pick = i;
+                            } else {
+                                d.rev_pick = i;
+                            }
+                        }
+                        cx.notify();
+                    })),
+            );
+        }
+        body = body.child(list);
+    }
+
+    let footer = footer_row(vec![
+        widgets::button("pd-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("pd-add", "Add primer pair", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::PrimerDesign(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::add_designed_primers(&mut t.app, &d) {
+                    Ok(()) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::PrimerDesign(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Primer Design",
+        620.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Virtual digest + gel
+// ---------------------------------------------------------------------------
+
+fn digest(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let frags = act::digest_fragments(&app.app);
+    let circular = app.app.doc.sequence.is_circular();
+    let total: usize = frags.iter().map(|f| f.size).sum();
+    let max_bp = frags.iter().map(|f| f.size).max().unwrap_or(1000).max(1000) as f32;
+
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        &format!(
+            "{} fragment(s) · {} bp total · {} template · {} enzyme(s) selected",
+            frags.len(),
+            total,
+            if circular { "circular" } else { "linear" },
+            app.app.analysis.chosen.len()
+        ),
+        theme::T_SM,
+        theme::MUTED,
+    ));
+
+    // Agarose gel simulation: ladder lane + sample lane.
+    let gel_frags = frags.clone();
+    let gel = div().h(px(240.0)).w_full().flex_shrink_0().child(
+        canvas(
+            move |_, _, _| {},
+            move |bounds, _s, window, cx| {
+                crate::draw::rect(window, bounds, 6.0, theme::SURFACE);
+                let top = bounds.origin.y.v() + 16.0;
+                let h = bounds.size.height.v() - 32.0;
+                let ladder_x = bounds.origin.x.v() + 70.0;
+                let lane_x = bounds.origin.x.v() + 180.0;
+                let band_w = 60.0;
+                for &m in &domain::digest::LADDER {
+                    let y = top + domain::digest::gel_fraction(m, 100.0, max_bp) * h;
+                    crate::draw::rect(
+                        window,
+                        Bounds::new(point(px(ladder_x), px(y)), size(px(band_w), px(3.0))),
+                        1.0,
+                        theme::FAINT,
+                    );
+                    crate::draw::text(
+                        window,
+                        cx,
+                        point(px(ladder_x - 8.0), px(y + 1.5)),
+                        &m.to_string(),
+                        9.0,
+                        theme::FAINT,
+                        theme::mono_font(),
+                        crate::draw::Align::Right,
+                    );
+                }
+                for f in &gel_frags {
+                    let y = top + domain::digest::gel_fraction(f.size, 100.0, max_bp) * h;
+                    crate::draw::rect(
+                        window,
+                        Bounds::new(point(px(lane_x), px(y)), size(px(band_w), px(4.0))),
+                        1.0,
+                        theme::ACCENT,
+                    );
+                    crate::draw::text(
+                        window,
+                        cx,
+                        point(px(lane_x + band_w + 8.0), px(y + 2.0)),
+                        &format!("{} bp", f.size),
+                        9.0,
+                        theme::MUTED,
+                        theme::mono_font(),
+                        crate::draw::Align::Left,
+                    );
+                }
+                crate::draw::text(
+                    window,
+                    cx,
+                    point(px(ladder_x + band_w / 2.0), px(top - 8.0)),
+                    "Ladder",
+                    9.0,
+                    theme::FAINT,
+                    theme::ui_font(),
+                    crate::draw::Align::Center,
+                );
+                crate::draw::text(
+                    window,
+                    cx,
+                    point(px(lane_x + band_w / 2.0), px(top - 8.0)),
+                    "Digest",
+                    9.0,
+                    theme::FAINT,
+                    theme::ui_font(),
+                    crate::draw::Align::Center,
+                );
+            },
+        )
+        .size_full(),
+    );
+    body = body.child(gel);
+
+    let mut list = div().flex().flex_col().gap(px(2.0));
+    for (i, f) in frags.iter().enumerate() {
+        list = list.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(10.0))
+                .p(px(6.0))
+                .rounded(px(4.0))
+                .bg(if i % 2 == 0 {
+                    theme::SURFACE
+                } else {
+                    theme::PANEL
+                })
+                .child(widgets::label(
+                    &format!("#{}", i + 1),
+                    theme::T_XS,
+                    theme::FAINT,
+                ))
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .font_family(theme::MONO_FONT)
+                        .text_color(theme::TEXT)
+                        .child(format!("{} bp", f.size)),
+                )
+                .child(widgets::label(
+                    &format!("{}..{}", f.start + 1, f.end),
+                    theme::T_XS,
+                    theme::MUTED,
+                )),
+        );
+    }
+    body = body.child(list);
+
+    let footer = footer_row(vec![widgets::button("dg-close", "Close", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Virtual Digest & Gel",
+        520.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
     )
 }

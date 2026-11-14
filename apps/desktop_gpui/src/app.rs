@@ -213,6 +213,9 @@ impl HelixBench {
             Some(Dialog::Options) => "options".into(),
             Some(Dialog::Unsaved { action }) => format!("unsaved:{action:?}"),
             Some(Dialog::DetectCommon { detected, .. }) => format!("detect:{}", detected.len()),
+            Some(Dialog::Pcr(_)) => "pcr".into(),
+            Some(Dialog::PrimerDesign(_)) => "pdesign".into(),
+            Some(Dialog::Digest) => "digest".into(),
         }
     }
 
@@ -686,6 +689,34 @@ impl HelixBench {
             }
             MenuKind::Tools => {
                 rows.push(
+                    widgets::menu_row("mt-pcr", "In-silico PCR…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_pcr(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-pdesign", "Primer Design…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_primer_design(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(
+                    widgets::menu_row("mt-digest", "Virtual Digest & Gel…", "", true)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            t.menu = None;
+                            act::open_digest(&mut t.app);
+                            cx.notify();
+                        }))
+                        .into_any_element(),
+                );
+                rows.push(widgets::divider().into_any_element());
+                rows.push(
                     widgets::menu_row("mt-codes", "Genetic Codes…", "", true)
                         .on_click(cx.listener(|t, _, _, cx| {
                             t.menu = None;
@@ -1094,6 +1125,39 @@ impl HelixBench {
                         .on_click(cx.listener(|this, _, window, cx| this.on_new(&New, window, cx))),
                 ),
         );
+        for (i, od) in self.app.library.iter().enumerate() {
+            let lname = od.doc.name.clone();
+            let ldirty = od.dirty;
+            row = row.child(
+                div()
+                    .id(SharedString::from(format!("doc-tab-{i}")))
+                    .flex()
+                    .items_center()
+                    .gap(px(8.0))
+                    .h(px(30.0))
+                    .px(px(12.0))
+                    .rounded(px(6.0))
+                    .cursor_pointer()
+                    .hover(|s| s.bg(theme::SURFACE))
+                    .child(
+                        div()
+                            .w(px(8.0))
+                            .h(px(8.0))
+                            .rounded(px(2.0))
+                            .bg(theme::FAINT),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(theme::T_SM))
+                            .text_color(theme::MUTED)
+                            .child(format!("{lname}{}", if ldirty { "  •" } else { "" })),
+                    )
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        act::switch_doc(&mut this.app, i);
+                        cx.notify();
+                    })),
+            );
+        }
         row = row.child(
             widgets::icon_only("doc-new", "plus", widgets::Btn::Subtle)
                 .on_click(cx.listener(|this, _, window, cx| this.on_new(&New, window, cx))),

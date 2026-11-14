@@ -2,6 +2,7 @@
 
 pub mod common_features;
 pub mod demo;
+pub mod digest;
 pub mod document;
 pub mod enzyme;
 pub mod enzyme_db;
@@ -9,7 +10,9 @@ pub mod enzyme_set;
 pub mod feature;
 pub mod genetic_code;
 pub mod iupac;
+pub mod pcr;
 pub mod primer;
+pub mod primer_design;
 pub mod search;
 pub mod sequence;
 pub mod translate;
