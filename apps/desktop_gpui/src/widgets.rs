@@ -85,63 +85,6 @@ pub fn icon_only(id: impl Into<ElementId>, icon: &str, variant: Btn) -> Stateful
         .child(icons::icon(icon, 14.0, variant_text(variant)))
 }
 
-pub fn tab(id: impl Into<ElementId>, icon: &str, label: &str, active: bool) -> Stateful<Div> {
-    let d = div()
-        .id(id)
-        .flex()
-        .items_center()
-        .gap(px(7.0))
-        .h(px(30.0))
-        .px(px(12.0))
-        .rounded(px(6.0))
-        .text_size(px(theme::T_BASE))
-        .cursor_pointer()
-        .child(icons::icon(
-            icon,
-            14.0,
-            if active { theme::ACCENT } else { theme::FAINT },
-        ))
-        .child(label.to_owned());
-    if active {
-        d.bg(theme::SURFACE_2)
-            .border_1()
-            .border_color(theme::ACCENT.opacity(0.7))
-            .text_color(theme::TEXT)
-    } else {
-        d.text_color(theme::MUTED)
-            .hover(|s| s.bg(theme::SURFACE).text_color(theme::TEXT))
-    }
-}
-
-pub fn toggle_row(id: impl Into<ElementId>, icon: &str, label: &str, on: bool) -> Stateful<Div> {
-    let d = div()
-        .id(id)
-        .flex()
-        .items_center()
-        .gap(px(8.0))
-        .w_full()
-        .h(px(26.0))
-        .px(px(8.0))
-        .rounded(px(5.0))
-        .text_size(px(theme::T_SM))
-        .cursor_pointer()
-        .child(div().w(px(16.0)).flex().items_center().child(icons::icon(
-            icon,
-            13.0,
-            if on { theme::ACCENT } else { theme::FAINT },
-        )))
-        .child(label.to_owned());
-    if on {
-        d.bg(theme::SURFACE_2)
-            .border_1()
-            .border_color(theme::BORDER)
-            .text_color(theme::TEXT)
-    } else {
-        d.text_color(theme::MUTED)
-            .hover(|s| s.bg(theme::SURFACE).text_color(theme::TEXT))
-    }
-}
-
 pub fn menu_row(
     id: impl Into<ElementId>,
     label: &str,

@@ -178,7 +178,7 @@ impl MapDraw {
             }
             features.push(FeatDraw {
                 name: f.name.clone(),
-                color: theme::rgb_arr(f.color),
+                color: theme::pastel(f.color),
                 dir: f.direction,
                 span: f.span(l),
                 multi: f.segments.len() > 1,

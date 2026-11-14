@@ -16,7 +16,7 @@ use domain::Topology;
 
 use crate::text_input::TextInput;
 use crate::theme;
-use crate::widgets::{self, Btn};
+use crate::widgets;
 
 actions!(
     hb,
@@ -85,6 +85,12 @@ pub struct HelixBench {
     pub seq_layout: Option<crate::views::sequence::SeqLayout>,
     pub seq_mini_bounds: Option<Bounds<Pixels>>,
 
+    // Light editor split interaction
+    pub editor_scroll: f32,
+    pub editor_seq_bounds: Option<Bounds<Pixels>>,
+    pub editor_seq_anchor: Option<usize>,
+    pub editor_slider_bounds: Option<Bounds<Pixels>>,
+
     // Menus
     pub menu: Option<MenuKind>,
     pub menu_anchor: Point<Pixels>,
@@ -135,6 +141,10 @@ impl HelixBench {
             seq_dragged: false,
             seq_layout: None,
             seq_mini_bounds: None,
+            editor_scroll: 0.0,
+            editor_seq_bounds: None,
+            editor_seq_anchor: None,
+            editor_slider_bounds: None,
             menu: None,
             menu_anchor: point(px(0.0), px(0.0)),
             combo: None,
@@ -947,11 +957,9 @@ impl HelixBench {
             .flex_row()
             .items_center()
             .gap(px(2.0))
-            .h(px(34.0))
+            .h(px(40.0))
             .px(px(8.0))
-            .bg(theme::PANEL)
-            .border_b_1()
-            .border_color(theme::BORDER);
+            .bg(theme::TOPBAR);
         // Brand mark
         bar = bar.child(
             div()
@@ -962,15 +970,15 @@ impl HelixBench {
                 .mr(px(6.0))
                 .child(
                     div()
-                        .w(px(9.0))
-                        .h(px(9.0))
-                        .rounded(px(2.0))
+                        .w(px(18.0))
+                        .h(px(18.0))
+                        .rounded(px(4.0))
                         .bg(theme::ACCENT),
                 )
                 .child(
                     div()
                         .text_size(px(theme::T_BASE))
-                        .text_color(theme::TEXT)
+                        .text_color(theme::TOPBAR_TEXT)
                         .child("HelixBench"),
                 ),
         );
@@ -997,12 +1005,43 @@ impl HelixBench {
                     }),
                 );
             bar = bar.child(if active {
-                d.bg(theme::SURFACE_2).text_color(theme::TEXT)
+                d.bg(theme::TOPBAR_TEXT.opacity(0.14))
+                    .text_color(theme::TOPBAR_TEXT)
             } else {
-                d.text_color(theme::MUTED)
-                    .hover(|s| s.bg(theme::SURFACE).text_color(theme::TEXT))
+                d.text_color(theme::TOPBAR_MUTED).hover(|s| {
+                    s.bg(theme::TOPBAR_TEXT.opacity(0.08))
+                        .text_color(theme::TOPBAR_TEXT)
+                })
             });
         }
+        bar = bar.child(
+            div()
+                .flex_grow()
+                .flex()
+                .justify_end()
+                .items_center()
+                .gap(px(8.0))
+                .px(px(8.0))
+                .child(
+                    div()
+                        .w(px(22.0))
+                        .h(px(22.0))
+                        .rounded_full()
+                        .bg(theme::ACCENT)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::TOPBAR_TEXT)
+                        .child("L"),
+                )
+                .child(
+                    div()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TOPBAR_MUTED)
+                        .child("Local workspace"),
+                ),
+        );
         bar.into_any_element()
     }
 
@@ -1012,25 +1051,53 @@ impl HelixBench {
             .flex_row()
             .items_center()
             .gap(px(4.0))
-            .h(px(44.0))
-            .px(px(10.0))
-            .bg(theme::SURFACE)
+            .h(px(40.0))
+            .px(px(8.0))
+            .bg(theme::PANEL)
             .border_b_1()
             .border_color(theme::BORDER);
-        for v in View::ALL {
-            let active = self.app.view == v;
-            row = row.child(
-                widgets::tab(
-                    SharedString::from(format!("tab-{}", v.label())),
-                    crate::icons::view_icon(v),
-                    v.label(),
-                    active,
-                )
-                .on_click(cx.listener(move |this, _, _, cx| this.set_view(v, cx))),
-            );
-        }
         let name = self.app.doc.name.clone();
         let dirty = self.app.dirty;
+        row = row.child(
+            div()
+                .id("doc-tab")
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .h(px(30.0))
+                .px(px(12.0))
+                .rounded(px(6.0))
+                .bg(theme::SURFACE)
+                .border_1()
+                .border_color(theme::BORDER)
+                .child(
+                    div()
+                        .w(px(8.0))
+                        .h(px(8.0))
+                        .rounded(px(2.0))
+                        .bg(theme::ACCENT),
+                )
+                .child(
+                    div()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(format!("{name}{}", if dirty { "  •" } else { "" })),
+                )
+                .child(
+                    div()
+                        .id("doc-tab-close")
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::FAINT)
+                        .cursor_pointer()
+                        .hover(|s| s.text_color(theme::DANGER))
+                        .child("✕")
+                        .on_click(cx.listener(|this, _, window, cx| this.on_new(&New, window, cx))),
+                ),
+        );
+        row = row.child(
+            widgets::icon_only("doc-new", "plus", widgets::Btn::Subtle)
+                .on_click(cx.listener(|this, _, window, cx| this.on_new(&New, window, cx))),
+        );
         let topo = self.app.doc.sequence.topology.label();
         row = row.child(
             div()
@@ -1048,139 +1115,129 @@ impl HelixBench {
                         .rounded(px(4.0))
                         .bg(theme::ACCENT.opacity(0.12))
                         .child(topo.to_owned()),
-                )
-                .child(
-                    div()
-                        .text_size(px(theme::T_BASE))
-                        .text_color(theme::TEXT)
-                        .child(format!("{name}{}", if dirty { "  ●" } else { "" })),
                 ),
         );
         row.into_any_element()
     }
 
-    fn side_toolbar(&mut self, cx: &mut Context<Self>) -> AnyElement {
-        let p = &self.app.prefs;
-        let toggles = [
-            ("show_features", "features", "Features", p.show_features),
-            ("show_enzymes", "enzymes", "Enzymes", p.show_enzymes),
-            ("show_primers", "primers", "Primers", p.show_primers),
-            ("show_orfs", "orfs", "ORFs", p.show_orfs),
-            (
-                "show_translations",
-                "translation",
-                "Translation",
-                p.show_translations,
-            ),
-            (
-                "show_complement",
-                "sequence",
-                "Complement",
-                p.show_complement,
-            ),
-            ("show_colors", "colors", "Base colors", p.show_colors),
-            (
-                "show_zoom_controls",
-                "zoom-in",
-                "Zoom controls",
-                p.show_zoom_controls,
-            ),
-        ];
+    fn left_rail(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let mut col = div()
             .flex()
             .flex_col()
-            .gap(px(3.0))
-            .w(px(184.0))
+            .items_center()
+            .gap(px(4.0))
+            .w(px(48.0))
             .h_full()
-            .p(px(10.0))
+            .py(px(8.0))
             .bg(theme::PANEL)
-            .border_l_1()
+            .border_r_1()
             .border_color(theme::BORDER);
-        col = col.child(widgets::label("Show", theme::T_XS, theme::FAINT).mb(px(3.0)));
-        for (key, glyph, label, on) in toggles {
+        for v in View::ALL {
+            let active = self.app.view == v;
             col = col.child(
-                widgets::toggle_row(SharedString::from(format!("tg-{key}")), glyph, label, on)
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.toggle_pref(key);
-                        cx.notify();
+                div()
+                    .id(SharedString::from(format!("rail-{}", v.label())))
+                    .w(px(36.0))
+                    .h(px(36.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(6.0))
+                    .cursor_pointer()
+                    .bg(if active {
+                        theme::SURFACE_2
+                    } else {
+                        theme::transparent()
+                    })
+                    .hover(|s| s.bg(theme::SURFACE))
+                    .child(crate::icons::icon(
+                        crate::icons::view_icon(v),
+                        18.0,
+                        if active { theme::ACCENT } else { theme::MUTED },
+                    ))
+                    .on_click(cx.listener(move |this, _, _, cx| this.set_view(v, cx))),
+            );
+        }
+        col = col.child(widgets::divider());
+        let can_undo = !self.app.history.is_empty();
+        let can_redo = !self.app.future.is_empty();
+        let actions: [(&str, &str, u8); 8] = [
+            ("rail-new", "plus", 0),
+            ("rail-open", "scan", 1),
+            ("rail-save", "check", 2),
+            ("rail-undo", "undo", 3),
+            ("rail-redo", "redo", 4),
+            ("rail-find", "search", 5),
+            ("rail-zoom-in", "zoom-in", 6),
+            ("rail-zoom-out", "zoom-out", 7),
+        ];
+        for (id, glyph, kind) in actions {
+            let disabled = (kind == 3 && !can_undo) || (kind == 4 && !can_redo);
+            col = col.child(
+                div()
+                    .id(SharedString::from(id))
+                    .w(px(36.0))
+                    .h(px(36.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(6.0))
+                    .cursor_pointer()
+                    .opacity(if disabled { 0.4 } else { 1.0 })
+                    .hover(|s| s.bg(theme::SURFACE))
+                    .child(crate::icons::icon(glyph, 18.0, theme::MUTED))
+                    .on_click(cx.listener(move |this, _, window, cx| match kind {
+                        0 => this.on_new(&New, window, cx),
+                        1 => this.on_open(&Open, window, cx),
+                        2 => this.on_save(&Save, window, cx),
+                        3 => {
+                            if this.app.undo() {
+                                cx.notify();
+                            }
+                        }
+                        4 => {
+                            if this.app.redo() {
+                                cx.notify();
+                            }
+                        }
+                        5 => {
+                            this.app.search.open = !this.app.search.open;
+                            if this.app.search.open {
+                                this.app.search.focus_request = true;
+                            }
+                            cx.notify();
+                        }
+                        6 => {
+                            this.app.zoom_width = (this.app.zoom_width / 2).max(20);
+                            this.app.center_zoom_on_selection();
+                            cx.notify();
+                        }
+                        _ => {
+                            let l = this.app.doc.sequence.len().max(1);
+                            this.app.zoom_width = (this.app.zoom_width * 2).min(l);
+                            this.app.center_zoom_on_selection();
+                            cx.notify();
+                        }
                     })),
             );
         }
         col = col.child(widgets::divider());
-        col = col.child(widgets::label("Sequence colors", theme::T_XS, theme::FAINT).mb(px(3.0)));
-        for (mode, label) in [
-            (ColorsMode::None, "No colors"),
-            (ColorsMode::History, "History colors"),
-            (ColorsMode::Custom, "Custom DNA colors"),
-        ] {
-            let active = self.app.colors_mode == mode;
-            col = col.child(
-                widgets::toggle_row(
-                    SharedString::from(format!("cm-{}", mode.label())),
-                    if active { "circle-dot" } else { "circle" },
-                    label,
-                    active,
-                )
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.app.colors_mode = mode;
-                    cx.notify();
-                })),
-            );
-        }
-        col = col.child(widgets::divider());
-        let find_on = self.app.search.open;
         col = col.child(
-            widgets::icon_button(
-                "tb-find",
-                if find_on { "x" } else { "search" },
-                if find_on { "Close find" } else { "Find" },
-                Btn::Subtle,
-            )
-            .w_full()
-            .on_click(cx.listener(|this, _, _, cx| {
-                this.app.search.open = !this.app.search.open;
-                if this.app.search.open {
-                    this.app.search.focus_request = true;
-                }
-                cx.notify();
-            })),
-        );
-        col = col.child(
-            widgets::icon_button("tb-options", "sliders", "Options", Btn::Subtle)
-                .w_full()
-                .mt(px(4.0))
+            div()
+                .id("rail-options")
+                .w(px(36.0))
+                .h(px(36.0))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(px(6.0))
+                .cursor_pointer()
+                .hover(|s| s.bg(theme::SURFACE))
+                .child(crate::icons::icon("sliders", 18.0, theme::MUTED))
                 .on_click(cx.listener(|this, _, _, cx| {
                     this.app.dialog = Some(Dialog::Options);
                     cx.notify();
                 })),
-        );
-        col = col.child(widgets::divider());
-        let can_undo = !self.app.history.is_empty();
-        let can_redo = !self.app.future.is_empty();
-        col = col.child(
-            div()
-                .flex()
-                .gap(px(6.0))
-                .child(
-                    widgets::icon_button("tb-undo", "undo", "Undo", Btn::Outline)
-                        .flex_grow()
-                        .opacity(if can_undo { 1.0 } else { 0.4 })
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            if this.app.undo() {
-                                cx.notify();
-                            }
-                        })),
-                )
-                .child(
-                    widgets::icon_button("tb-redo", "redo", "Redo", Btn::Outline)
-                        .flex_grow()
-                        .opacity(if can_redo { 1.0 } else { 0.4 })
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            if this.app.redo() {
-                                cx.notify();
-                            }
-                        })),
-                ),
         );
         col.into_any_element()
     }
@@ -1345,7 +1402,7 @@ impl HelixBench {
 
     fn central_view(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         match self.app.view {
-            View::Map => self.render_map(cx),
+            View::Map => crate::editor::render_editor(self, cx),
             View::Sequence => self.render_sequence(cx),
             View::Features => self.render_features(window, cx),
             View::Primers => self.render_primers(window, cx),
@@ -1397,7 +1454,7 @@ impl Render for HelixBench {
         self.update_title(window);
 
         let central = self.central_view(window, cx);
-        let toolbar = self.side_toolbar(cx);
+        let toolbar = self.left_rail(cx);
         let menu_overlay = self.render_menu(cx);
         let dialog_overlay = crate::dialogs::show(self, window, cx);
         let toast = self.toast(cx);
@@ -1448,8 +1505,8 @@ impl Render for HelixBench {
                     .flex()
                     .flex_row()
                     .overflow_hidden()
-                    .child(div().flex_grow().h_full().overflow_hidden().child(central))
-                    .child(toolbar),
+                    .child(toolbar)
+                    .child(div().flex_grow().h_full().overflow_hidden().child(central)),
             )
             .child(self.status_bar(cx));
         if let Some(m) = menu_overlay {

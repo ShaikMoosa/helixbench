@@ -13,3 +13,6 @@ gpui.workspace = true
 domain.workspace = true
 storage.workspace = true
 appcore.workspace = true
+
+[build-dependencies]
+winresource = "0.1"

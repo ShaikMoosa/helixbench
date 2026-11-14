@@ -58,9 +58,18 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> gpui::Result<Option<Cow<'static, [u8]>>> {
+        if path == "logo.png" {
+            return Ok(Some(Cow::Borrowed(include_bytes!("../assets/helixbench.png"))));
+        }
+        if path == "logo.svg" {
+            return Ok(Some(Cow::Borrowed(include_bytes!("../assets/helixbench.svg"))));
+        }
         let name = path
             .strip_prefix("icons/")
             .and_then(|p| p.strip_suffix(".svg"));
+        if name == Some("logo") {
+            return Ok(Some(Cow::Borrowed(include_bytes!("../assets/helixbench.svg"))));
+        }
         Ok(name.and_then(body).map(|b| {
             let mut s = String::with_capacity(HEAD.len() + b.len() + TAIL.len());
             s.push_str(HEAD);

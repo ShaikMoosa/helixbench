@@ -1,6 +1,7 @@
-//! Visual language for the GPUI shell: a quiet ink/graphite instrument chrome
-//! with a single teal accent, letting the four fluorescence base colors carry
-//! the content. Spacing sits on a 4px grid; radii nest (8 outer / 6 inner / 4).
+//! Visual language for the GPUI shell: a light, Benchling-style laboratory
+//! editor. White canvas and chrome, ink text, a single teal accent for
+//! selection, and pastel feature fills so annotations read softly on light.
+//! Spacing sits on a 4px grid; radii nest (8 outer / 6 inner / 4).
 
 use gpui::{hsla, Font, Hsla};
 
@@ -58,64 +59,69 @@ const fn hex(v: u32) -> Hsla {
     Hsla { h, s, l, a: 1.0 }
 }
 
-// --- Ink / graphite neutral ramp (cool, low-chroma) -------------------------
-pub const BG: Hsla = hex(0x0e1116); // app background / deepest field
-pub const PANEL: Hsla = hex(0x151a21); // chrome bars
-pub const SURFACE: Hsla = hex(0x1b2129); // cards, rows
-pub const SURFACE_2: Hsla = hex(0x232b35); // hover / selected row
-pub const OVERLAY: Hsla = hex(0x1a2028); // dialog surface
-pub const BORDER: Hsla = hex(0x2c3540);
-pub const BORDER_STRONG: Hsla = hex(0x3a4552);
-pub const TEXT: Hsla = hex(0xe6ebf2);
-pub const MUTED: Hsla = hex(0x9aa7b8);
-pub const FAINT: Hsla = hex(0x626e7e);
+// --- Light neutral ramp -----------------------------------------------------
+pub const BG: Hsla = hex(0xf7f9fa); // app canvas
+pub const PANEL: Hsla = hex(0xffffff); // chrome bars / cards
+pub const SURFACE: Hsla = hex(0xf1f4f6); // fields / rows
+pub const SURFACE_2: Hsla = hex(0xe4e9ee); // hover / selected row
+pub const OVERLAY: Hsla = hex(0xffffff); // dialog surface
+pub const BORDER: Hsla = hex(0xdde3e8);
+pub const BORDER_STRONG: Hsla = hex(0xb9c4cd);
+pub const TEXT: Hsla = hex(0x1a2430);
+pub const MUTED: Hsla = hex(0x5a6b7c);
+pub const FAINT: Hsla = hex(0x8fa0ae);
 pub const SCRIM: Hsla = Hsla {
     h: 0.6,
-    s: 0.18,
-    l: 0.03,
-    a: 0.62,
+    s: 0.2,
+    l: 0.1,
+    a: 0.35,
 };
+
+// --- Dark top application bar (the one dark chrome strip) -------------------
+pub const TOPBAR: Hsla = hex(0x0d1b2a);
+pub const TOPBAR_TEXT: Hsla = hex(0xe8eef4);
+pub const TOPBAR_MUTED: Hsla = hex(0x9db0c0);
 
 // --- Single UI accent (instrument teal) ------------------------------------
-pub const ACCENT: Hsla = hex(0x33c6b3);
-pub const SELECT: Hsla = hex(0x33c6b3);
+pub const ACCENT: Hsla = hex(0x0e9aa8);
+pub const SELECT: Hsla = hex(0x0e9aa8);
 
-// Translucent washes for the sequence ladder (selection + search hits).
+// Translucent washes for selection + search hits on light.
 pub const SELECT_FILL: Hsla = Hsla {
-    h: 0.47,
-    s: 0.58,
-    l: 0.49,
-    a: 0.24,
+    h: 0.52,
+    s: 0.83,
+    l: 0.36,
+    a: 0.16,
 };
 pub const SEARCH_DNA: Hsla = Hsla {
-    h: 0.40,
-    s: 0.62,
-    l: 0.50,
-    a: 0.34,
+    h: 0.52,
+    s: 0.83,
+    l: 0.36,
+    a: 0.22,
 };
 pub const SEARCH_PROT: Hsla = Hsla {
     h: 0.58,
-    s: 0.70,
-    l: 0.55,
-    a: 0.34,
+    s: 0.7,
+    l: 0.5,
+    a: 0.22,
 };
 
-// --- Fluorescence base ladder (the content moment) --------------------------
-pub const BASE_A: Hsla = hex(0x57d98a); // green
-pub const BASE_T: Hsla = hex(0xf2685f); // red / coral
-pub const BASE_C: Hsla = hex(0x5aa2f0); // blue
-pub const BASE_G: Hsla = hex(0xe8b13c); // amber
-pub const BASE_N: Hsla = hex(0x8b97a7); // ambiguous / neutral
+// --- Base ladder (darkened for legibility on white) -------------------------
+pub const BASE_A: Hsla = hex(0x2e9e5b);
+pub const BASE_T: Hsla = hex(0xd94f46);
+pub const BASE_C: Hsla = hex(0x2f7fd6);
+pub const BASE_G: Hsla = hex(0xd99a2b);
+pub const BASE_N: Hsla = hex(0x8b97a7);
 
 // --- Semantic tones ---------------------------------------------------------
-pub const OK: Hsla = hex(0x46c46e);
-pub const WARN: Hsla = hex(0xd9a13a);
-pub const DANGER: Hsla = hex(0xef5350);
-pub const INFO: Hsla = hex(0x5aa2f0);
+pub const OK: Hsla = hex(0x2f9e57);
+pub const WARN: Hsla = hex(0xc08a20);
+pub const DANGER: Hsla = hex(0xd64545);
+pub const INFO: Hsla = hex(0x2f7fd6);
 
 // --- ORF strands ------------------------------------------------------------
-pub const ORF_TOP: Hsla = hex(0xe8935a);
-pub const ORF_BOTTOM: Hsla = hex(0x57d98a);
+pub const ORF_TOP: Hsla = hex(0xd97b3f);
+pub const ORF_BOTTOM: Hsla = hex(0x2e9e5b);
 
 pub fn base_color(b: u8) -> Hsla {
     match b {
@@ -140,6 +146,13 @@ pub fn rgb_arr(c: [u8; 3]) -> Hsla {
 /// Domain color with an explicit alpha (0..=255).
 pub fn rgb_arr_a(c: [u8; 3], alpha: u8) -> Hsla {
     rgb_arr(c).opacity(alpha as f32 / 255.0)
+}
+
+/// Pastel variant of a domain color for feature fills on the light canvas:
+/// blend toward white so arrows / bars read softly like the reference editor.
+pub fn pastel(c: [u8; 3]) -> Hsla {
+    let mix = |v: u8| (v as f32 + (255.0 - v as f32) * 0.45) as u8;
+    rgb_arr([mix(c[0]), mix(c[1]), mix(c[2])])
 }
 
 pub const UI_FONT: &str = ".SystemUIFont";

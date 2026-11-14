@@ -1,0 +1,10 @@
+{
+  "name": "HelixBench Design System",
+  "id": "helixbench-design-system",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "capabilities": [],
+  "enableProposedApi": false,
+  "networkAccess": { "allowedDomains": ["none"] }
+}

@@ -110,10 +110,12 @@ shells.
 
 ## Design
 
-The GPUI shell follows a "night-lab instrument" direction: an ink / graphite surface ramp, a single
-teal accent, and a fluorescence base ladder (A green · T red · C blue · G amber). Monochrome
-stroke icons, nested radii, and custom scroll rails keep the chrome quiet so the sequence stays
-the focus.
+The GPUI shell follows a light, Benchling-style laboratory editor: a white canvas and chrome with a
+single dark top application bar, ink text, one teal accent for selection, and pastel feature fills
+so annotations read softly on light. The editor splits into a circular map (left) and an annotated
+double-stranded sequence panel (right), with description / properties / legend cards below. A left
+icon rail switches views and actions; monochrome stroke icons, nested radii (8/6/4) and a 4px grid
+keep the chrome quiet so the sequence stays the focus.
 
 ## Development
 

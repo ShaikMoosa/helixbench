@@ -3,6 +3,7 @@
 mod app;
 mod dialogs;
 mod draw;
+mod editor;
 mod find;
 mod icons;
 mod text_input;
