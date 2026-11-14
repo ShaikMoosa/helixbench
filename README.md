@@ -17,11 +17,19 @@ enzymes, design primers, translate open reading frames, and search DNA or protei
 leaving your machine. Documents are plain files on disk; saves are atomic and versioned. There is
 no cloud, no telemetry, and no sign-in.
 
+## Preview
+
+![HelixBench light editor](docs/screenshot.png)
+
+*The light editor: circular plasmid map with pastel features and enzyme cut-site labels (left),
+annotated double-stranded sequence panel (right), and feature description / properties / legend
+cards below. Left icon rail switches views; document tabs and a zoom slider + minimap sit above.*
+
 Two native shells share one framework-agnostic core:
 
 | Shell | Crate | Role |
 | --- | --- | --- |
-| **GPUI** (Zed's UI framework) | `apps/desktop_gpui` | Primary shell — night-lab instrument design |
+| **GPUI** (Zed's UI framework) | `apps/desktop_gpui` | Primary shell — light laboratory editor |
 | **egui / eframe** | `apps/desktop` | Lightweight fallback shell |
 
 Both dispatch the same typed commands from `appcore` over the same `domain` + `storage` crates, so
