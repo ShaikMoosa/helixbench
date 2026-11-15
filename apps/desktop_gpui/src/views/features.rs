@@ -403,30 +403,7 @@ impl HelixBench {
 }
 
 pub fn empty_state(title: &str, sub: &str) -> AnyElement {
-    div()
+    crate::widgets::empty_state("features", title, sub)
         .size_full()
-        .flex()
-        .flex_col()
-        .items_center()
-        .justify_center()
-        .gap(px(8.0))
-        .child(
-            div()
-                .text_size(px(34.0))
-                .text_color(theme::FAINT)
-                .child("◌"),
-        )
-        .child(
-            div()
-                .text_size(px(theme::T_MD))
-                .text_color(theme::MUTED)
-                .child(title.to_owned()),
-        )
-        .child(
-            div()
-                .text_size(px(theme::T_SM))
-                .text_color(theme::FAINT)
-                .child(sub.to_owned()),
-        )
         .into_any_element()
 }

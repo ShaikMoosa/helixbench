@@ -1459,7 +1459,7 @@ impl HelixBench {
         let active = self.app.view == v;
         div()
             .id(SharedString::from(format!("nav-{}", v.label())))
-            .h(px(26.0))
+            .h(px(30.0))
             .flex()
             .items_center()
             .gap(px(8.0))
@@ -1467,11 +1467,16 @@ impl HelixBench {
             .rounded(px(6.0))
             .cursor_pointer()
             .bg(if active {
-                theme::SURFACE_2
+                theme::SELECT_FILL
             } else {
                 theme::transparent()
             })
             .hover(|s| s.bg(theme::SURFACE))
+            .child(div().w(px(3.0)).h(px(16.0)).rounded(px(2.0)).bg(if active {
+                theme::ACCENT
+            } else {
+                theme::transparent()
+            }))
             .child(crate::icons::icon(
                 crate::icons::view_icon(v),
                 14.0,
@@ -1480,6 +1485,11 @@ impl HelixBench {
             .child(
                 div()
                     .text_size(px(theme::T_SM))
+                    .font_weight(if active {
+                        gpui::FontWeight::SEMIBOLD
+                    } else {
+                        gpui::FontWeight::NORMAL
+                    })
                     .text_color(if active { theme::TEXT } else { theme::MUTED })
                     .child(v.label()),
             )

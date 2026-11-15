@@ -161,3 +161,86 @@ pub fn label(text: &str, size: f32, color: Hsla) -> Div {
         .text_color(color)
         .child(text.to_owned())
 }
+
+/// Full-page header: title + subtitle on a panel strip with a bottom border.
+pub fn page_header(title: &str, subtitle: &str) -> Div {
+    div()
+        .flex()
+        .items_center()
+        .justify_between()
+        .px(px(20.0))
+        .py(px(14.0))
+        .bg(theme::PANEL)
+        .border_b_1()
+        .border_color(theme::BORDER)
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .gap(px(3.0))
+                .child(
+                    div()
+                        .text_size(px(theme::T_LG))
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_color(theme::TEXT)
+                        .child(title.to_owned()),
+                )
+                .child(
+                    div()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::MUTED)
+                        .child(subtitle.to_owned()),
+                ),
+        )
+}
+
+/// A list row card: consistent 8px gap / 10px padding, 8px radius, hairline
+/// border plus a subtle elevation so rows read as discrete objects.
+pub fn row_card() -> Div {
+    div()
+        .flex()
+        .items_center()
+        .gap(px(8.0))
+        .px(px(10.0))
+        .py(px(8.0))
+        .rounded(px(8.0))
+        .bg(theme::PANEL)
+        .border_1()
+        .border_color(theme::BORDER)
+        .shadow_sm()
+}
+
+/// A section heading within a page body.
+pub fn section_title(text: &str) -> Div {
+    div()
+        .pt(px(6.0))
+        .text_size(px(theme::T_MD))
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .text_color(theme::TEXT)
+        .child(text.to_owned())
+}
+
+/// A centered empty state with a monochrome icon, title and helper text.
+pub fn empty_state(icon: &str, title: &str, sub: &str) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .items_center()
+        .justify_center()
+        .gap(px(6.0))
+        .py(px(28.0))
+        .child(crate::icons::icon(icon, 22.0, theme::FAINT))
+        .child(
+            div()
+                .text_size(px(theme::T_MD))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(theme::MUTED)
+                .child(title.to_owned()),
+        )
+        .child(
+            div()
+                .text_size(px(theme::T_SM))
+                .text_color(theme::FAINT)
+                .child(sub.to_owned()),
+        )
+}

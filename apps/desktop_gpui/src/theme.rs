@@ -69,7 +69,8 @@ pub const BORDER: Hsla = hex(0xdde3e8);
 pub const BORDER_STRONG: Hsla = hex(0xb9c4cd);
 pub const TEXT: Hsla = hex(0x1a2430);
 pub const MUTED: Hsla = hex(0x5a6b7c);
-pub const FAINT: Hsla = hex(0x8fa0ae);
+// Darkened from #8fa0ae to reach ~4.5:1 on white for 11-12px secondary labels.
+pub const FAINT: Hsla = hex(0x66788a);
 pub const SCRIM: Hsla = Hsla {
     h: 0.6,
     s: 0.2,

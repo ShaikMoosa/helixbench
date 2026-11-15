@@ -11,39 +11,15 @@ use crate::app::HelixBench;
 use crate::draw::{self, PxVal};
 use crate::theme;
 use crate::views::map::{paint as paint_map, MapDraw};
-use crate::widgets::{self, Btn};
+use crate::widgets::{self, row_card, section_title, Btn};
 
 fn page(title: &str, subtitle: &str) -> gpui::Div {
-    div().flex().flex_col().size_full().bg(theme::BG).child(
-        div()
-            .flex()
-            .items_center()
-            .justify_between()
-            .px(px(16.0))
-            .py(px(12.0))
-            .bg(theme::PANEL)
-            .border_b_1()
-            .border_color(theme::BORDER)
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap(px(2.0))
-                    .child(
-                        div()
-                            .text_size(px(theme::T_LG))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .text_color(theme::TEXT)
-                            .child(title.to_owned()),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(theme::T_SM))
-                            .text_color(theme::MUTED)
-                            .child(subtitle.to_owned()),
-                    ),
-            ),
-    )
+    div()
+        .flex()
+        .flex_col()
+        .size_full()
+        .bg(theme::BG)
+        .child(widgets::page_header(title, subtitle))
 }
 
 fn scroll(id: &str) -> gpui::Stateful<gpui::Div> {
@@ -52,31 +28,11 @@ fn scroll(id: &str) -> gpui::Stateful<gpui::Div> {
         .flex_1()
         .min_h(px(0.0))
         .overflow_y_scroll()
-        .px(px(16.0))
-        .py(px(12.0))
+        .px(px(20.0))
+        .py(px(14.0))
         .flex()
         .flex_col()
-        .gap(px(6.0))
-}
-
-fn row_card() -> gpui::Div {
-    div()
-        .flex()
-        .items_center()
         .gap(px(8.0))
-        .p(px(8.0))
-        .rounded(px(6.0))
-        .bg(theme::PANEL)
-        .border_1()
-        .border_color(theme::BORDER)
-}
-
-fn section_title(text: &str) -> gpui::Div {
-    div()
-        .text_size(px(theme::T_MD))
-        .font_weight(gpui::FontWeight::SEMIBOLD)
-        .text_color(theme::TEXT)
-        .child(text.to_owned())
 }
 
 pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
