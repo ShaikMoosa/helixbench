@@ -26,6 +26,7 @@ pub enum View {
     Insights,
     Automation,
     Split,
+    Biologics,
 }
 
 impl View {
@@ -38,7 +39,7 @@ impl View {
         View::History,
     ];
 
-    pub const LAB: [View; 8] = [
+    pub const LAB: [View; 9] = [
         View::Home,
         View::Notebook,
         View::Registry,
@@ -47,6 +48,7 @@ impl View {
         View::Insights,
         View::Automation,
         View::Split,
+        View::Biologics,
     ];
 
     pub fn label(self) -> &'static str {
@@ -65,6 +67,7 @@ impl View {
             View::Insights => "Insights",
             View::Automation => "Automation",
             View::Split => "Split",
+            View::Biologics => "Biologics",
         }
     }
 
@@ -84,6 +87,7 @@ impl View {
             View::Insights => "◔",
             View::Automation => "⚙",
             View::Split => "⧉",
+            View::Biologics => "Y",
         }
     }
 }
@@ -276,6 +280,7 @@ pub enum Dialog {
     RegistryImport(RegistryImportDraft),
     Inventory(InventoryDraft),
     Workflows(WorkflowDraft),
+    Biologics(BiologicsDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -421,6 +426,17 @@ pub struct HomeDraft {}
 
 #[derive(Clone, Default)]
 pub struct EntityMapDraft {}
+
+/// Phase 5 biologics registration wizard draft. `seqs` holds one amino-acid
+/// sequence per expected chain of the chosen format.
+#[derive(Clone, Default)]
+pub struct BiologicsDraft {
+    pub name: String,
+    pub format: usize,
+    pub numbering: usize,
+    pub seqs: Vec<String>,
+    pub error: Option<String>,
+}
 
 #[derive(Clone, Default)]
 pub struct RegistryImportDraft {
@@ -569,6 +585,10 @@ pub struct AppState {
     pub table_hidden: HashMap<String, Vec<usize>>,
     /// Saved table views (column config + sort + filter presets).
     pub views: storage::views::Views,
+    /// Phase 5 biologics entities.
+    pub biologics: storage::biologics::Biologics,
+    /// Selected biologic in the Biologics view.
+    pub bio_sel: Option<u64>,
     pub feature_sort: TableSort,
     pub primer_sort: TableSort,
     pub enzyme_sort: TableSort,
@@ -632,6 +652,8 @@ impl AppState {
             enzyme_filter: EnzymeFilterState::default(),
             table_hidden: HashMap::new(),
             views: storage::views::load(),
+            biologics: storage::biologics::load(),
+            bio_sel: None,
             feature_sort: TableSort::default(),
             primer_sort: TableSort::default(),
             enzyme_sort: TableSort::default(),

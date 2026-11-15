@@ -5,6 +5,7 @@
 
 pub mod alignments;
 pub mod analytics;
+pub mod biologics;
 pub mod config;
 pub mod fasta;
 pub mod feature_lib;

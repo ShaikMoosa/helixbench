@@ -1225,3 +1225,251 @@ pub fn render_split(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEl
     p = p.child(content);
     p.into_any_element()
 }
+
+fn draw_biologic_glyph(
+    format: domain::biologics::Format,
+    bounds: gpui::Bounds<gpui::Pixels>,
+    window: &mut gpui::Window,
+) {
+    use domain::biologics::Format;
+    let c = bounds.center();
+    let (cx, cy) = (c.x.v(), c.y.v());
+    match format {
+        Format::Nanobody => {
+            draw::disc(window, gpui::point(px(cx), px(cy)), 20.0, theme::ACCENT);
+        }
+        Format::Tcr => {
+            draw::rect(
+                window,
+                gpui::Bounds::new(
+                    gpui::point(px(cx - 26.0), px(cy - 34.0)),
+                    size(px(20.0), px(68.0)),
+                ),
+                6.0,
+                theme::ACCENT,
+            );
+            draw::rect(
+                window,
+                gpui::Bounds::new(
+                    gpui::point(px(cx + 6.0), px(cy - 34.0)),
+                    size(px(20.0), px(68.0)),
+                ),
+                6.0,
+                theme::INFO,
+            );
+        }
+        f => {
+            // Y-shaped antibody (IgG / bispecific / Fab).
+            draw::segment(
+                window,
+                gpui::point(px(cx), px(cy + 40.0)),
+                gpui::point(px(cx), px(cy)),
+                5.0,
+                theme::MUTED,
+            );
+            draw::segment(
+                window,
+                gpui::point(px(cx), px(cy)),
+                gpui::point(px(cx - 34.0), px(cy - 34.0)),
+                5.0,
+                theme::MUTED,
+            );
+            draw::disc(
+                window,
+                gpui::point(px(cx - 34.0), px(cy - 34.0)),
+                9.0,
+                theme::ACCENT,
+            );
+            if f != Format::Fab {
+                draw::segment(
+                    window,
+                    gpui::point(px(cx), px(cy)),
+                    gpui::point(px(cx + 34.0), px(cy - 34.0)),
+                    5.0,
+                    theme::MUTED,
+                );
+                let tip = if f == Format::Bispecific {
+                    theme::INFO
+                } else {
+                    theme::ACCENT
+                };
+                draw::disc(window, gpui::point(px(cx + 34.0), px(cy - 34.0)), 9.0, tip);
+            }
+        }
+    }
+}
+
+pub fn render_biologics(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
+    let mut p = page(
+        "Biologics",
+        "Format-aware protein entities: chains, domains, numbering",
+    );
+    let mut body = scroll("bio-scroll");
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(
+                widgets::button("bio-reg", "Register biologic", Btn::Primary).on_click(
+                    cx.listener(|t, _, _, cx| {
+                        act::open_biologics_register(&mut t.app);
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(widgets::label(
+                &format!("{} entities", app.app.biologics.items.len()),
+                theme::T_SM,
+                theme::MUTED,
+            )),
+    );
+    if app.app.biologics.items.is_empty() {
+        body = body.child(widgets::label(
+            "No biologics yet. Register an IgG, bispecific, nanobody, TCR or Fab.",
+            theme::T_SM,
+            theme::FAINT,
+        ));
+    }
+    for b in app.app.biologics.items.clone() {
+        let id = b.id;
+        let selected = app.app.bio_sel == Some(id);
+        body = body.child(
+            row_card()
+                .child(
+                    div()
+                        .flex_grow()
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.0))
+                        .child(
+                            div()
+                                .text_size(px(theme::T_SM))
+                                .text_color(theme::TEXT)
+                                .child(b.name.clone()),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(theme::T_XS))
+                                .text_color(theme::FAINT)
+                                .child(format!(
+                                    "{} chains · {} residues",
+                                    b.chains.len(),
+                                    b.total_residues()
+                                )),
+                        ),
+                )
+                .child(widgets::label(b.format.label(), theme::T_XS, theme::ACCENT))
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("bio-sel-{id}")),
+                        "Select",
+                        if selected { Btn::Primary } else { Btn::Subtle },
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        t.app.bio_sel = Some(id);
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("bio-del-{id}")),
+                        "Delete",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::biologics_delete(&mut t.app, id);
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    if let Some(sel) = app.app.bio_sel {
+        if let Some(b) = app.app.biologics.get(sel).cloned() {
+            body = body.child(section_title(&format!("{} · {}", b.name, b.format.label())));
+            let fmt = b.format;
+            body = body.child(
+                div()
+                    .h(px(160.0))
+                    .w_full()
+                    .rounded(px(8.0))
+                    .bg(theme::PANEL)
+                    .border_1()
+                    .border_color(theme::BORDER)
+                    .child(
+                        canvas(
+                            move |_, _, _| {},
+                            move |bounds, _s, window, _cx| draw_biologic_glyph(fmt, bounds, window),
+                        )
+                        .size_full(),
+                    ),
+            );
+            body = body.child(widgets::label("Chains", theme::T_SM, theme::FAINT));
+            for (i, c) in b.chains.iter().enumerate() {
+                body = body.child(
+                    row_card()
+                        .child(
+                            div()
+                                .flex_grow()
+                                .text_size(px(theme::T_SM))
+                                .text_color(theme::TEXT)
+                                .child(format!("{} · {}", c.name, c.kind.label())),
+                        )
+                        .child(widgets::label(
+                            &format!("{} aa", c.sequence.len()),
+                            theme::T_XS,
+                            theme::MUTED,
+                        ))
+                        .child(widgets::label(
+                            &format!("#{}", i + 1),
+                            theme::T_XS,
+                            theme::FAINT,
+                        )),
+                );
+            }
+            if !b.domains.is_empty() {
+                body = body.child(widgets::label("Domains", theme::T_SM, theme::FAINT));
+                for d in &b.domains {
+                    let cname = b
+                        .chains
+                        .get(d.chain)
+                        .map(|c| c.name.clone())
+                        .unwrap_or_default();
+                    body = body.child(
+                        div()
+                            .font_family(theme::MONO_FONT)
+                            .text_size(px(theme::T_XS))
+                            .text_color(theme::MUTED)
+                            .child(format!(
+                                "{} {} ({}) {}..{}",
+                                cname, d.name, d.kind, d.start, d.end
+                            )),
+                    );
+                }
+            }
+            if let Some(c0) = b.chains.first() {
+                let numbered = domain::biologics::number_chain(&c0.sequence, b.numbering);
+                let preview: String = numbered
+                    .iter()
+                    .take(30)
+                    .map(|r| format!("{}{}", r.label, r.aa))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                body = body.child(widgets::label(
+                    &format!("Numbering ({}):", b.numbering.label()),
+                    theme::T_SM,
+                    theme::FAINT,
+                ));
+                body = body.child(
+                    div()
+                        .font_family(theme::MONO_FONT)
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::TEXT)
+                        .child(preview),
+                );
+            }
+        }
+    }
+    p = p.child(body);
+    p.into_any_element()
+}

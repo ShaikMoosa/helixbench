@@ -4,6 +4,7 @@ pub mod align;
 pub mod assembly;
 pub mod audit;
 pub mod automation;
+pub mod biologics;
 pub mod blast;
 pub mod codon;
 pub mod common_features;

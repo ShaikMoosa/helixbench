@@ -126,8 +126,9 @@ Goal: analyze and transform local data; reusable pipelines.
   Workflows/Insights/Automation views.
 
 ### Phase 5 — v1.x specialist modules (optional, pick by user focus)
-- **Biologics:** format-aware protein entities (IgG/bispecific/nanobody/TCR), domains/chains/variable
-  pairs, 2D glyphs, registration wizard, numbering schemes.
+- **Biologics — SHIPPED (v1.10.0):** format-aware protein entities (IgG/bispecific/nanobody/TCR/Fab),
+  chains + auto-derived domains, Sequential/Kabat/IMGT numbering (simplified display schemes),
+  2D glyph, registration wizard, local persistence + Biologics view.
 - **Chemistry:** molecule sketcher/import (SMILES), compound/form/lot, reaction tables w/ stoichiometry,
   structure/substructure search, Salt & Solvate library.
 - **RNA/oligos:** RNA sequences, modified nucleotides (sugar/base/phosphate), HELM notation, monomer
@@ -191,7 +192,8 @@ Goal: analyze and transform local data; reusable pipelines.
 | v1.7 | Import mapping + per-row errors | file-driven CSV, Name-column mapping, row issue report | shipped |
 | v1.8 | Column config + saved views | show/hide columns; named column+sort+filter presets | shipped |
 | v1.9 | Re-submission + Home calendar | request-changes→correct→resubmit w/ revisions; month calendar | shipped |
-| v1.x | Specialist modules (Phase 5) | per-module acceptance (above) | next (pick focus) |
+| v1.10 | Biologics (Phase 5) | formats, chains/domains, numbering, glyph, registration wizard | shipped |
+| v1.x | Specialist modules (Phase 5) | per-module acceptance (above) | in progress |
 | v2.0 (optional) | Governed AI/integration (Phase 6) | approval+audit on all automated actions | optional |
 
 Every release: `fmt` / `clippy -D warnings` / workspace tests / build green; **GitHub Actions CI watched
@@ -200,7 +202,7 @@ README updated. (Figma design-system sync remains pending — Figma desktop is u
 
 ### Remaining work (consolidated)
 - **§5 UX:** AI/Agents 3-step governed wizard (Phase 6).
-- **Phase 5 (pick one):** Biologics, Chemistry, RNA/modified oligos, In Vivo, Bioprocess.
+- **Phase 5 (remaining):** Chemistry, RNA/modified oligos, In Vivo, Bioprocess (Biologics shipped).
 - **Phase 6 (optional):** governed AI assist, Agents-lite, Model Hub-lite, local Developer/CLI API.
 - **Housekeeping:** Figma design-system sync; bump deprecated `actions/checkout` Node 20 → newer.
 

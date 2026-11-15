@@ -9,11 +9,11 @@ use domain::sequence::{clean_sequence, reverse_complement};
 use domain::{ColorRegion, Document, Range, Topology};
 
 use crate::state::{
-    AlignmentDraft, AppState, AssemblyDraft, AuditDraft, BlastDraft, CodonDraft, ColorDraft,
-    ColorsMode, CombDraft, CrisprDraft, Dialog, EntityMapDraft, EntryEditDraft, FeatureDraft,
-    FeatureLibDraft, HomeDraft, InventoryDraft, NewSeqState, NotebookDraft, OpenDoc, PcrDraft,
-    PendingAction, PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft, RegistryDraft,
-    RegistryEditDraft, RegistryImportDraft, WorkflowDraft, WorkspaceDraft,
+    AlignmentDraft, AppState, AssemblyDraft, AuditDraft, BiologicsDraft, BlastDraft, CodonDraft,
+    ColorDraft, ColorsMode, CombDraft, CrisprDraft, Dialog, EntityMapDraft, EntryEditDraft,
+    FeatureDraft, FeatureLibDraft, HomeDraft, InventoryDraft, NewSeqState, NotebookDraft, OpenDoc,
+    PcrDraft, PendingAction, PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft,
+    RegistryDraft, RegistryEditDraft, RegistryImportDraft, WorkflowDraft, WorkspaceDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -2036,6 +2036,71 @@ pub fn view_delete(app: &mut AppState, id: u64) {
     if app.views.remove(id) {
         let _ = storage::views::save(&app.views);
         app.toast("View deleted");
+    }
+}
+
+/// Open the biologics registration wizard.
+pub fn open_biologics_register(app: &mut AppState) {
+    app.dialog = Some(Dialog::Biologics(BiologicsDraft {
+        name: String::new(),
+        format: 0,
+        numbering: 1,
+        seqs: vec![
+            String::new();
+            domain::biologics::chain_kinds(domain::biologics::Format::IgG).len()
+        ],
+        error: None,
+    }));
+}
+
+/// Register a biologic from the wizard draft (chains + auto domains).
+pub fn biologics_save(app: &mut AppState, draft: &BiologicsDraft) -> Result<u64, String> {
+    if draft.name.trim().is_empty() {
+        return Err("Name required".into());
+    }
+    let format = domain::biologics::Format::ALL[draft.format.min(5)];
+    let kinds = domain::biologics::chain_kinds(format);
+    let mut chains = Vec::new();
+    for (i, k) in kinds.iter().enumerate() {
+        let seq = draft.seqs.get(i).cloned().unwrap_or_default();
+        let clean: String = seq.chars().filter(|c| c.is_ascii_alphabetic()).collect();
+        if clean.is_empty() {
+            return Err(format!("Chain {} ({}) sequence required", i + 1, k.label()));
+        }
+        chains.push(domain::biologics::Chain {
+            name: format!("{}{}", k.label(), i + 1),
+            kind: *k,
+            sequence: clean.to_ascii_uppercase(),
+        });
+    }
+    let domains = domain::biologics::auto_domains(&chains);
+    let now = unix_now();
+    let b = domain::biologics::Biologic {
+        id: 0,
+        name: draft.name.trim().to_string(),
+        format,
+        chains,
+        domains,
+        numbering: domain::biologics::Numbering::ALL[draft.numbering.min(2)],
+        created: now,
+        updated: now,
+    };
+    let id = app.biologics.add(b);
+    let _ = storage::biologics::save(&app.biologics);
+    audit(app, &format!("biologic:{id}"), "registered", &draft.name);
+    app.bio_sel = Some(id);
+    app.toast("Biologic registered");
+    Ok(id)
+}
+
+pub fn biologics_delete(app: &mut AppState, id: u64) {
+    if app.biologics.remove(id) {
+        let _ = storage::biologics::save(&app.biologics);
+        if app.bio_sel == Some(id) {
+            app.bio_sel = None;
+        }
+        audit(app, &format!("biologic:{id}"), "deleted", "");
+        app.toast("Biologic deleted");
     }
 }
 

@@ -210,6 +210,8 @@ pub fn show(
         inventory(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Workflows(_))) {
         workflows(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Biologics(_))) {
+        biologics(app, cx, max_h)
     } else {
         return None;
     };
@@ -5938,6 +5940,137 @@ fn workflows(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
         cx,
         "Workflows",
         760.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: Biologics registration wizard
+// ---------------------------------------------------------------------------
+
+fn biologics(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Biologics(d)) => d.clone(),
+        _ => {
+            return modal_shell(
+                app,
+                cx,
+                "Register Biologic",
+                660.0,
+                max_h,
+                true,
+                div().into_any_element(),
+                None,
+            )
+        }
+    };
+    let name_inp = app.input_entity(cx, "dlg:bio:name", &draft.name, "Biologic name", false);
+    if let Some(Dialog::Biologics(d)) = &mut app.app.dialog {
+        d.name = name_inp.read(cx).text();
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(field_row(
+        "Name",
+        input_field(name_inp, 372.0).into_any_element(),
+    ));
+    let mut fmts = div().flex().flex_wrap().gap(px(6.0));
+    for (i, f) in domain::biologics::Format::ALL.iter().enumerate() {
+        let sel = draft.format == i;
+        fmts = fmts.child(
+            widgets::button(
+                SharedString::from(format!("bio-f-{i}")),
+                f.label(),
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::Biologics(d)) = &mut t.app.dialog {
+                    d.format = i;
+                    let n = domain::biologics::chain_kinds(domain::biologics::Format::ALL[i]).len();
+                    d.seqs.resize(n, String::new());
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(field_row("Format", fmts.into_any_element()));
+    body = body.child(widgets::label(
+        domain::biologics::Format::ALL[draft.format.min(5)].chains_hint(),
+        theme::T_XS,
+        theme::FAINT,
+    ));
+    let mut nums = div().flex().gap(px(6.0));
+    for (i, n) in domain::biologics::Numbering::ALL.iter().enumerate() {
+        let sel = draft.numbering == i;
+        nums = nums.child(
+            widgets::button(
+                SharedString::from(format!("bio-n-{i}")),
+                n.label(),
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::Biologics(d)) = &mut t.app.dialog {
+                    d.numbering = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(field_row("Numbering", nums.into_any_element()));
+    let kinds = domain::biologics::chain_kinds(domain::biologics::Format::ALL[draft.format.min(5)]);
+    for (i, k) in kinds.iter().enumerate() {
+        let seed = draft.seqs.get(i).cloned().unwrap_or_default();
+        let inp = app.input_entity(
+            cx,
+            &format!("dlg:bio:seq{i}"),
+            &seed,
+            &format!("{} sequence (one-letter AA)", k.label()),
+            true,
+        );
+        let val = inp.read(cx).text();
+        if let Some(Dialog::Biologics(d)) = &mut app.app.dialog {
+            if d.seqs.len() <= i {
+                d.seqs.resize(i + 1, String::new());
+            }
+            d.seqs[i] = val;
+        }
+        body = body.child(field_row(
+            &format!("Chain {} ({})", i + 1, k.label()),
+            input_field(inp, 480.0).into_any_element(),
+        ));
+    }
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("bio-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("bio-save", "Register", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::Biologics(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::biologics_save(&mut t.app, &d) {
+                    Ok(_) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::Biologics(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Register Biologic",
+        660.0,
         max_h,
         true,
         body.into_any_element(),

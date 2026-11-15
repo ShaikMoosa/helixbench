@@ -249,6 +249,7 @@ impl HelixBench {
             Some(Dialog::RegistryImport(_)) => "registry-import".into(),
             Some(Dialog::Inventory(_)) => "inventory".into(),
             Some(Dialog::Workflows(_)) => "workflows".into(),
+            Some(Dialog::Biologics(_)) => "biologics".into(),
         }
     }
 
@@ -1657,6 +1658,7 @@ impl HelixBench {
             View::Insights => crate::lab::render_insights(self, cx),
             View::Automation => crate::lab::render_automation(self, cx),
             View::Split => crate::lab::render_split(self, cx),
+            View::Biologics => crate::lab::render_biologics(self, cx),
         }
     }
 

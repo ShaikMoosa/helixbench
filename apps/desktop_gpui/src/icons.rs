@@ -53,6 +53,7 @@ icons! {
     "circle" => "<circle cx=\"12\" cy=\"12\" r=\"9\"/>",
     "circle-dot" => "<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"2.5\" fill=\"currentColor\" stroke=\"none\"/>",
     "split" => "<rect x=\"3\" y=\"4\" width=\"7\" height=\"16\" rx=\"1\"/><rect x=\"14\" y=\"4\" width=\"7\" height=\"16\" rx=\"1\"/>",
+    "biologic" => "<path d=\"M12 21v-8\"/><path d=\"M12 13 6 5\"/><path d=\"M12 13l6-8\"/><circle cx=\"6\" cy=\"4\" r=\"1.6\"/><circle cx=\"18\" cy=\"4\" r=\"1.6\"/>",
 }
 
 pub struct Assets;
@@ -119,5 +120,6 @@ pub fn view_icon(v: View) -> &'static str {
         View::Insights => "translation",
         View::Automation => "sliders",
         View::Split => "split",
+        View::Biologics => "biologic",
     }
 }
