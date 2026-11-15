@@ -1,0 +1,1004 @@
+[
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 21,
+    "name": "region",
+    "signature": "pub fn region(range: Range) -> Vec<ColorRegion>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 33,
+    "name": "delete_feature",
+    "signature": "pub fn delete_feature(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 49,
+    "name": "delete_primer",
+    "signature": "pub fn delete_primer(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 64,
+    "name": "parse_segments",
+    "signature": "pub fn parse_segments(text: &str, l: usize, circular: bool) -> Result<Vec<Range>, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 103,
+    "name": "save_feature_draft",
+    "signature": "pub fn save_feature_draft(app: &mut AppState, draft: &FeatureDraft) -> Result<(), String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 145,
+    "name": "save_primer_draft",
+    "signature": "pub fn save_primer_draft(app: &mut AppState, draft: &PrimerDraft) -> Result<(), String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 201,
+    "name": "primer_from_selection",
+    "signature": "pub fn primer_from_selection(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 219,
+    "name": "apply_detected",
+    "signature": "pub fn apply_detected( app: &mut AppState, detected: &[domain::common_features::DetectedFeature], checked: &[bool], )"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 260,
+    "name": "delete_selection",
+    "signature": "pub fn delete_selection(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 272,
+    "name": "copy_selection",
+    "signature": "pub fn copy_selection(app: &AppState) -> String"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 279,
+    "name": "cut_selection",
+    "signature": "pub fn cut_selection(app: &mut AppState) -> Option<String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 289,
+    "name": "insert_bases",
+    "signature": "pub fn insert_bases(app: &mut AppState, text: &str, replace_selection: bool)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 321,
+    "name": "select_all",
+    "signature": "pub fn select_all(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 328,
+    "name": "reverse_complement_sequence",
+    "signature": "pub fn reverse_complement_sequence(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 357,
+    "name": "rotate_to",
+    "signature": "pub fn rotate_to(app: &mut AppState, pos: usize)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 373,
+    "name": "set_topology",
+    "signature": "pub fn set_topology(app: &mut AppState, topology: Topology)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 423,
+    "name": "open_color_selection",
+    "signature": "pub fn open_color_selection(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 435,
+    "name": "apply_color_selection",
+    "signature": "pub fn apply_color_selection(app: &mut AppState, draft: ColorDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 452,
+    "name": "clear_custom_colors",
+    "signature": "pub fn clear_custom_colors(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 468,
+    "name": "new_demo",
+    "signature": "pub fn new_demo(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 474,
+    "name": "open_file_dialog",
+    "signature": "pub fn open_file_dialog(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 480,
+    "name": "open_path",
+    "signature": "pub fn open_path(app: &mut AppState, path: &std::path::Path)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 493,
+    "name": "save",
+    "signature": "pub fn save(app: &mut AppState) -> bool"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 500,
+    "name": "save_as",
+    "signature": "pub fn save_as(app: &mut AppState) -> bool"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 514,
+    "name": "save_to",
+    "signature": "fn save_to(app: &mut AppState, path: &std::path::Path) -> bool"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 532,
+    "name": "export_fasta",
+    "signature": "pub fn export_fasta(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 536,
+    "name": "export_genbank",
+    "signature": "pub fn export_genbank(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 540,
+    "name": "export_plain",
+    "signature": "pub fn export_plain(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 544,
+    "name": "export_with",
+    "signature": "fn export_with(app: &mut AppState, ext: &str, label: &str, f: impl FnOnce(&Document) -> String)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 561,
+    "name": "sanitize_filename",
+    "signature": "fn sanitize_filename(name: &str) -> String"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 583,
+    "name": "guard",
+    "signature": "pub fn guard(app: &mut AppState, action: PendingAction)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 591,
+    "name": "perform",
+    "signature": "pub fn perform(app: &mut AppState, action: PendingAction)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 604,
+    "name": "persist_config",
+    "signature": "pub fn persist_config(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 609,
+    "name": "create_from_dialog",
+    "signature": "pub fn create_from_dialog(app: &mut AppState, state: &NewSeqState) -> Result<(), String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 633,
+    "name": "recent_open",
+    "signature": "pub fn recent_open(app: &mut AppState, path: PathBuf)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 644,
+    "name": "open_pcr",
+    "signature": "pub fn open_pcr(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 651,
+    "name": "primer_seq",
+    "signature": "fn primer_seq(app: &AppState, text: &str) -> Vec<u8>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 664,
+    "name": "pcr_preview",
+    "signature": "pub fn pcr_preview(app: &AppState, draft: &PcrDraft) -> Option<domain::pcr::PcrProduct>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 680,
+    "name": "reset_doc_view",
+    "signature": "fn reset_doc_view(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 691,
+    "name": "create_pcr_product",
+    "signature": "pub fn create_pcr_product(app: &mut AppState, draft: &PcrDraft) -> Result<(), String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 730,
+    "name": "switch_doc",
+    "signature": "pub fn switch_doc(app: &mut AppState, idx: usize)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 747,
+    "name": "open_primer_design",
+    "signature": "pub fn open_primer_design(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 765,
+    "name": "run_primer_design",
+    "signature": "pub fn run_primer_design(app: &mut AppState, draft: &mut PrimerDesignDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 795,
+    "name": "add_designed_primers",
+    "signature": "pub fn add_designed_primers(app: &mut AppState, draft: &PrimerDesignDraft) -> Result<(), String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 819,
+    "name": "open_digest",
+    "signature": "pub fn open_digest(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 823,
+    "name": "digest_fragments",
+    "signature": "pub fn digest_fragments(app: &AppState) -> Vec<domain::digest::Fragment>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 839,
+    "name": "open_alignment",
+    "signature": "pub fn open_alignment(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 849,
+    "name": "run_alignment",
+    "signature": "pub fn run_alignment(app: &mut AppState, draft: &mut AlignmentDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 891,
+    "name": "alignment_save",
+    "signature": "pub fn alignment_save(app: &mut AppState, name: &str)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 915,
+    "name": "alignment_load_saved",
+    "signature": "pub fn alignment_load_saved(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 929,
+    "name": "alignment_delete_saved",
+    "signature": "pub fn alignment_delete_saved(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 936,
+    "name": "unix_now",
+    "signature": "fn unix_now() -> u64"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 943,
+    "name": "save_version",
+    "signature": "pub fn save_version(app: &mut AppState, label: &str)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 954,
+    "name": "restore_version",
+    "signature": "pub fn restore_version(app: &mut AppState, idx: usize)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 970,
+    "name": "push_product",
+    "signature": "fn push_product(app: &mut AppState, doc: Document)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 988,
+    "name": "open_assembly",
+    "signature": "pub fn open_assembly(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1001,
+    "name": "assembly_extras",
+    "signature": "pub fn assembly_extras(app: &mut AppState, draft: &mut AssemblyDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1018,
+    "name": "create_assembly",
+    "signature": "pub fn create_assembly(app: &mut AppState, draft: &AssemblyDraft) -> Result<(), String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1052,
+    "name": "open_crispr",
+    "signature": "pub fn open_crispr(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1061,
+    "name": "run_crispr",
+    "signature": "pub fn run_crispr(app: &mut AppState, draft: &mut CrisprDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1089,
+    "name": "add_crispr_features",
+    "signature": "pub fn add_crispr_features(app: &mut AppState, draft: &CrisprDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1111,
+    "name": "open_codon",
+    "signature": "pub fn open_codon(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1125,
+    "name": "host_of",
+    "signature": "fn host_of(idx: usize) -> domain::codon::Host"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1133,
+    "name": "run_codon",
+    "signature": "pub fn run_codon(app: &mut AppState, draft: &mut CodonDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1159,
+    "name": "apply_codon",
+    "signature": "pub fn apply_codon(app: &mut AppState, draft: &CodonDraft) -> Result<(), String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1180,
+    "name": "open_blast",
+    "signature": "pub fn open_blast(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1190,
+    "name": "run_blast",
+    "signature": "pub fn run_blast(app: &mut AppState, draft: &mut BlastDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1222,
+    "name": "load_blast_db",
+    "signature": "pub fn load_blast_db(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1243,
+    "name": "open_combinatorial",
+    "signature": "pub fn open_combinatorial(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1254,
+    "name": "permutations",
+    "signature": "fn permutations(items: &[usize], cap: usize) -> Vec<Vec<usize>>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1283,
+    "name": "run_combinatorial",
+    "signature": "pub fn run_combinatorial(app: &mut AppState, draft: &mut CombDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1336,
+    "name": "create_combinatorial",
+    "signature": "pub fn create_combinatorial( app: &mut AppState, draft: &CombDraft, idx: usize, ) -> Result<(), String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1353,
+    "name": "open_registry",
+    "signature": "pub fn open_registry(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1357,
+    "name": "open_registry_editor",
+    "signature": "pub fn open_registry_editor(app: &mut AppState, kind: usize, id: Option<u64>)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1375,
+    "name": "save_registry_entry",
+    "signature": "pub fn save_registry_entry(app: &mut AppState, draft: &RegistryEditDraft) -> Result<(), String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1406,
+    "name": "delete_registry_entry",
+    "signature": "pub fn delete_registry_entry(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1413,
+    "name": "link_registry_entry",
+    "signature": "pub fn link_registry_entry(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1425,
+    "name": "open_linked_entry",
+    "signature": "pub fn open_linked_entry(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1442,
+    "name": "open_protein",
+    "signature": "pub fn open_protein(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1446,
+    "name": "run_protein",
+    "signature": "pub fn run_protein(app: &mut AppState, draft: &mut ProteinDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1460,
+    "name": "open_feature_lib",
+    "signature": "pub fn open_feature_lib(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1464,
+    "name": "add_lib_feature",
+    "signature": "pub fn add_lib_feature(app: &mut AppState, name: &str, kind: &str, motif: &str)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1480,
+    "name": "delete_lib_feature",
+    "signature": "pub fn delete_lib_feature(app: &mut AppState, idx: usize)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1488,
+    "name": "bulk_annotate",
+    "signature": "pub fn bulk_annotate(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1516,
+    "name": "open_workspace",
+    "signature": "pub fn open_workspace(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1525,
+    "name": "workspace_docs",
+    "signature": "fn workspace_docs(selected: &[bool]) -> Vec<usize>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1535,
+    "name": "bulk_tag",
+    "signature": "pub fn bulk_tag(app: &mut AppState, draft: &WorkspaceDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1556,
+    "name": "bulk_export",
+    "signature": "pub fn bulk_export(app: &mut AppState, draft: &WorkspaceDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1579,
+    "name": "bulk_delete",
+    "signature": "pub fn bulk_delete(app: &mut AppState, draft: &WorkspaceDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1593,
+    "name": "set_tags",
+    "signature": "pub fn set_tags(app: &mut AppState, tags: Vec<String>)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1600,
+    "name": "persist_records",
+    "signature": "fn persist_records(app: &AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1604,
+    "name": "audit",
+    "signature": "fn audit(app: &mut AppState, object: &str, action: &str, detail: &str)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1611,
+    "name": "open_projects",
+    "signature": "pub fn open_projects(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1615,
+    "name": "add_project",
+    "signature": "pub fn add_project(app: &mut AppState, draft: &ProjectsDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1625,
+    "name": "delete_project",
+    "signature": "pub fn delete_project(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1632,
+    "name": "open_notebook",
+    "signature": "pub fn open_notebook(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1636,
+    "name": "open_entry_editor",
+    "signature": "pub fn open_entry_editor(app: &mut AppState, id: Option<u64>, template: usize)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1683,
+    "name": "save_entry",
+    "signature": "pub fn save_entry(app: &mut AppState, draft: &EntryEditDraft) -> Result<u64, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1725,
+    "name": "entry_action",
+    "signature": "pub fn entry_action(app: &mut AppState, id: u64, action: &str)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1751,
+    "name": "submit_entry_table",
+    "signature": "pub fn submit_entry_table(app: &mut AppState, entry_id: u64, table_idx: usize)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1793,
+    "name": "open_home",
+    "signature": "pub fn open_home(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1797,
+    "name": "open_audit",
+    "signature": "pub fn open_audit(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1801,
+    "name": "export_audit",
+    "signature": "pub fn export_audit(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1816,
+    "name": "open_entity_map",
+    "signature": "pub fn open_entity_map(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1820,
+    "name": "link_registry_entries",
+    "signature": "pub fn link_registry_entries(app: &mut AppState, a: u64, b: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1833,
+    "name": "archive_registry_entry",
+    "signature": "pub fn archive_registry_entry(app: &mut AppState, id: u64, archived: bool)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1845,
+    "name": "open_registry_import",
+    "signature": "pub fn open_registry_import(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1850,
+    "name": "registry_import_load_csv",
+    "signature": "pub fn registry_import_load_csv(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1870,
+    "name": "run_registry_import",
+    "signature": "pub fn run_registry_import(app: &mut AppState, draft: &mut RegistryImportDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1906,
+    "name": "parse_registry_rows",
+    "signature": "pub fn parse_registry_rows(csv: &str, name_col: Option<usize>) -> Result<ImportParse, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1958,
+    "name": "csv_columns",
+    "signature": "pub fn csv_columns(csv: &str) -> Vec<String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1966,
+    "name": "table_toggle_column",
+    "signature": "pub fn table_toggle_column(app: &mut AppState, table: &str, col: usize)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1975,
+    "name": "table_sort_filter",
+    "signature": "fn table_sort_filter(app: &AppState, table: &str) -> (crate::state::TableSort, String)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 1984,
+    "name": "view_save",
+    "signature": "pub fn view_save(app: &mut AppState, table: &str, name: &str)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2005,
+    "name": "view_load",
+    "signature": "pub fn view_load(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2037,
+    "name": "view_delete",
+    "signature": "pub fn view_delete(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2045,
+    "name": "open_biologics_register",
+    "signature": "pub fn open_biologics_register(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2059,
+    "name": "biologics_save",
+    "signature": "pub fn biologics_save(app: &mut AppState, draft: &BiologicsDraft) -> Result<u64, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2098,
+    "name": "biologics_delete",
+    "signature": "pub fn biologics_delete(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2110,
+    "name": "open_chem_add",
+    "signature": "pub fn open_chem_add(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2114,
+    "name": "chem_add_save",
+    "signature": "pub fn chem_add_save(app: &mut AppState, draft: &ChemAddDraft) -> Result<u64, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2128,
+    "name": "open_chem_reaction",
+    "signature": "pub fn open_chem_reaction(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2136,
+    "name": "chem_reaction_save",
+    "signature": "pub fn chem_reaction_save(app: &mut AppState, draft: &ChemReactionDraft) -> Result<u64, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2171,
+    "name": "open_chem_lot",
+    "signature": "pub fn open_chem_lot(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2179,
+    "name": "chem_lot_save",
+    "signature": "pub fn chem_lot_save(app: &mut AppState, draft: &ChemLotDraft) -> Result<u64, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2200,
+    "name": "chem_delete_compound",
+    "signature": "pub fn chem_delete_compound(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2211,
+    "name": "chem_delete_reaction",
+    "signature": "pub fn chem_delete_reaction(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2220,
+    "name": "open_rna_add",
+    "signature": "pub fn open_rna_add(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2227,
+    "name": "rna_add_save",
+    "signature": "pub fn rna_add_save(app: &mut AppState, draft: &RnaDraft) -> Result<u64, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2273,
+    "name": "rna_apply_pattern",
+    "signature": "pub fn rna_apply_pattern(app: &mut AppState, pattern: usize, mod_code: usize)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2296,
+    "name": "rna_delete",
+    "signature": "pub fn rna_delete(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2308,
+    "name": "open_iv_study",
+    "signature": "pub fn open_iv_study(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2316,
+    "name": "iv_study_save",
+    "signature": "pub fn iv_study_save(app: &mut AppState, draft: &IvStudyDraft) -> Result<u64, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2335,
+    "name": "open_iv_animal",
+    "signature": "pub fn open_iv_animal(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2342,
+    "name": "iv_animal_save",
+    "signature": "pub fn iv_animal_save(app: &mut AppState, draft: &IvAnimalDraft) -> Result<u64, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2365,
+    "name": "open_iv_measure",
+    "signature": "pub fn open_iv_measure(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2372,
+    "name": "iv_measure_save",
+    "signature": "pub fn iv_measure_save(app: &mut AppState, draft: &IvMeasureDraft) -> Result<(), String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2422,
+    "name": "iv_randomize",
+    "signature": "pub fn iv_randomize(app: &mut AppState, groups: u32, seed: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2452,
+    "name": "iv_delete_study",
+    "signature": "pub fn iv_delete_study(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2464,
+    "name": "open_bp_recipe",
+    "signature": "pub fn open_bp_recipe(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2468,
+    "name": "bp_recipe_save",
+    "signature": "pub fn bp_recipe_save(app: &mut AppState, draft: &BpRecipeDraft) -> Result<u64, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2481,
+    "name": "bp_run_create",
+    "signature": "pub fn bp_run_create(app: &mut AppState, recipe: u64, name: &str) -> Result<u64, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2499,
+    "name": "bp_run_action",
+    "signature": "pub fn bp_run_action(app: &mut AppState, id: u64, action: &str)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2517,
+    "name": "bp_step_toggle",
+    "signature": "pub fn bp_step_toggle(app: &mut AppState, run: u64, step: usize)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2527,
+    "name": "open_bp_replicate",
+    "signature": "pub fn open_bp_replicate(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2535,
+    "name": "bp_replicate_save",
+    "signature": "pub fn bp_replicate_save(app: &mut AppState, draft: &BpReplicateDraft) -> Result<u64, String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2572,
+    "name": "bp_delete_run",
+    "signature": "pub fn bp_delete_run(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2583,
+    "name": "split_csv",
+    "signature": "fn split_csv(line: &str) -> Vec<String>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2611,
+    "name": "open_inventory",
+    "signature": "pub fn open_inventory(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2615,
+    "name": "inv_add",
+    "signature": "pub fn inv_add(app: &mut AppState, draft: &InventoryDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2634,
+    "name": "inv_fill_demo_wells",
+    "signature": "pub fn inv_fill_demo_wells(app: &mut AppState, plate: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2674,
+    "name": "inv_snapshot_to_entry",
+    "signature": "pub fn inv_snapshot_to_entry(app: &mut AppState, plate: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2711,
+    "name": "open_workflows",
+    "signature": "pub fn open_workflows(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2715,
+    "name": "persist_workflows",
+    "signature": "fn persist_workflows(app: &AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2719,
+    "name": "wf_add_task",
+    "signature": "pub fn wf_add_task(app: &mut AppState, draft: &WorkflowDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2732,
+    "name": "wf_set_status",
+    "signature": "pub fn wf_set_status(app: &mut AppState, id: u64, status: domain::workflow::TaskStatus)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2739,
+    "name": "wf_submit_output",
+    "signature": "pub fn wf_submit_output(app: &mut AppState, draft: &WorkflowDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2758,
+    "name": "wf_add_request",
+    "signature": "pub fn wf_add_request(app: &mut AppState, draft: &WorkflowDraft)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2776,
+    "name": "wf_send_request",
+    "signature": "pub fn wf_send_request(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2785,
+    "name": "wf_execute_next",
+    "signature": "pub fn wf_execute_next(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2799,
+    "name": "datasets",
+    "signature": "pub fn datasets(app: &AppState) -> Vec<domain::insights::Dataset>"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2862,
+    "name": "insights_add_block",
+    "signature": "pub fn insights_add_block( app: &mut AppState, name: &str, source: &str, chart: domain::insights::Chart, group_by: Option<String>, )"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2879,
+    "name": "insights_export",
+    "signature": "pub fn insights_export(app: &mut AppState, source: &str)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2899,
+    "name": "automation_add_pipeline",
+    "signature": "pub fn automation_add_pipeline(app: &mut AppState, name: &str)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2909,
+    "name": "automation_publish",
+    "signature": "pub fn automation_publish(app: &mut AppState, id: u64)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2917,
+    "name": "automation_load_csv",
+    "signature": "pub fn automation_load_csv(app: &mut AppState)"
+  },
+  {
+    "file": "crates/appcore/src/actions.rs",
+    "line": 2935,
+    "name": "automation_run",
+    "signature": "pub fn automation_run(app: &mut AppState, id: u64, csv: &str)"
+  }
+]

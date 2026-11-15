@@ -1,0 +1,33 @@
+{
+  "format": "helixbench",
+  "version": 999,
+  "document": {
+    "name": "LegacyFixture",
+    "description": "Documentation fixture",
+    "sequence": {
+      "bases": [
+        65,
+        84,
+        71,
+        67,
+        71,
+        84,
+        65,
+        67,
+        71,
+        84,
+        65,
+        65
+      ],
+      "topology": "Linear"
+    },
+    "features": [],
+    "primers": [],
+    "chosen_enzymes": [],
+    "color_regions": [],
+    "default_genetic_code": 1,
+    "versions": [],
+    "tags": [],
+    "next_id": 1
+  }
+}

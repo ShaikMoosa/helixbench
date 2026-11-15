@@ -1,0 +1,203 @@
+{
+  "reviewedRootCount": 364,
+  "checks": [
+    {
+      "name": "Primer archive identity",
+      "source": "110:21566",
+      "expected": "125:5240",
+      "actual": "125:5240",
+      "pass": true
+    },
+    {
+      "name": "Oligo archive identity",
+      "source": "110:21630",
+      "expected": "125:5380",
+      "actual": "125:5380",
+      "pass": true
+    },
+    {
+      "name": "Valid blank review",
+      "source": "110:20230",
+      "expected": "125:6417",
+      "actual": "125:6417",
+      "pass": true
+    },
+    {
+      "name": "Create own sequence",
+      "source": "125:6449",
+      "expected": "125:6453",
+      "actual": "125:6453",
+      "pass": true
+    },
+    {
+      "name": "Open own notebook",
+      "source": "110:20286",
+      "expected": "125:6756",
+      "actual": "125:6756",
+      "pass": true
+    },
+    {
+      "name": "Template does not link sample",
+      "source": "125:6964",
+      "expected": "132:5034",
+      "actual": "132:5034",
+      "pass": true
+    },
+    {
+      "name": "Search sequence scope",
+      "source": "110:21178",
+      "expected": "125:5843",
+      "actual": "125:5843",
+      "pass": true
+    },
+    {
+      "name": "Search result scope",
+      "source": "110:21180",
+      "expected": "125:6032",
+      "actual": "125:6032",
+      "pass": true
+    },
+    {
+      "name": "GenBank opens matching input",
+      "source": "126:5340",
+      "expected": "126:3910",
+      "actual": "126:3910",
+      "pass": true
+    },
+    {
+      "name": "FASTA opens matching input",
+      "source": "126:5374",
+      "expected": "126:4376",
+      "actual": "126:4376",
+      "pass": true
+    },
+    {
+      "name": "Bulk opens record list",
+      "source": "126:5420",
+      "expected": "126:5424",
+      "actual": "126:5424",
+      "pass": true
+    },
+    {
+      "name": "Partial import keeps valid input",
+      "source": "126:5632",
+      "expected": "126:4376",
+      "actual": "126:4376",
+      "pass": true
+    },
+    {
+      "name": "Sample analysis keeps sample ID",
+      "source": "126:6303",
+      "expected": "126:6457",
+      "actual": "126:6457",
+      "pass": true
+    },
+    {
+      "name": "Sample result remains separate",
+      "source": "126:6450",
+      "expected": "126:6483",
+      "actual": "126:6483",
+      "pass": true
+    },
+    {
+      "name": "Explicit protein input",
+      "source": "126:7753",
+      "expected": "107:26168",
+      "actual": "107:26168",
+      "pass": true
+    },
+    {
+      "name": "Rerun version 8",
+      "source": "126:7232",
+      "expected": "126:7386",
+      "actual": "126:7386",
+      "pass": true
+    },
+    {
+      "name": "Save result v8",
+      "source": "126:7451",
+      "expected": "126:7453",
+      "actual": "126:7453",
+      "pass": true
+    },
+    {
+      "name": "Review transfer",
+      "source": "107:33741",
+      "expected": "128:5896",
+      "actual": "128:5896",
+      "pass": true
+    },
+    {
+      "name": "Recover automation",
+      "source": "107:34075",
+      "expected": "128:6118",
+      "actual": "128:6118",
+      "pass": true
+    },
+    {
+      "name": "Partial write reconciliation",
+      "source": "128:6469",
+      "expected": "128:6650",
+      "actual": "128:6650",
+      "pass": true
+    },
+    {
+      "name": "Choose reviewer",
+      "source": "132:5345",
+      "expected": "132:5188",
+      "actual": "132:5188",
+      "pass": true
+    },
+    {
+      "name": "Send review",
+      "source": "132:5242",
+      "expected": "132:5244",
+      "actual": "132:5244",
+      "pass": true
+    },
+    {
+      "name": "Deleted source keeps tombstone",
+      "source": "132:5486",
+      "expected": "125:5642",
+      "actual": "125:5642",
+      "pass": true
+    },
+    {
+      "name": "Saved close returns current version",
+      "source": "128:5587",
+      "expected": "132:5892",
+      "actual": "132:5892",
+      "pass": true
+    },
+    {
+      "name": "1280 import stays responsive",
+      "source": "130:6909",
+      "expected": "130:7123",
+      "actual": "130:7123",
+      "pass": true
+    },
+    {
+      "name": "1280 result stays responsive",
+      "source": "130:8042",
+      "expected": "130:8068",
+      "actual": "130:8068",
+      "pass": true
+    }
+  ],
+  "overflow": [],
+  "brokenOrExternalTargets": [],
+  "genericSavedSources": [],
+  "deletedPanelText": [
+    "No record selected",
+    "DNA-001 was deleted. Select another\nrecord to see its details and\navailable actions."
+  ],
+  "stayAction": "BACK",
+  "wellCount": 96,
+  "v3Preserved": true,
+  "index": "128:8269",
+  "wellIdentityChecks": 96,
+  "wellIdentityFailures": [],
+  "responsiveCohortFrames": 57,
+  "contextOverlays": 27,
+  "limits": "Static/native-prototype verification only. No scientific algorithms, parsing, persistence, external sending, filesystem export, backend deduplication, assistive technology or participant usability were tested."
+}

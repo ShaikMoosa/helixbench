@@ -1,0 +1,18 @@
+{
+  "screens": 19,
+  "preservedFeatureEntries": 212,
+  "uxAdditions": 25,
+  "figmaFrames": 686,
+  "currentRustFiles": 82,
+  "currentFunctionDeclarations": 1133,
+  "currentTypeDeclarations": 218,
+  "discoveredTestFunctions": 181,
+  "implementationTasks": 26,
+  "featureAcceptanceCases": 636,
+  "screenEdgeCases": 114,
+  "screenAssets": 19,
+  "representativeStateAssets": 8,
+  "sourceReferences": "resolved against inspected files",
+  "applicationTestsRun": false,
+  "scientificValidationRun": false
+}

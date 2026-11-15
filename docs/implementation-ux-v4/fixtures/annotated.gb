@@ -1,0 +1,8 @@
+LOCUS       Expression_fragment       12 bp    DNA     linear
+DEFINITION  Documentation test fixture.
+FEATURES             Location/Qualifiers
+     CDS             1..12
+                     /label="example_cds"
+ORIGIN
+        1 atgcgtacgtaa
+//

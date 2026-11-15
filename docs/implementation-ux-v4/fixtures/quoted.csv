@@ -1,0 +1,4 @@
+Sample ID,Name,Comment
+S-001,"Construct, alpha","line 1
+line 2"
+S-002,"Quoted ""name""",ok

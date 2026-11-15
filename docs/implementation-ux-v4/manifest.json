@@ -1,0 +1,432 @@
+[
+  {
+    "path": "01-product-and-authority.md",
+    "bytes": 6064,
+    "sha256": "2ada783f973b3e58ac98f5d91733247bcb9fc16390f1b8d5259dadc8fccd0944"
+  },
+  {
+    "path": "02-shared-interaction-contracts.md",
+    "bytes": 7392,
+    "sha256": "659a49b1e9de6176288845af27c382ee97d5c7429a8245b9e5cb7391d9f2cf95"
+  },
+  {
+    "path": "03-data-state-and-persistence.md",
+    "bytes": 7603,
+    "sha256": "dce33135bd7733942cacabb1cdc7d62842e37480f913c5d6c11fbad36b98c998"
+  },
+  {
+    "path": "04-code-to-target-gaps.md",
+    "bytes": 3785,
+    "sha256": "c58275cfbcb0576c8b5d1e8a519c8e08616cb6073e9753853595a25e9153666e"
+  },
+  {
+    "path": "05-functional-state-machines.md",
+    "bytes": 4106,
+    "sha256": "c752bff25a42d2c18c36e587e5163b8c1e1edbe1613dcaf7fa6be641b47a5d90"
+  },
+  {
+    "path": "06-scientific-and-validation-contracts.md",
+    "bytes": 3548,
+    "sha256": "11283ca92c1cd50024d5238d5651fae9ea3879e08d9a2943e3cad7609742a9ea"
+  },
+  {
+    "path": "07-qa-and-edge-case-strategy.md",
+    "bytes": 3088,
+    "sha256": "c378b71b267707caada2469b944e16de68e743cb6d9d57ceeb226cb335fa8743"
+  },
+  {
+    "path": "08-implementation-risks-and-resolution.md",
+    "bytes": 2442,
+    "sha256": "c85e63e8a708197c37dd9c4124ca1b7fe1b46112fb233069fad40a577fa1a0e9"
+  },
+  {
+    "path": "09-journeys-and-state-machines.md",
+    "bytes": 8602,
+    "sha256": "4e02d49df8c03126b05c9a2ff386d1733d8bc9fcb77201cb62bc463daedf5031"
+  },
+  {
+    "path": "10-implementation-plan.md",
+    "bytes": 76610,
+    "sha256": "2e9848d6945c05997800ecf7937d28b2a540fd743e1eeb601e5e039efdb5b3e3"
+  },
+  {
+    "path": "11-form-field-contracts.md",
+    "bytes": 39275,
+    "sha256": "2b2207cfa342160e9aabbe87c616039c7907e1e5f5011f76dd69279b294dc010"
+  },
+  {
+    "path": "12-screen-state-catalog.md",
+    "bytes": 780399,
+    "sha256": "6713c10867dd344826d398cf2205b0e3982f3fad637d5e5978574b1330891bba"
+  },
+  {
+    "path": "13-shared-state-visuals.md",
+    "bytes": 1895,
+    "sha256": "61abc480ecc30c35186881f0ec2f418910561a71ed112b6f507960498f52367a"
+  },
+  {
+    "path": "14-visual-foundations.md",
+    "bytes": 5810,
+    "sha256": "81d5857b0dfe3dd0171936e6b665fd404fad6e6ea88eb202f180352348dfb99f"
+  },
+  {
+    "path": "acceptance-and-edge-cases.csv",
+    "bytes": 179848,
+    "sha256": "13afef1ec3db2067e0d319589ef7bbbea37a9b6c3c43acbf21eba9491215bc1a"
+  },
+  {
+    "path": "assets/automation.png",
+    "bytes": 98006,
+    "sha256": "35cbd3354e458397d7fea762ab4fafb3a5ba66c2500db1de29c2a11849e8469f"
+  },
+  {
+    "path": "assets/biologics.png",
+    "bytes": 82571,
+    "sha256": "f6f1a931f8a342923bb6405bcc154516f86b7a5ea95f903935ddc726cc1113e9"
+  },
+  {
+    "path": "assets/bioprocess.png",
+    "bytes": 91122,
+    "sha256": "c347a5fb0549bc1c3d724f276fabd327fde2581e5b1cc4e855b674faf2645aec"
+  },
+  {
+    "path": "assets/chemistry.png",
+    "bytes": 84310,
+    "sha256": "b3d278f02dd89478b21168f84e7e32c299a72377e87450870d3aae1899da50e1"
+  },
+  {
+    "path": "assets/enzymes.png",
+    "bytes": 87981,
+    "sha256": "fb6d802a1ba1e57b0ac0d2717a52a2c6c90dffdbd3371b18166dd77d16953ed3"
+  },
+  {
+    "path": "assets/features.png",
+    "bytes": 89281,
+    "sha256": "3e01eb844315b42efcbeb2be7edf1df0e93f2e1a0cb9b6fa091f0439f0498ece"
+  },
+  {
+    "path": "assets/first-use.png",
+    "bytes": 68941,
+    "sha256": "3b8051913c0b6b62e0834231b91ee760f29dd301f896b54586f058a0fbe2f309"
+  },
+  {
+    "path": "assets/genbank-review.png",
+    "bytes": 35344,
+    "sha256": "31df0900692ab4045f65186a835b760a0471036ec75e383a619a94271eb3e990"
+  },
+  {
+    "path": "assets/history.png",
+    "bytes": 90151,
+    "sha256": "cf9d5d7ab8480b9d423bd652625e67e83edae76ea1c34b4a719478939983d2ea"
+  },
+  {
+    "path": "assets/home.png",
+    "bytes": 88761,
+    "sha256": "a2668d44d69953528523e393d87ba7557cb904367ca665227fe8364b957aac09"
+  },
+  {
+    "path": "assets/in-vivo.png",
+    "bytes": 84297,
+    "sha256": "edbf8d883a761847459fa0a9b74b8fcdc0418269a6ecf655ebec1e21b57372ef"
+  },
+  {
+    "path": "assets/insights.png",
+    "bytes": 90515,
+    "sha256": "24238d4bf9e40642fa4d2b4b6e03a51641dd7267e3d5cdf73519ee98d279beb4"
+  },
+  {
+    "path": "assets/inventory.png",
+    "bytes": 96335,
+    "sha256": "6b1440992d2e0dd4b184a28d0e870fa3dd75a7d9de27a378288f4f4c556dfaaa"
+  },
+  {
+    "path": "assets/map.png",
+    "bytes": 101789,
+    "sha256": "d5333c52901a89fb04e688d6c5ebf69dde99cc035142287091c1239b09548f0a"
+  },
+  {
+    "path": "assets/notebook.png",
+    "bytes": 95998,
+    "sha256": "3679b3c4ec9f2bc62dc2bb7aa982b4898aa17fc43ec5d00bebef89dd006627f8"
+  },
+  {
+    "path": "assets/partial-run.png",
+    "bytes": 38359,
+    "sha256": "3e6a8d76402c078a65884fc693f6adffff82844b53ce9971d5ad91811979151d"
+  },
+  {
+    "path": "assets/post-delete.png",
+    "bytes": 44518,
+    "sha256": "26b817a1a26532114aed5997604c71c3cd0bc33be5be272889f061d88b421e35"
+  },
+  {
+    "path": "assets/primers.png",
+    "bytes": 87920,
+    "sha256": "b64a7dca44f98210df7bd3d005e0c13b800322a0cbe9792e57c31481b775f0bc"
+  },
+  {
+    "path": "assets/registry.png",
+    "bytes": 90250,
+    "sha256": "d41793d11bfe8e30c9dcfc3876cc4d534a416017885d76bf4e520a8c91e1ffe4"
+  },
+  {
+    "path": "assets/rna-oligos.png",
+    "bytes": 90520,
+    "sha256": "b101c028597a966c1adda167b6513fddeb31d3e5e72eb401eaadbb60789bd15b"
+  },
+  {
+    "path": "assets/sample-result.png",
+    "bytes": 78694,
+    "sha256": "30e7c5a449247e7f6146d80e8da50972d4f93a7c5c65b1d080260c32e4f3071d"
+  },
+  {
+    "path": "assets/search-results.png",
+    "bytes": 51677,
+    "sha256": "7fd7bdabc0846a30124c89f019bb2a489c8e87a0ee662c777ece1c52e88319ec"
+  },
+  {
+    "path": "assets/sequence.png",
+    "bytes": 101206,
+    "sha256": "166429a8155a973142b415f8c61f92cce2fa0ed8c49ebbef0f720e176b2a2a7e"
+  },
+  {
+    "path": "assets/split.png",
+    "bytes": 88023,
+    "sha256": "2c16a1ecfe2ee2be572c90dce435de3c0ba29422c4b2484db3836fe854757982"
+  },
+  {
+    "path": "assets/unsaved-guard.png",
+    "bytes": 33932,
+    "sha256": "ca68bf3cc286b6685b88b3316c448114f7b4c784582a4274fb6731aa8d12b4fd"
+  },
+  {
+    "path": "assets/well-inspection.png",
+    "bytes": 28237,
+    "sha256": "884e72f3bab034c8cc16707c021664f703472292181d31fc5ecc3c8b8b0567a8"
+  },
+  {
+    "path": "assets/workflows.png",
+    "bytes": 84751,
+    "sha256": "bc6009b844000eaa4b92473ef960c18b4c3a93625218a5b5466a32b590a34581"
+  },
+  {
+    "path": "documentation-validation.json",
+    "bytes": 516,
+    "sha256": "d17ab577a1478d61820be60037b61eb82c5bb397887777233e0a0fabcf5e4959"
+  },
+  {
+    "path": "feature-traceability.csv",
+    "bytes": 70153,
+    "sha256": "7398c531b5969aad181ee50bc3a5127397ad143797c1d74e4c8e0a80dd8e73e5"
+  },
+  {
+    "path": "fixtures/annotated.gb",
+    "bytes": 253,
+    "sha256": "eda45f73707c50e451e912d9d49a5c69554e4abf619a8f51f5c0d3aa5da68f8f"
+  },
+  {
+    "path": "fixtures/dna-ambiguous.fasta",
+    "bytes": 33,
+    "sha256": "affaa1dd7955962fd1aaee66b4f4b6b2c47e01eb93cf7116232166cc1aa86246"
+  },
+  {
+    "path": "fixtures/dna-linear.fasta",
+    "bytes": 38,
+    "sha256": "fb9d4861fa14eb71195a1fdc660ea660150ccd25b949876ed9b382c5cad050b7"
+  },
+  {
+    "path": "fixtures/invalid-symbol.fasta",
+    "bytes": 32,
+    "sha256": "d171a7df16af14050616c42236755f9a2a377bdd3ad3f243530064843398b85a"
+  },
+  {
+    "path": "fixtures/legacy-v1.hbx",
+    "bytes": 565,
+    "sha256": "56e9f5042de4daf157819779d0a75a6fce15d9e069135b4b06eaf49279e77bd9"
+  },
+  {
+    "path": "fixtures/multi-and-invalid.fasta",
+    "bytes": 45,
+    "sha256": "b6c72db2adc371b259d2ba63176c236ec138f0cc2d62cf788ff113fe7c644b89"
+  },
+  {
+    "path": "fixtures/newer-unsupported.hbx",
+    "bytes": 567,
+    "sha256": "a962f816ee3284c6aa5bcda5dc5f7a0956b70b88da76b0cf10b5b3b5bae4c0a7"
+  },
+  {
+    "path": "fixtures/protein.faa",
+    "bytes": 38,
+    "sha256": "cc7b8f53aed6253ed1008c0b794e27e23ff594a3b9e4241720dfc2188c11d126"
+  },
+  {
+    "path": "fixtures/quoted.csv",
+    "bytes": 95,
+    "sha256": "af963020882b5fa66a51568792d61c7b4c163a2c2759e69a7a8157a74428d326"
+  },
+  {
+    "path": "fixtures/README.md",
+    "bytes": 1297,
+    "sha256": "3e3d5f7b6f83e907618003564bae5f6e6e80f61bf749bc1246636be172138643"
+  },
+  {
+    "path": "fixtures/rna.fasta",
+    "bytes": 28,
+    "sha256": "ebae1573bf8f1f0fa7398b06e38a456387fd2ad14d9bf994784ddad31ddc5dc6"
+  },
+  {
+    "path": "fixtures/same-name.fasta",
+    "bytes": 36,
+    "sha256": "9599c0c165acfb2c0b864fb5080056d1ed315296f206d33574e90333adbdcb46"
+  },
+  {
+    "path": "fixtures/transfer-plan.json",
+    "bytes": 1009,
+    "sha256": "79b734ad65d472c1b6f9558b7532aaa09fb134c99db59d2881d6bc635beb81b5"
+  },
+  {
+    "path": "index.html",
+    "bytes": 2495246,
+    "sha256": "5d72d739e910e3522e2e86bf3a9b244ae4962fdc28bb977e3dbadf2d800ac6fe"
+  },
+  {
+    "path": "plans/2026-11-15-helixbench-ux-v4.md",
+    "bytes": 76610,
+    "sha256": "2e9848d6945c05997800ecf7937d28b2a540fd743e1eeb601e5e039efdb5b3e3"
+  },
+  {
+    "path": "README.md",
+    "bytes": 5112,
+    "sha256": "491a4c365546cf7ca63f1f5926bef4a037e91f4c641fdefdc5cd93b0f86a5e6e"
+  },
+  {
+    "path": "reference/command-action-index.json",
+    "bytes": 31130,
+    "sha256": "2e383caedcdd7f67f93f3993735e28e5400549e2efd300e074a988e238ada869"
+  },
+  {
+    "path": "reference/current-data-types.md",
+    "bytes": 87295,
+    "sha256": "d573cbe216c0b4059f1d0e045c805c9dfc783e9f4bc08299fff7728f291b394f"
+  },
+  {
+    "path": "reference/figma-foundations.json",
+    "bytes": 45898,
+    "sha256": "14351994d2b3e79b1875edd5ac7d182141ade77885d016b8986e7037d83a5a2b"
+  },
+  {
+    "path": "reference/figma-frames.json",
+    "bytes": 1780062,
+    "sha256": "44563bc08a1e06d65612e0336075d10108aa22e1c0a4f563885bba03bcdcc6a6"
+  },
+  {
+    "path": "reference/known-prototype-checks.json",
+    "bytes": 5049,
+    "sha256": "e6b514ed6f0a0c24162b11e49cbc9d31b350943d0ca81cdff0d0f82285a4b719"
+  },
+  {
+    "path": "reference/source-index.json",
+    "bytes": 453754,
+    "sha256": "2587801f099b55c46b212e56b3a51c378b8bcb4edbb804c1f9e0de92948323dd"
+  },
+  {
+    "path": "screens/automation.md",
+    "bytes": 25201,
+    "sha256": "6fea52df9082622295eebbca40d5ab559ca02522566121bce4840d8cee5af77b"
+  },
+  {
+    "path": "screens/biologics.md",
+    "bytes": 21831,
+    "sha256": "88a8b97ff158454171707d5648d531d32ff108f7596896c3f33dce6e3ac8d004"
+  },
+  {
+    "path": "screens/bioprocess.md",
+    "bytes": 37029,
+    "sha256": "6b60cff67dc5f7080d2701f8800149efde4d1c61c6cf880426612daf2562467f"
+  },
+  {
+    "path": "screens/chemistry.md",
+    "bytes": 34386,
+    "sha256": "6bdb1629f79f7f763fc346fd72a27cb12d85285eb8a8b45bc125a72ea0325557"
+  },
+  {
+    "path": "screens/enzymes.md",
+    "bytes": 29409,
+    "sha256": "9c1c100f31d680e1b8d51162d776a991d764b703d28534239eafdf6adc076c9d"
+  },
+  {
+    "path": "screens/features.md",
+    "bytes": 41868,
+    "sha256": "ebe3ca2ea25d6cf48286ade2187b369ee19a80dd81db660c7057079072a36c9b"
+  },
+  {
+    "path": "screens/history.md",
+    "bytes": 16294,
+    "sha256": "eb98a02d3e5638e3183f8c814e818b362e1589501873892d6a38e2d021f13041"
+  },
+  {
+    "path": "screens/home.md",
+    "bytes": 46709,
+    "sha256": "8993dfbbce88f003668b50ecbfeddea5d7dbc3e71b2361d1a6c4c468e2b023d1"
+  },
+  {
+    "path": "screens/in-vivo.md",
+    "bytes": 32826,
+    "sha256": "952e8c15a40a032c2aa82038275484a345b7d65c165eac000a05cc4dea3b8be8"
+  },
+  {
+    "path": "screens/insights.md",
+    "bytes": 15937,
+    "sha256": "e02fd0b083bb38adf0a40274693917b2579ce71c91cd59238e8971dd5856a452"
+  },
+  {
+    "path": "screens/inventory.md",
+    "bytes": 27424,
+    "sha256": "7d63db5b7bdee65ae7af6ca758b1c2af5d5adebe98b87bd36b260209fc474baf"
+  },
+  {
+    "path": "screens/map.md",
+    "bytes": 57135,
+    "sha256": "62686a03c3413286de64cdf5f6a488be5eb1d064da1815c7b47b41ffdefbf75f"
+  },
+  {
+    "path": "screens/notebook.md",
+    "bytes": 33044,
+    "sha256": "967aee6d8900a4bdab6548f44400ca45772ad85ac25ca1a4b63d11278f30eccb"
+  },
+  {
+    "path": "screens/primers.md",
+    "bytes": 44498,
+    "sha256": "6552e7b256cc754358aaf35fee28de9b28d665317e5371a41500df2af65248a5"
+  },
+  {
+    "path": "screens/registry.md",
+    "bytes": 43622,
+    "sha256": "d427807eb33af761800feb7a24d53e232435668fa253fbb220531dc45f7fedc1"
+  },
+  {
+    "path": "screens/rna-oligos.md",
+    "bytes": 22303,
+    "sha256": "18f2253288df46785e3a24fcc337ce3dc15514be090eee368a8209a6b23686fa"
+  },
+  {
+    "path": "screens/sequence.md",
+    "bytes": 49156,
+    "sha256": "fa50d5b1ba4a8cd03082b943f16fbae192a88b147df0738c3280c1b913709068"
+  },
+  {
+    "path": "screens/split.md",
+    "bytes": 18999,
+    "sha256": "c5b730c682440301ae0a8c694e36855fac7fe108d5d11a4960346728d015a2a0"
+  },
+  {
+    "path": "screens/workflows.md",
+    "bytes": 33168,
+    "sha256": "6d3c78573abdc30d07d6dd1163ede95713ae1a462a779d8af52803522d0a71fe"
+  },
+  {
+    "path": "specification.json",
+    "bytes": 1227875,
+    "sha256": "cddc3b381e22fe7f829ab7df81927e389f789eaea61a8a1e7de924845eaca4bc"
+  }
+]

@@ -1,0 +1,44 @@
+{
+  "purpose": "Proposed transfer-plan test fixture; not an existing serialized app API.",
+  "sourcePlate": "P-014",
+  "destinationPlate": "P-021",
+  "before": [
+    {
+      "sample": "S-001",
+      "source": "A1",
+      "sourceVolume": 50,
+      "destination": "B1",
+      "destinationVolume": 0,
+      "unit": "uL"
+    },
+    {
+      "sample": "S-002",
+      "source": "A2",
+      "sourceVolume": 50,
+      "destination": "B2",
+      "destinationVolume": 0,
+      "unit": "uL"
+    },
+    {
+      "sample": "S-003",
+      "source": "A3",
+      "sourceVolume": 50,
+      "destination": "B3",
+      "destinationVolume": 0,
+      "unit": "uL"
+    },
+    {
+      "sample": "S-004",
+      "source": "A4",
+      "sourceVolume": 50,
+      "destination": "B4",
+      "destinationVolume": 0,
+      "unit": "uL"
+    }
+  ],
+  "requestVolumeEach": 10,
+  "expectedSourceEach": 40,
+  "expectedDestinationEach": 10,
+  "expectedTotalTransferred": 40,
+  "snapshotsUnchanged": true
+}
