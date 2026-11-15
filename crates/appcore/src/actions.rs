@@ -482,9 +482,23 @@ pub fn open_path(app: &mut AppState, path: &std::path::Path) {
         Ok(doc) => {
             let name = doc.name.clone();
             let len = doc.sequence.len();
-            app.set_document(doc, Some(path.to_path_buf()));
+            let native = path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case(storage::NATIVE_EXT));
+            app.set_document(doc, native.then(|| path.to_path_buf()));
+            if !native {
+                // Imported interchange files are source material, not a native save target.
+                app.dirty = true;
+                app.saved_depth = None;
+                app.config.add_recent(path);
+            }
             app.view = crate::state::View::Map;
-            app.toast(format!("Opened {name} ({len} bp)"));
+            app.toast(if native {
+                format!("Opened {name} ({len} bp)")
+            } else {
+                format!("Imported {name} ({len} bp) — Save As a HelixBench document")
+            });
         }
         Err(e) => app.toast(format!("Could not open {}: {e}", path.display())),
     }
@@ -1502,8 +1516,13 @@ pub fn bulk_annotate(app: &mut AppState) {
         let ex = od.doc.features.clone();
         let add = domain::feature_lib::auto_annotate(&od.doc.sequence, &lib, &ex);
         total += add.len();
+        let changed = !add.is_empty();
         for f in add {
             od.doc.add_feature(f);
+        }
+        if changed {
+            od.doc.advance_revision();
+            od.dirty = true;
         }
     }
     app.toast(format!(
@@ -1540,16 +1559,18 @@ pub fn bulk_tag(app: &mut AppState, draft: &WorkspaceDraft) {
     }
     let idxs = workspace_docs(&draft.selected);
     for i in idxs {
-        let doc = if i == 0 {
-            &mut app.doc
-        } else {
-            &mut app.library[i - 1].doc
-        };
-        if !doc.tags.contains(&tag) {
-            doc.tags.push(tag.clone());
+        if i == 0 {
+            if !app.doc.tags.contains(&tag) {
+                app.mutate("Bulk tag", Vec::new(), |doc| doc.tags.push(tag.clone()));
+            }
+        } else if let Some(od) = app.library.get_mut(i - 1) {
+            if !od.doc.tags.contains(&tag) {
+                od.doc.tags.push(tag.clone());
+                od.doc.advance_revision();
+                od.dirty = true;
+            }
         }
     }
-    app.dirty = true;
     app.toast("Tag applied to selected documents");
 }
 
@@ -1591,8 +1612,9 @@ pub fn bulk_delete(app: &mut AppState, draft: &WorkspaceDraft) {
 }
 
 pub fn set_tags(app: &mut AppState, tags: Vec<String>) {
-    app.doc.tags = tags;
-    app.dirty = true;
+    if app.doc.tags != tags {
+        app.mutate("Edit tags", Vec::new(), |doc| doc.tags = tags);
+    }
 }
 
 // --- Phase 1: connected records (projects / notebook / audit / home) --------

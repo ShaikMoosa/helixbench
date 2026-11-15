@@ -888,6 +888,9 @@ impl AppState {
         }
         let snapshot = self.doc.clone();
         f(&mut self.doc);
+        if self.doc != snapshot {
+            self.doc.advance_revision();
+        }
         self.history.push(HistoryEntry {
             label: label.to_string(),
             snapshot,

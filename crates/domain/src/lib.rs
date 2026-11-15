@@ -20,6 +20,7 @@ pub mod enzyme_set;
 pub mod feature;
 pub mod feature_lib;
 pub mod genetic_code;
+pub mod identity;
 pub mod insights;
 pub mod inventory;
 pub mod invivo;
@@ -33,6 +34,7 @@ pub mod primer_struct;
 pub mod project;
 pub mod protein;
 pub mod registry;
+pub mod results;
 pub mod rna;
 pub mod search;
 pub mod sequence;
@@ -44,6 +46,9 @@ pub use enzyme::{CutSite, Enzyme, Overhang};
 pub use enzyme_set::EnzymeSet;
 pub use feature::{Direction, Feature, FEATURE_KINDS};
 pub use genetic_code::{GeneticCode, CODES};
+pub use identity::{
+    DocumentId, OperationId, RecordRef, ResultId, RevisionId, SourceRef, StoreKind,
+};
 pub use primer::{BindingSite, HybridizationParams, Primer};
 pub use sequence::{DnaSequence, Range, Strand, Topology};
 pub use translate::Orf;

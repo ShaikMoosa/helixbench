@@ -54,6 +54,9 @@ pub struct Container {
     pub role: Option<WellRole>,
     /// Linked registry entity name (scientific identity).
     pub entity: Option<String>,
+    /// Cross-store identity. Keep the legacy label for display and repair.
+    #[serde(default)]
+    pub entity_ref: Option<crate::RecordRef>,
     pub quantity: f32,
     pub unit: String,
     pub concentration: f32,
@@ -92,6 +95,7 @@ impl Inventory {
             position: None,
             role: None,
             entity: None,
+            entity_ref: None,
             quantity: 0.0,
             unit: "uL".into(),
             concentration: 0.0,
@@ -130,6 +134,9 @@ impl Inventory {
         concentration: f32,
     ) -> bool {
         if let Some(c) = self.containers.iter_mut().find(|c| c.id == id) {
+            if entity.is_none() || c.entity != entity {
+                c.entity_ref = None;
+            }
             c.entity = entity;
             c.quantity = quantity;
             c.concentration = concentration;
@@ -161,6 +168,7 @@ impl Inventory {
                 position: Some(pos.clone()),
                 role: Some(*role),
                 entity: entity.clone(),
+                entity_ref: None,
                 quantity: *qty,
                 unit: "uL".into(),
                 concentration: 0.0,

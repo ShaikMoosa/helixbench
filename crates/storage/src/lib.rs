@@ -14,8 +14,10 @@ pub mod feature_lib;
 pub mod genbank;
 pub mod inventory;
 pub mod invivo;
+pub mod migrations;
 pub mod records;
 pub mod registry;
+pub mod results;
 pub mod rna;
 pub mod views;
 pub mod workflow;
@@ -28,7 +30,7 @@ use domain::Document;
 use serde::{Deserialize, Serialize};
 
 pub const FORMAT_NAME: &str = "helixbench";
-pub const FORMAT_VERSION: u32 = 1;
+pub const FORMAT_VERSION: u32 = 2;
 pub const NATIVE_EXT: &str = "hbx";
 
 #[derive(Debug, thiserror::Error)]
@@ -83,6 +85,17 @@ fn temp_sibling(path: &Path) -> PathBuf {
 
 /// Serialize a document to the native `.hbx` format and save it atomically.
 pub fn save_document(doc: &Document, path: &Path) -> Result<()> {
+    migrations::validate_v2(doc)?;
+    match fs::read(path) {
+        Ok(bytes) => {
+            let version = native_version(&bytes)?;
+            if version == 1 {
+                migrations::preserve_v1(path, &bytes)?;
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e.into()),
+    }
     let env = Envelope {
         format: FORMAT_NAME.to_string(),
         version: FORMAT_VERSION,
@@ -96,24 +109,54 @@ pub fn save_document(doc: &Document, path: &Path) -> Result<()> {
 /// Load a native `.hbx` document.
 pub fn load_document(path: &Path) -> Result<Document> {
     let bytes = fs::read(path)?;
-    parse_document(&bytes)
+    parse_document_scoped(&bytes, Some(path))
 }
 
 pub fn parse_document(bytes: &[u8]) -> Result<Document> {
-    let env: Envelope = serde_json::from_slice(bytes)?;
-    if env.format != FORMAT_NAME {
+    parse_document_scoped(bytes, None)
+}
+
+fn native_version(bytes: &[u8]) -> Result<u32> {
+    #[derive(Deserialize)]
+    struct Header {
+        format: String,
+        version: u32,
+    }
+    let header: Header = serde_json::from_slice(bytes)?;
+    if header.format != FORMAT_NAME {
         return Err(StorageError::Format(format!(
             "not a HelixBench file (format {:?})",
-            env.format
+            header.format
         )));
     }
-    if env.version > FORMAT_VERSION {
+    if header.version > FORMAT_VERSION {
         return Err(StorageError::Format(format!(
             "file version {} is newer than this app supports ({}); update HelixBench",
-            env.version, FORMAT_VERSION
+            header.version, FORMAT_VERSION
         )));
     }
-    Ok(env.document)
+    if header.version == 0 {
+        return Err(StorageError::Format("Unsupported native version 0".into()));
+    }
+    Ok(header.version)
+}
+
+fn parse_document_scoped(bytes: &[u8], path: Option<&Path>) -> Result<Document> {
+    let version = native_version(bytes)?;
+    let env: Envelope = serde_json::from_slice(bytes)?;
+    if version == 1 {
+        let mut scope = bytes.to_vec();
+        if let Some(path) = path {
+            scope.push(0);
+            scope.extend_from_slice(fs::canonicalize(path)?.as_os_str().as_encoded_bytes());
+        }
+        let doc = migrations::migrate_v1(env.document, &scope);
+        migrations::validate_v2(&doc)?;
+        Ok(doc)
+    } else {
+        migrations::validate_v2(&env.document)?;
+        Ok(env.document)
+    }
 }
 
 /// Open any supported file: `.hbx`, GenBank, FASTA, or raw sequence text.
@@ -131,10 +174,13 @@ pub fn load_any(path: &Path) -> Result<Document> {
         .unwrap_or("sequence")
         .to_string();
     match ext.as_str() {
-        "hbx" => return parse_document(&bytes),
+        "hbx" => return parse_document_scoped(&bytes, Some(path)),
         "gb" | "gbk" | "genbank" | "gp" => return genbank::parse(&bytes, &stem),
         "fa" | "fasta" | "fna" | "faa" => return fasta::parse_first(&bytes, &stem),
         _ => {}
+    }
+    if bytes.iter().find(|b| !b.is_ascii_whitespace()) == Some(&b'{') {
+        return parse_document_scoped(&bytes, Some(path));
     }
     sniff_and_parse(&bytes, &stem)
 }

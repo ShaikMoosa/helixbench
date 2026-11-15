@@ -62,6 +62,9 @@ pub struct Entry {
     pub updated: u64,
     /// Name of the linked document (if any).
     pub linked_doc: Option<String>,
+    /// Durable target. Legacy name-only links remain unresolved until reviewed.
+    #[serde(default)]
+    pub linked_document: Option<crate::DocumentId>,
     /// Archived entries are hidden by default but retained.
     #[serde(default)]
     pub archived: bool,
@@ -96,6 +99,7 @@ impl Registry {
             created: now,
             updated: now,
             linked_doc: None,
+            linked_document: None,
             archived: false,
             relations: Vec::new(),
         });
@@ -162,6 +166,9 @@ impl Registry {
 
     pub fn link(&mut self, id: u64, doc: Option<String>, now: u64) -> bool {
         if let Some(e) = self.entries.iter_mut().find(|e| e.id == id) {
+            if doc.is_none() || e.linked_doc != doc {
+                e.linked_document = None;
+            }
             e.linked_doc = doc;
             e.updated = now;
             true

@@ -37,6 +37,11 @@ pub struct Version {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Document {
+    /// Missing IDs are nil only while reading a legacy document; storage migrates them.
+    #[serde(default)]
+    pub id: crate::identity::DocumentId,
+    #[serde(default)]
+    pub revision_id: crate::identity::RevisionId,
     pub name: String,
     pub description: String,
     pub sequence: DnaSequence,
@@ -58,6 +63,8 @@ pub struct Document {
 impl Document {
     pub fn new(name: String, bases: Vec<u8>, topology: Topology) -> Self {
         Self {
+            id: crate::identity::DocumentId::new(),
+            revision_id: crate::identity::RevisionId::new(),
             name,
             description: String::new(),
             sequence: DnaSequence::new(bases, topology),
@@ -82,6 +89,32 @@ impl Document {
         id
     }
 
+    pub fn source_ref(&self) -> crate::identity::SourceRef {
+        crate::identity::SourceRef {
+            document: self.id,
+            revision: self.revision_id,
+        }
+    }
+
+    /// Application mutation boundary; undo restores the prior revision verbatim.
+    pub fn advance_revision(&mut self) {
+        self.revision_id = crate::identity::RevisionId::new();
+    }
+
+    /// Create another scientific record, retaining annotations and history content.
+    /// A normal clone is deliberately not a copy: it is used by undo and persistence.
+    pub fn independent_copy(&self, name: String) -> Self {
+        let mut copy = self.clone();
+        copy.name = name;
+        copy.id = crate::identity::DocumentId::new();
+        copy.advance_revision();
+        for version in &mut copy.versions {
+            version.doc.id = copy.id;
+            version.doc.advance_revision();
+        }
+        copy
+    }
+
     /// Snapshot the current state as a named version (newest last, capped at 20).
     pub fn save_version(&mut self, label: String, created: u64) {
         let mut doc = self.clone();
@@ -104,7 +137,10 @@ impl Document {
         let snap = v.doc.clone();
         let versions = std::mem::take(&mut self.versions);
         let next = self.next_id;
+        let identity = self.id;
         *self = snap;
+        self.id = identity;
+        self.advance_revision();
         self.versions = versions;
         self.next_id = next.max(self.next_id);
         true
