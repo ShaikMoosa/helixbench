@@ -1474,6 +1474,196 @@ pub fn render_biologics(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> A
     p.into_any_element()
 }
 
+pub fn render_rna(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
+    let mut p = page(
+        "RNA / Oligos",
+        "Modified oligos: monomer library, patterns, HELM",
+    );
+    let mut body = scroll("rna-scroll");
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(
+                widgets::button("rna-add", "Add oligo", Btn::Primary).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        act::open_rna_add(&mut t.app);
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(widgets::label(
+                &format!("{} oligos", app.app.rna.oligos.len()),
+                theme::T_SM,
+                theme::MUTED,
+            )),
+    );
+    if app.app.rna.oligos.is_empty() {
+        body = body.child(widgets::label(
+            "No oligos yet. Add an RNA sequence with a modification pattern, or import HELM.",
+            theme::T_SM,
+            theme::FAINT,
+        ));
+    }
+    for o in app.app.rna.oligos.clone() {
+        let id = o.id;
+        let selected = app.app.rna_sel == Some(id);
+        body = body.child(
+            row_card()
+                .child(
+                    div()
+                        .flex_grow()
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.0))
+                        .child(
+                            div()
+                                .text_size(px(theme::T_SM))
+                                .text_color(theme::TEXT)
+                                .child(o.name.clone()),
+                        )
+                        .child(
+                            div()
+                                .font_family(theme::MONO_FONT)
+                                .text_size(px(theme::T_XS))
+                                .text_color(theme::FAINT)
+                                .child(format!(
+                                    "{} nt · {} mods · GC {:.0}%",
+                                    o.len(),
+                                    o.mods.len(),
+                                    o.gc_percent()
+                                )),
+                        ),
+                )
+                .child(widgets::label(
+                    &format!("{:.1} Da", o.molecular_weight()),
+                    theme::T_XS,
+                    theme::MUTED,
+                ))
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("rna-sel-{id}")),
+                        "Select",
+                        if selected { Btn::Primary } else { Btn::Subtle },
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        t.app.rna_sel = Some(id);
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("rna-del-{id}")),
+                        "Delete",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::rna_delete(&mut t.app, id);
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    if let Some(sel) = app.app.rna_sel {
+        if let Some(o) = app.app.rna.get(sel).cloned() {
+            body = body.child(section_title(&format!("{} · {} nt", o.name, o.len())));
+            body = body.child(
+                div()
+                    .font_family(theme::MONO_FONT)
+                    .text_size(px(theme::T_SM))
+                    .text_color(theme::TEXT)
+                    .child(o.seq.clone()),
+            );
+            body = body.child(widgets::label(
+                &format!(
+                    "MW {:.1} Da · GC {:.0}%",
+                    o.molecular_weight(),
+                    o.gc_percent()
+                ),
+                theme::T_SM,
+                theme::MUTED,
+            ));
+            body = body.child(widgets::label("HELM:", theme::T_SM, theme::FAINT));
+            body = body.child(
+                div()
+                    .font_family(theme::MONO_FONT)
+                    .text_size(px(theme::T_XS))
+                    .text_color(theme::ACCENT)
+                    .child(o.to_helm()),
+            );
+            if !o.mods.is_empty() {
+                body = body.child(widgets::label("Modifications:", theme::T_SM, theme::FAINT));
+                let lib = domain::rna::monomer_library();
+                for m in &o.mods {
+                    let name = lib
+                        .iter()
+                        .find(|x| x.code == m.code)
+                        .map(|x| x.name.clone())
+                        .unwrap_or_else(|| m.code.clone());
+                    body = body.child(
+                        div()
+                            .font_family(theme::MONO_FONT)
+                            .text_size(px(theme::T_XS))
+                            .text_color(theme::MUTED)
+                            .child(format!("pos {} · {} ({})", m.pos + 1, m.code, name)),
+                    );
+                }
+            }
+            body = body.child(widgets::label(
+                "Apply bulk pattern (replaces mods at those positions):",
+                theme::T_SM,
+                theme::FAINT,
+            ));
+            let mut pats = div().flex().flex_wrap().gap(px(6.0));
+            for (i, pat) in domain::rna::Pattern::ALL.iter().enumerate() {
+                pats = pats.child(
+                    widgets::button(
+                        SharedString::from(format!("rna-pat-{i}")),
+                        pat.label(),
+                        Btn::Outline,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::rna_apply_pattern(&mut t.app, i, 4);
+                        cx.notify();
+                    })),
+                );
+            }
+            body = body.child(pats);
+        }
+    }
+    body = body.child(section_title("Monomer / modification library"));
+    for m in domain::rna::monomer_library() {
+        body = body.child(
+            div()
+                .flex()
+                .gap(px(8.0))
+                .child(
+                    div()
+                        .w(px(50.0))
+                        .font_family(theme::MONO_FONT)
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::ACCENT)
+                        .child(m.code.clone()),
+                )
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::MUTED)
+                        .child(m.name.clone()),
+                )
+                .child(widgets::label(
+                    &format!("{} / {} · {:.1}", m.sugar, m.phosphate, m.mw),
+                    theme::T_XS,
+                    theme::FAINT,
+                )),
+        );
+    }
+    p = p.child(body);
+    p.into_any_element()
+}
+
 pub fn render_chemistry(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
     let mut p = page(
         "Chemistry",

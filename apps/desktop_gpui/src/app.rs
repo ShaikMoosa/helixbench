@@ -253,6 +253,7 @@ impl HelixBench {
             Some(Dialog::ChemAdd(_)) => "chem-add".into(),
             Some(Dialog::ChemReaction(_)) => "chem-reaction".into(),
             Some(Dialog::ChemLot(_)) => "chem-lot".into(),
+            Some(Dialog::Rna(_)) => "rna".into(),
         }
     }
 
@@ -1663,6 +1664,7 @@ impl HelixBench {
             View::Split => crate::lab::render_split(self, cx),
             View::Biologics => crate::lab::render_biologics(self, cx),
             View::Chemistry => crate::lab::render_chemistry(self, cx),
+            View::Rna => crate::lab::render_rna(self, cx),
         }
     }
 

@@ -218,6 +218,8 @@ pub fn show(
         chem_reaction(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::ChemLot(_))) {
         chem_lot(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Rna(_))) {
+        rna(app, cx, max_h)
     } else {
         return None;
     };
@@ -6340,6 +6342,116 @@ fn chem_lot(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -
         cx,
         "Add Lot",
         620.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: RNA / oligo dialog
+// ---------------------------------------------------------------------------
+
+fn rna(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::Rna(d)) => d.clone(),
+        _ => return div().into_any_element(),
+    };
+    let name_inp = app.input_entity(cx, "dlg:rna:name", &draft.name, "Oligo name", false);
+    let seq_inp = app.input_entity(cx, "dlg:rna:seq", &draft.seq, "RNA sequence A/U/G/C", true);
+    let helm_inp = app.input_entity(
+        cx,
+        "dlg:rna:helm",
+        &draft.helm,
+        "optional HELM e.g. RNA1{[mA]PUP}",
+        true,
+    );
+    if let Some(Dialog::Rna(d)) = &mut app.app.dialog {
+        d.name = name_inp.read(cx).text();
+        d.seq = seq_inp.read(cx).text();
+        d.helm = helm_inp.read(cx).text();
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(field_row(
+        "Name",
+        input_field(name_inp, 372.0).into_any_element(),
+    ));
+    body = body.child(field_row(
+        "Sequence",
+        input_field(seq_inp, 480.0).into_any_element(),
+    ));
+    let mut pats = div().flex().flex_wrap().gap(px(6.0));
+    for (i, pat) in domain::rna::Pattern::ALL.iter().enumerate() {
+        let sel = draft.pattern == i;
+        pats = pats.child(
+            widgets::button(
+                SharedString::from(format!("rna-dpat-{i}")),
+                pat.label(),
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::Rna(d)) = &mut t.app.dialog {
+                    d.pattern = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(field_row("Pattern", pats.into_any_element()));
+    let lib = domain::rna::monomer_library();
+    let mut mods = div().flex().flex_wrap().gap(px(6.0));
+    for (i, m) in lib.iter().enumerate() {
+        let sel = draft.mod_code == i;
+        mods = mods.child(
+            widgets::button(
+                SharedString::from(format!("rna-dmod-{i}")),
+                &m.code,
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::Rna(d)) = &mut t.app.dialog {
+                    d.mod_code = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(field_row("Modification", mods.into_any_element()));
+    body = body.child(field_row(
+        "HELM (optional)",
+        input_field(helm_inp, 480.0).into_any_element(),
+    ));
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("rna-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("rna-save", "Add", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::Rna(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::rna_add_save(&mut t.app, &d) {
+                    Ok(_) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::Rna(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Add Oligo",
+        660.0,
         max_h,
         true,
         body.into_any_element(),

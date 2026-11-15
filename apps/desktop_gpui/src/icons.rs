@@ -55,6 +55,7 @@ icons! {
     "split" => "<rect x=\"3\" y=\"4\" width=\"7\" height=\"16\" rx=\"1\"/><rect x=\"14\" y=\"4\" width=\"7\" height=\"16\" rx=\"1\"/>",
     "biologic" => "<path d=\"M12 21v-8\"/><path d=\"M12 13 6 5\"/><path d=\"M12 13l6-8\"/><circle cx=\"6\" cy=\"4\" r=\"1.6\"/><circle cx=\"18\" cy=\"4\" r=\"1.6\"/>",
     "chem" => "<path d=\"M9 3h6\"/><path d=\"M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3\"/><line x1=\"7\" y1=\"15\" x2=\"17\" y2=\"15\"/>",
+    "rna" => "<path d=\"M4 4c4 4 12 4 16 8\"/><path d=\"M4 12c4 4 12 4 16 8\"/><line x1=\"7\" y1=\"6\" x2=\"7\" y2=\"10\"/><line x1=\"12\" y1=\"8\" x2=\"12\" y2=\"12\"/><line x1=\"17\" y1=\"10\" x2=\"17\" y2=\"14\"/>",
 }
 
 pub struct Assets;
@@ -123,5 +124,6 @@ pub fn view_icon(v: View) -> &'static str {
         View::Split => "split",
         View::Biologics => "biologic",
         View::Chemistry => "chem",
+        View::Rna => "rna",
     }
 }

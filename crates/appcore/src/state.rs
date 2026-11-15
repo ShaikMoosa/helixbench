@@ -28,6 +28,7 @@ pub enum View {
     Split,
     Biologics,
     Chemistry,
+    Rna,
 }
 
 impl View {
@@ -40,7 +41,7 @@ impl View {
         View::History,
     ];
 
-    pub const LAB: [View; 10] = [
+    pub const LAB: [View; 11] = [
         View::Home,
         View::Notebook,
         View::Registry,
@@ -51,6 +52,7 @@ impl View {
         View::Split,
         View::Biologics,
         View::Chemistry,
+        View::Rna,
     ];
 
     pub fn label(self) -> &'static str {
@@ -71,6 +73,7 @@ impl View {
             View::Split => "Split",
             View::Biologics => "Biologics",
             View::Chemistry => "Chemistry",
+            View::Rna => "RNA / Oligos",
         }
     }
 
@@ -92,6 +95,7 @@ impl View {
             View::Split => "⧉",
             View::Biologics => "Y",
             View::Chemistry => "⚗",
+            View::Rna => "≈",
         }
     }
 }
@@ -288,6 +292,7 @@ pub enum Dialog {
     ChemAdd(ChemAddDraft),
     ChemReaction(ChemReactionDraft),
     ChemLot(ChemLotDraft),
+    Rna(RnaDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -473,6 +478,18 @@ pub struct ChemLotDraft {
     pub error: Option<String>,
 }
 
+/// Phase 5 RNA: add-oligo dialog draft. If `helm` is non-empty it is parsed;
+/// otherwise `seq` + `pattern` + `mod_code` build the oligo.
+#[derive(Clone, Default)]
+pub struct RnaDraft {
+    pub name: String,
+    pub seq: String,
+    pub pattern: usize,
+    pub mod_code: usize,
+    pub helm: String,
+    pub error: Option<String>,
+}
+
 #[derive(Clone, Default)]
 pub struct RegistryImportDraft {
     pub csv: String,
@@ -630,6 +647,10 @@ pub struct AppState {
     pub chem_sel: Option<u64>,
     /// Substructure SMILES filter in the Chemistry view.
     pub chem_search: String,
+    /// Phase 5 RNA / modified oligos.
+    pub rna: storage::rna::Rna,
+    /// Selected oligo in the RNA view.
+    pub rna_sel: Option<u64>,
     pub feature_sort: TableSort,
     pub primer_sort: TableSort,
     pub enzyme_sort: TableSort,
@@ -698,6 +719,8 @@ impl AppState {
             chemistry: storage::chemistry::load(),
             chem_sel: None,
             chem_search: String::new(),
+            rna: storage::rna::load(),
+            rna_sel: None,
             feature_sort: TableSort::default(),
             primer_sort: TableSort::default(),
             enzyme_sort: TableSort::default(),

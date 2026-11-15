@@ -14,7 +14,7 @@ use crate::state::{
     Dialog, EntityMapDraft, EntryEditDraft, FeatureDraft, FeatureLibDraft, HomeDraft,
     InventoryDraft, NewSeqState, NotebookDraft, OpenDoc, PcrDraft, PendingAction,
     PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft, RegistryDraft, RegistryEditDraft,
-    RegistryImportDraft, WorkflowDraft, WorkspaceDraft,
+    RegistryImportDraft, RnaDraft, WorkflowDraft, WorkspaceDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -2212,6 +2212,94 @@ pub fn chem_delete_reaction(app: &mut AppState, id: u64) {
         let _ = storage::chemistry::save(&app.chemistry);
         audit(app, &format!("reaction:{id}"), "deleted", "");
         app.toast("Reaction deleted");
+    }
+}
+
+/// Open the RNA add-oligo dialog.
+pub fn open_rna_add(app: &mut AppState) {
+    app.dialog = Some(Dialog::Rna(RnaDraft {
+        mod_code: 4, // mA default
+        ..Default::default()
+    }));
+}
+
+pub fn rna_add_save(app: &mut AppState, draft: &RnaDraft) -> Result<u64, String> {
+    if draft.name.trim().is_empty() {
+        return Err("Name required".into());
+    }
+    let oligo = if !draft.helm.trim().is_empty() {
+        domain::rna::Oligo::from_helm(draft.name.trim(), draft.helm.trim())?
+    } else {
+        let seq: String = draft
+            .seq
+            .chars()
+            .filter(|c| "AUGCaugc".contains(*c))
+            .map(|c| c.to_ascii_uppercase())
+            .collect();
+        if seq.is_empty() {
+            return Err("RNA sequence (A/U/G/C) required".into());
+        }
+        let lib = domain::rna::monomer_library();
+        let code = lib
+            .get(draft.mod_code.min(lib.len() - 1))
+            .map(|m| m.code.clone())
+            .unwrap_or_else(|| "A".into());
+        let pattern = domain::rna::Pattern::ALL[draft.pattern.min(3)];
+        let mods = pattern
+            .positions(seq.len())
+            .into_iter()
+            .map(|pos| domain::rna::Mod {
+                pos,
+                code: code.clone(),
+            })
+            .collect();
+        domain::rna::Oligo {
+            id: 0,
+            name: draft.name.trim().to_string(),
+            seq,
+            mods,
+        }
+    };
+    let id = app.rna.add(oligo);
+    let _ = storage::rna::save(&app.rna);
+    audit(app, &format!("oligo:{id}"), "added", &draft.name);
+    app.rna_sel = Some(id);
+    app.toast("Oligo added");
+    Ok(id)
+}
+
+/// Apply a bulk modification pattern to the selected oligo.
+pub fn rna_apply_pattern(app: &mut AppState, pattern: usize, mod_code: usize) {
+    let Some(sel) = app.rna_sel else { return };
+    let lib = domain::rna::monomer_library();
+    let code = lib
+        .get(mod_code.min(lib.len() - 1))
+        .map(|m| m.code.clone())
+        .unwrap_or_else(|| "A".into());
+    let pat = domain::rna::Pattern::ALL[pattern.min(3)];
+    if let Some(o) = app.rna.get_mut(sel) {
+        let positions = pat.positions(o.seq.len());
+        o.mods.retain(|m| !positions.contains(&m.pos));
+        for pos in positions {
+            o.mods.push(domain::rna::Mod {
+                pos,
+                code: code.clone(),
+            });
+        }
+        o.mods.sort_by_key(|m| m.pos);
+    }
+    let _ = storage::rna::save(&app.rna);
+    app.toast("Modification pattern applied");
+}
+
+pub fn rna_delete(app: &mut AppState, id: u64) {
+    if app.rna.remove(id) {
+        let _ = storage::rna::save(&app.rna);
+        if app.rna_sel == Some(id) {
+            app.rna_sel = None;
+        }
+        audit(app, &format!("oligo:{id}"), "deleted", "");
+        app.toast("Oligo deleted");
     }
 }
 

@@ -14,6 +14,7 @@ pub mod genbank;
 pub mod inventory;
 pub mod records;
 pub mod registry;
+pub mod rna;
 pub mod views;
 pub mod workflow;
 

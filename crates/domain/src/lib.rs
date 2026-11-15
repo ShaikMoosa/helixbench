@@ -31,6 +31,7 @@ pub mod primer_struct;
 pub mod project;
 pub mod protein;
 pub mod registry;
+pub mod rna;
 pub mod search;
 pub mod sequence;
 pub mod translate;
