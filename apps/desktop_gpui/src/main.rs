@@ -66,7 +66,7 @@ fn main() {
                             let s = window.viewport_size();
                             this.app.config.window_size = Some([s.width.v(), s.height.v()]);
                             this.app.config.window_maximized = window.is_maximized();
-                            if this.app.dirty {
+                            if appcore::navigation::has_unsaved_work(&this.app) {
                                 act::guard(&mut this.app, PendingAction::CloseApp);
                                 allow = false;
                                 cx.notify();

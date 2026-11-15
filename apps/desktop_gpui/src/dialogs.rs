@@ -10,9 +10,7 @@ use gpui::{
 };
 
 use appcore::actions as act;
-use appcore::state::{
-    AppState, ColorsMode, Dialog, FeatureDraft, PcrDraft, PendingAction, PrimerDraft,
-};
+use appcore::state::{AppState, ColorsMode, Dialog, FeatureDraft, PcrDraft, PrimerDraft};
 use domain::feature::{kind_color, Direction, Feature, FEATURE_KINDS};
 use domain::genetic_code::{code_by_id, CODES};
 use domain::primer::{binding_sites, melting_temperature, HybridizationParams, Primer};
@@ -243,7 +241,16 @@ pub fn show(
 }
 
 fn close_dialog(app: &mut HelixBench, cx: &mut Context<HelixBench>) {
-    app.app.dialog = None;
+    if app.app.navigation.pending.is_some() {
+        if let Err(error) = appcore::navigation::resolve_guard(
+            &mut app.app,
+            appcore::navigation::GuardDecision::Stay,
+        ) {
+            app.app.toast(error);
+        }
+    } else {
+        app.app.dialog = None;
+    }
     app.dlg_combo = None;
     cx.notify();
 }
@@ -1852,10 +1859,8 @@ fn rotate(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> 
 // ---------------------------------------------------------------------------
 
 fn unsaved(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
-    let (name, action) = match &app.app.dialog {
-        Some(Dialog::Unsaved { action }) => (app.app.doc.name.clone(), action.clone()),
-        _ => (String::new(), PendingAction::CloseApp),
-    };
+    let name = app.app.doc.name.clone();
+    let destination = appcore::navigation::pending_destination(&app.app);
     let mut body = div().flex().flex_col().size_full();
     body = body.child(
         div()
@@ -1864,26 +1869,38 @@ fn unsaved(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) ->
             .child(format!("\"{name}\" has unsaved changes.")),
     );
     body = body
-        .child(widgets::label("Save before continuing?", theme::T_BASE, theme::MUTED).mt(px(4.0)));
+        .child(widgets::label(&destination, theme::T_BASE, theme::MUTED).mt(px(4.0)))
+        .child(
+            widgets::label(
+                "Save your document, discard its changes, or stay here.",
+                theme::T_BASE,
+                theme::MUTED,
+            )
+            .mt(px(4.0)),
+        );
 
-    let act_discard = action.clone();
-    let act_save = action;
     let footer = footer_row(vec![
-        widgets::button("us-cancel", "Cancel", Btn::Ghost)
+        widgets::button("us-cancel", "Stay", Btn::Ghost)
             .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
             .into_any_element(),
         widgets::button("us-discard", "Discard", Btn::Danger)
             .on_click(cx.listener(move |t, _, _, cx| {
-                t.app.dialog = None;
-                act::perform(&mut t.app, act_discard.clone());
+                if let Err(error) = appcore::navigation::resolve_guard(
+                    &mut t.app,
+                    appcore::navigation::GuardDecision::Discard,
+                ) {
+                    t.app.toast(error);
+                }
                 cx.notify();
             }))
             .into_any_element(),
         widgets::button("us-save", "Save", Btn::Primary)
             .on_click(cx.listener(move |t, _, _, cx| {
-                if act::save(&mut t.app) {
-                    t.app.dialog = None;
-                    act::perform(&mut t.app, act_save.clone());
+                if let Err(error) = appcore::navigation::resolve_guard(
+                    &mut t.app,
+                    appcore::navigation::GuardDecision::Save,
+                ) {
+                    t.app.toast(error);
                 }
                 cx.notify();
             }))

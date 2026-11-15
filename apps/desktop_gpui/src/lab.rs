@@ -271,6 +271,7 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
     );
     for (i, od) in app.app.library.iter().enumerate() {
         let name = od.doc.name.clone();
+        let document_id = od.doc.id;
         body = body.child(
             row_card()
                 .child(
@@ -287,7 +288,7 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
                         Btn::Subtle,
                     )
                     .on_click(cx.listener(move |t, _, _, cx| {
-                        act::switch_doc(&mut t.app, i);
+                        act::switch_document(&mut t.app, document_id);
                         cx.notify();
                     })),
                 ),
@@ -324,7 +325,10 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
                             Btn::Subtle,
                         )
                         .on_click(cx.listener(move |t, _, _, cx| {
-                            act::open_path(&mut t.app, &path);
+                            act::guard(
+                                &mut t.app,
+                                appcore::state::PendingAction::OpenRecent(path.clone()),
+                            );
                             cx.notify();
                         })),
                     ),

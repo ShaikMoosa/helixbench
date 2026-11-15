@@ -159,7 +159,7 @@ pub enum NameHit {
     Enzyme(String),
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SearchState {
     pub open: bool,
     pub mode: SearchMode,
@@ -248,6 +248,7 @@ pub enum PendingAction {
     NewEmpty,
     Open,
     OpenRecent(PathBuf),
+    Navigate(crate::navigation::NavigationIntent),
 }
 
 pub enum Dialog {
@@ -646,6 +647,7 @@ pub enum MapMode {
 }
 
 pub struct AppState {
+    pub navigation: crate::navigation::NavigationState,
     pub doc: Document,
     /// Other open documents (e.g. PCR products); `doc` is the active one.
     pub library: Vec<OpenDoc>,
@@ -748,6 +750,7 @@ impl AppState {
         let prefs = config.ui.clone();
         let zoom_width = doc.sequence.len().max(1);
         let mut s = Self {
+            navigation: crate::navigation::NavigationState::new(&doc),
             doc,
             library: Vec::new(),
             registry: storage::registry::load(),
@@ -983,6 +986,9 @@ impl AppState {
     }
 
     pub fn set_document(&mut self, doc: Document, path: Option<PathBuf>) {
+        self.navigation.context_epoch = self.navigation.context_epoch.wrapping_add(1);
+        self.navigation.sessions.remove(&self.doc.id);
+        self.navigation.saved_document = Some(doc.clone());
         self.doc = doc;
         self.path = path;
         self.dirty = false;

@@ -118,6 +118,7 @@ pub struct HelixBench {
     // Text fields (keyed, persistent entities)
     pub inputs: HashMap<String, Entity<TextInput>>,
     pub last_dialog_sig: String,
+    last_input_context: Option<(domain::DocumentId, u64)>,
 
     // Dialog chrome: window size for the scrim, scroll handle for the body
     pub viewport: Size<Pixels>,
@@ -167,6 +168,7 @@ impl HelixBench {
             dlg_combo: None,
             dlg_combo_anchor: point(px(0.0), px(0.0)),
             inputs: HashMap::new(),
+            last_input_context: None,
             last_dialog_sig: String::new(),
             viewport: size(px(0.0), px(0.0)),
             dlg_scroll: ScrollHandle::new(),
@@ -212,7 +214,7 @@ impl HelixBench {
     }
 
     fn dialog_signature(&self) -> String {
-        match &self.app.dialog {
+        let signature: String = match &self.app.dialog {
             None => "none".into(),
             Some(Dialog::FeatureEditor(d)) => format!("feat:{:?}", d.id),
             Some(Dialog::PrimerEditor(d)) => format!("primer:{:?}", d.id),
@@ -259,7 +261,8 @@ impl HelixBench {
             Some(Dialog::IvMeasure(_)) => "iv-measure".into(),
             Some(Dialog::BpRecipe(_)) => "bp-recipe".into(),
             Some(Dialog::BpReplicate(_)) => "bp-replicate".into(),
-        }
+        };
+        format!("{}:{signature}", self.app.doc.id)
     }
 
     fn focus_root(&mut self, window: &mut Window) {
@@ -1053,7 +1056,14 @@ impl HelixBench {
             self.dlg_combo = None;
         } else {
             match &self.app.dialog {
-                Some(Dialog::Unsaved { .. }) => {}
+                Some(Dialog::Unsaved { .. }) => {
+                    if let Err(error) = appcore::navigation::resolve_guard(
+                        &mut self.app,
+                        appcore::navigation::GuardDecision::Stay,
+                    ) {
+                        self.app.toast(error);
+                    }
+                }
                 Some(_) => self.app.dialog = None,
                 None => {
                     if self.app.search.open {
@@ -1104,7 +1114,17 @@ impl HelixBench {
         cx.notify();
     }
     pub(crate) fn set_view(&mut self, v: View, cx: &mut Context<Self>) {
-        self.app.view = v;
+        let route = appcore::navigation::Route {
+            view: v,
+            document: self.app.doc.id,
+            record: None,
+        };
+        if let Err(error) = appcore::navigation::request_navigation(
+            &mut self.app,
+            appcore::navigation::NavigationIntent::Navigate(route),
+        ) {
+            self.app.toast(error);
+        }
         self.menu = None;
         cx.notify();
     }
@@ -1254,6 +1274,19 @@ impl HelixBench {
             .border_color(theme::BORDER);
         let name = self.app.doc.name.clone();
         let dirty = self.app.dirty;
+        let active_id = self.app.doc.id;
+        if !self.app.navigation.back_stack.is_empty() {
+            row = row.child(
+                widgets::button("navigation-back", "Back", widgets::Btn::Subtle).on_click(
+                    cx.listener(|this, _, _, cx| {
+                        if let Err(error) = appcore::navigation::go_back(&mut this.app) {
+                            this.app.toast(error);
+                        }
+                        cx.notify();
+                    }),
+                ),
+            );
+        }
         row = row.child(
             div()
                 .id("doc-tab")
@@ -1287,10 +1320,19 @@ impl HelixBench {
                         .cursor_pointer()
                         .hover(|s| s.text_color(theme::DANGER))
                         .child("✕")
-                        .on_click(cx.listener(|this, _, window, cx| this.on_new(&New, window, cx))),
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            act::guard(
+                                &mut this.app,
+                                PendingAction::Navigate(
+                                    appcore::navigation::NavigationIntent::CloseDocument(active_id),
+                                ),
+                            );
+                            cx.notify();
+                        })),
                 ),
         );
         for (i, od) in self.app.library.iter().enumerate() {
+            let document_id = od.doc.id;
             let lname = od.doc.name.clone();
             let ldirty = od.dirty;
             row = row.child(
@@ -1318,7 +1360,7 @@ impl HelixBench {
                             .child(format!("{lname}{}", if ldirty { "  •" } else { "" })),
                     )
                     .on_click(cx.listener(move |this, _, _, cx| {
-                        act::switch_doc(&mut this.app, i);
+                        act::switch_document(&mut this.app, document_id);
                         cx.notify();
                     })),
             );
@@ -1717,6 +1759,14 @@ impl Render for HelixBench {
             self.app.exit_requested = false;
             act::persist_config(&mut self.app);
             cx.quit();
+        }
+        // Appcore owns restored queries/filters; cached input entities must not overwrite them.
+        let input_context = (self.app.doc.id, self.app.navigation.context_epoch);
+        if self.last_input_context != Some(input_context) {
+            self.inputs
+                .retain(|key, _| !key.starts_with("find:") && !key.starts_with("filter:"));
+            self.find_recents_open = false;
+            self.last_input_context = Some(input_context);
         }
         // Reseed dialog-scoped text fields whenever the dialog identity changes.
         let sig = self.dialog_signature();

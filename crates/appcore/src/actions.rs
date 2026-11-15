@@ -479,29 +479,29 @@ pub fn open_file_dialog(app: &mut AppState) {
 
 pub fn open_path(app: &mut AppState, path: &std::path::Path) {
     match storage::load_any(path) {
-        Ok(doc) => {
-            let name = doc.name.clone();
-            let len = doc.sequence.len();
-            let native = path
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .is_some_and(|ext| ext.eq_ignore_ascii_case(storage::NATIVE_EXT));
-            app.set_document(doc, native.then(|| path.to_path_buf()));
-            if !native {
-                // Imported interchange files are source material, not a native save target.
-                app.dirty = true;
-                app.saved_depth = None;
-                app.config.add_recent(path);
-            }
-            app.view = crate::state::View::Map;
-            app.toast(if native {
-                format!("Opened {name} ({len} bp)")
-            } else {
-                format!("Imported {name} ({len} bp) — Save As a HelixBench document")
-            });
-        }
+        Ok(doc) => install_opened_document(app, doc, path),
         Err(e) => app.toast(format!("Could not open {}: {e}", path.display())),
     }
+}
+
+pub(crate) fn install_opened_document(app: &mut AppState, doc: Document, path: &std::path::Path) {
+    let name = doc.name.clone();
+    let len = doc.sequence.len();
+    let native = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case(storage::NATIVE_EXT));
+    app.set_document(doc, native.then(|| path.to_path_buf()));
+    if !native {
+        crate::navigation::mark_imported(app);
+        app.config.add_recent(path);
+    }
+    app.view = crate::state::View::Map;
+    app.toast(if native {
+        format!("Opened {name} ({len} bp)")
+    } else {
+        format!("Imported {name} ({len} bp) — Save As a HelixBench document")
+    });
 }
 
 pub fn save(app: &mut AppState) -> bool {
@@ -529,6 +529,7 @@ fn save_to(app: &mut AppState, path: &std::path::Path) -> bool {
     match storage::save_document(&app.doc, path) {
         Ok(()) => {
             app.path = Some(path.to_path_buf());
+            crate::navigation::mark_saved(app);
             app.dirty = false;
             app.saved_depth = Some(app.history.len());
             app.config.add_recent(path);
@@ -595,24 +596,13 @@ fn sanitize_filename(name: &str) -> String {
 // ---------------------------------------------------------------------------
 
 pub fn guard(app: &mut AppState, action: PendingAction) {
-    if app.dirty {
-        app.dialog = Some(Dialog::Unsaved { action });
-    } else {
-        perform(app, action);
+    if let Err(error) = crate::navigation::request_navigation(app, action.into()) {
+        app.toast(error);
     }
 }
 
 pub fn perform(app: &mut AppState, action: PendingAction) {
-    match action {
-        PendingAction::CloseApp => {
-            persist_config(app);
-            app.exit_requested = true;
-        }
-        PendingAction::NewDemo => new_demo(app),
-        PendingAction::NewEmpty => app.dialog = Some(Dialog::NewSequence(NewSeqState::default())),
-        PendingAction::Open => open_file_dialog(app),
-        PendingAction::OpenRecent(path) => recent_open(app, path),
-    }
+    guard(app, action);
 }
 
 pub fn persist_config(app: &mut AppState) {
@@ -635,6 +625,7 @@ pub fn create_from_dialog(app: &mut AppState, state: &NewSeqState) -> Result<(),
     };
     let doc = Document::new(name, bases, state.topology);
     app.set_document(doc, None);
+    crate::navigation::mark_imported(app);
     app.view = crate::state::View::Map;
     app.toast(format!(
         "Created {} ({} bp)",
@@ -728,6 +719,7 @@ pub fn create_pcr_product(app: &mut AppState, draft: &PcrDraft) -> Result<(), St
             }
         }
     }
+    crate::navigation::suspend_session(app);
     let cur = OpenDoc {
         doc: std::mem::replace(&mut app.doc, doc),
         path: app.path.take(),
@@ -736,26 +728,26 @@ pub fn create_pcr_product(app: &mut AppState, draft: &PcrDraft) -> Result<(), St
     app.library.push(cur);
     app.dirty = true;
     app.saved_depth = None;
+    app.navigation.saved_document = None;
+    app.search = crate::state::SearchState::default();
     reset_doc_view(app);
     app.toast(format!("PCR product created ({} bp)", prod.len));
     Ok(())
 }
 
 pub fn switch_doc(app: &mut AppState, idx: usize) {
-    if idx >= app.library.len() {
-        return;
+    if let Some(id) = app.library.get(idx).map(|doc| doc.doc.id) {
+        switch_document(app, id);
     }
-    let od = app.library.remove(idx);
-    let cur = OpenDoc {
-        doc: std::mem::replace(&mut app.doc, od.doc),
-        path: app.path.take(),
-        dirty: app.dirty,
-    };
-    app.library.push(cur);
-    app.path = od.path;
-    app.dirty = od.dirty;
-    app.saved_depth = if od.dirty { None } else { Some(0) };
-    reset_doc_view(app);
+}
+
+pub fn switch_document(app: &mut AppState, id: domain::DocumentId) {
+    if let Err(error) = crate::navigation::request_navigation(
+        app,
+        crate::navigation::NavigationIntent::SwitchDocument(id),
+    ) {
+        app.toast(error);
+    }
 }
 
 pub fn open_primer_design(app: &mut AppState) {
@@ -982,6 +974,7 @@ pub fn restore_version(app: &mut AppState, idx: usize) {
 // --- P1: assembly / CRISPR / codon optimization -----------------------------
 
 fn push_product(app: &mut AppState, doc: Document) {
+    crate::navigation::suspend_session(app);
     let cur = OpenDoc {
         doc: std::mem::replace(&mut app.doc, doc),
         path: app.path.take(),
@@ -990,6 +983,8 @@ fn push_product(app: &mut AppState, doc: Document) {
     app.library.push(cur);
     app.dirty = true;
     app.saved_depth = None;
+    app.navigation.saved_document = None;
+    app.search = crate::state::SearchState::default();
     app.history.clear();
     app.future.clear();
     app.selection = None;
@@ -1437,17 +1432,35 @@ pub fn link_registry_entry(app: &mut AppState, id: u64) {
 }
 
 pub fn open_linked_entry(app: &mut AppState, id: u64) {
-    let Some(docname) = app.registry.get(id).and_then(|e| e.linked_doc.clone()) else {
+    let Some(entry) = app.registry.get(id) else {
+        app.toast("Registry entry is unavailable");
+        return;
+    };
+    if let Some(target) = entry.linked_document {
+        switch_document(app, target);
+        return;
+    }
+    let Some(docname) = entry.linked_doc.clone() else {
         app.toast("Entry has no linked document");
         return;
     };
+    let mut matches: Vec<_> = app
+        .library
+        .iter()
+        .filter(|doc| doc.doc.name == docname)
+        .map(|doc| doc.doc.id)
+        .collect();
     if app.doc.name == docname {
-        return;
+        matches.push(app.doc.id);
     }
-    if let Some(i) = app.library.iter().position(|od| od.doc.name == docname) {
-        switch_doc(app, i);
-    } else {
-        app.toast(format!("Linked document \"{docname}\" is not open"));
+    matches.sort();
+    matches.dedup();
+    match matches.as_slice() {
+        [target] => switch_document(app, *target),
+        [] => app.toast(format!("Linked document \"{docname}\" is not open")),
+        _ => app.toast(format!(
+            "Ambiguous legacy link \"{docname}\" — choose and relink the intended document"
+        )),
     }
 }
 

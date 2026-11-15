@@ -4,4 +4,5 @@
 pub mod actions;
 pub mod analysis;
 pub mod fs_dialogs;
+pub mod navigation;
 pub mod state;
