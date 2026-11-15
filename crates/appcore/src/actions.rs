@@ -9,12 +9,13 @@ use domain::sequence::{clean_sequence, reverse_complement};
 use domain::{ColorRegion, Document, Range, Topology};
 
 use crate::state::{
-    AlignmentDraft, AppState, AssemblyDraft, AuditDraft, BiologicsDraft, BlastDraft, ChemAddDraft,
-    ChemLotDraft, ChemReactionDraft, CodonDraft, ColorDraft, ColorsMode, CombDraft, CrisprDraft,
-    Dialog, EntityMapDraft, EntryEditDraft, FeatureDraft, FeatureLibDraft, HomeDraft,
-    InventoryDraft, IvAnimalDraft, IvMeasureDraft, IvStudyDraft, NewSeqState, NotebookDraft,
-    OpenDoc, PcrDraft, PendingAction, PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft,
-    RegistryDraft, RegistryEditDraft, RegistryImportDraft, RnaDraft, WorkflowDraft, WorkspaceDraft,
+    AlignmentDraft, AppState, AssemblyDraft, AuditDraft, BiologicsDraft, BlastDraft, BpRecipeDraft,
+    BpReplicateDraft, ChemAddDraft, ChemLotDraft, ChemReactionDraft, CodonDraft, ColorDraft,
+    ColorsMode, CombDraft, CrisprDraft, Dialog, EntityMapDraft, EntryEditDraft, FeatureDraft,
+    FeatureLibDraft, HomeDraft, InventoryDraft, IvAnimalDraft, IvMeasureDraft, IvStudyDraft,
+    NewSeqState, NotebookDraft, OpenDoc, PcrDraft, PendingAction, PrimerDesignDraft, PrimerDraft,
+    ProjectsDraft, ProteinDraft, RegistryDraft, RegistryEditDraft, RegistryImportDraft, RnaDraft,
+    WorkflowDraft, WorkspaceDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -2456,6 +2457,126 @@ pub fn iv_delete_study(app: &mut AppState, id: u64) {
         }
         audit(app, &format!("study:{id}"), "deleted", "");
         app.toast("Study deleted");
+    }
+}
+
+/// Open the bioprocess add-recipe dialog.
+pub fn open_bp_recipe(app: &mut AppState) {
+    app.dialog = Some(Dialog::BpRecipe(BpRecipeDraft::default()));
+}
+
+pub fn bp_recipe_save(app: &mut AppState, draft: &BpRecipeDraft) -> Result<u64, String> {
+    if draft.name.trim().is_empty() {
+        return Err("Recipe name required".into());
+    }
+    let r = domain::bioprocess::Recipe::template(0, draft.name.trim(), draft.product.trim());
+    let id = app.bioprocess.add_recipe(r);
+    let _ = storage::bioprocess::save(&app.bioprocess);
+    audit(app, &format!("recipe:{id}"), "created", &draft.name);
+    app.toast("Recipe created");
+    Ok(id)
+}
+
+/// Create a draft run from the first recipe (or a chosen one).
+pub fn bp_run_create(app: &mut AppState, recipe: u64, name: &str) -> Result<u64, String> {
+    let r = app
+        .bioprocess
+        .recipes
+        .iter()
+        .find(|r| r.id == recipe)
+        .or_else(|| app.bioprocess.recipes.first())
+        .cloned()
+        .ok_or("Create a recipe first")?;
+    let run = domain::bioprocess::Run::from_recipe(0, &r, name, unix_now());
+    let id = app.bioprocess.add_run(run);
+    let _ = storage::bioprocess::save(&app.bioprocess);
+    audit(app, &format!("run:{id}"), "planned", name);
+    app.bp_sel = Some(id);
+    app.toast("Run planned (draft)");
+    Ok(id)
+}
+
+pub fn bp_run_action(app: &mut AppState, id: u64, action: &str) {
+    let Some(run) = app.bioprocess.run_mut(id) else {
+        return;
+    };
+    let ok = match action {
+        "start" => run.start(),
+        "complete" => run.complete(),
+        "abort" => run.abort(),
+        _ => false,
+    };
+    if ok {
+        let _ = storage::bioprocess::save(&app.bioprocess);
+        audit(app, &format!("run:{id}"), action, "");
+        app.toast(format!("Run {action}"));
+    }
+}
+
+/// Toggle a worksheet step done flag on the selected run.
+pub fn bp_step_toggle(app: &mut AppState, run: u64, step: usize) {
+    let Some(r) = app.bioprocess.run_mut(run) else {
+        return;
+    };
+    if let Some(op) = r.ops.get_mut(step) {
+        op.done = !op.done;
+    }
+    let _ = storage::bioprocess::save(&app.bioprocess);
+}
+
+pub fn open_bp_replicate(app: &mut AppState) {
+    app.dialog = Some(Dialog::BpReplicate(BpReplicateDraft {
+        temp: "37".into(),
+        ph: "7.0".into(),
+        ..Default::default()
+    }));
+}
+
+pub fn bp_replicate_save(app: &mut AppState, draft: &BpReplicateDraft) -> Result<u64, String> {
+    let Some(sel) = app.bp_sel else {
+        return Err("Select a run first".into());
+    };
+    let titer: f32 = draft.titer.trim().parse().map_err(|_| "Invalid titer")?;
+    let mut conditions = std::collections::BTreeMap::new();
+    conditions.insert("temp_C".into(), draft.temp.trim().to_string());
+    conditions.insert("pH".into(), draft.ph.trim().to_string());
+    let rep = domain::bioprocess::Replicate {
+        id: 0,
+        label: if draft.label.trim().is_empty() {
+            format!(
+                "R{}",
+                app.bioprocess
+                    .run_mut(sel)
+                    .map(|r| r.replicates.len() + 1)
+                    .unwrap_or(1)
+            )
+        } else {
+            draft.label.trim().to_string()
+        },
+        conditions,
+        titer_mg_l: titer,
+    };
+    let Some(run) = app.bioprocess.run_mut(sel) else {
+        return Err("Run missing".into());
+    };
+    let id = run.replicates.len() as u64 + 1;
+    let mut rep = rep;
+    rep.id = id;
+    run.replicates.push(rep);
+    let _ = storage::bioprocess::save(&app.bioprocess);
+    audit(app, &format!("run:{sel}"), "replicate", &draft.label);
+    app.toast("Replicate added");
+    Ok(id)
+}
+
+pub fn bp_delete_run(app: &mut AppState, id: u64) {
+    if app.bioprocess.remove_run(id) {
+        let _ = storage::bioprocess::save(&app.bioprocess);
+        if app.bp_sel == Some(id) {
+            app.bp_sel = None;
+        }
+        audit(app, &format!("run:{id}"), "deleted", "");
+        app.toast("Run deleted");
     }
 }
 

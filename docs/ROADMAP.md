@@ -3,9 +3,9 @@
 **Grounded in:** `reference-features-ui-research.docx` + `reference-research/screens/`
 (15 capability areas, 82 screen groups, 178 public UI assets, 84 sources; research date 14 Nov 2026).
 **Baseline:** HelixBench v0.6.0 (local-first, pure-Rust, offline, single-user Windows DNA workbench).
-**Current status:** v1.9.0 shipped. Phases 1–4 complete; the §5 editor/UX parity list is complete
-except the governed AI/Agents wizard. Next major direction is **Phase 5 specialist modules
-(user picks a focus)** or Phase 6 governed intelligence.
+**Current status:** v1.14.0 shipped. Phases 1–5 complete (all five specialist modules delivered).
+Remaining: the governed AI/Agents wizard + Phase 6 optional intelligence/integration, and
+housekeeping (Figma sync, deprecated checkout action).
 
 This roadmap translates the reference platform research into a phased plan for HelixBench. It keeps
 HelixBench's identity — **local-first, offline, single-user, pure Rust** — and adapts the reference platform's
@@ -138,8 +138,9 @@ Goal: analyze and transform local data; reusable pipelines.
 - **In Vivo — SHIPPED (v1.13.0):** studies/cohorts/cages/animals, seeded balanced randomization,
   weight-based dosing (mg/kg × kg / mg/mL), timeseries measurements, mean-weight-by-day graph,
   welfare alerts (≥20% weight loss), TGI helper. Local persistence + In Vivo view.
-- **Bioprocess:** ISA-88 recipes, unit operations, conditions/replicates, operator worksheets,
-  run planning (draft→exec), cross-run visualization.
+- **Bioprocess — SHIPPED (v1.14.0):** ISA-88-lite recipes (unit-operation templates), run planning
+  (draft → executing → completed/aborted), operator worksheets with per-step done flags + progress,
+  replicates with conditions/titer, mean-titer + cross-run comparison chart. Local persistence + view.
 - Each is a self-contained module behind a feature flag; share the Phase 1–4 record/audit foundation.
 
 ### Phase 6 — optional, governed intelligence & integration (scope decision)
@@ -199,7 +200,7 @@ Goal: analyze and transform local data; reusable pipelines.
 | v1.11 | Chemistry (Phase 5) | SMILES parse, formula/MW, substructure search, reactions, salts | shipped |
 | v1.12 | RNA/oligos (Phase 5) | modified monomers, patterns, HELM, oligo MW/GC | shipped |
 | v1.13 | In Vivo (Phase 5) | studies, randomization, dosing, welfare alerts, weight graph | shipped |
-| v1.x | Specialist modules (Phase 5) | per-module acceptance (above) | in progress |
+| v1.14 | Bioprocess (Phase 5) | ISA-88 recipes, runs, worksheets, replicates, cross-run titer | shipped |
 | v2.0 (optional) | Governed AI/integration (Phase 6) | approval+audit on all automated actions | optional |
 
 Every release: `fmt` / `clippy -D warnings` / workspace tests / build green; **GitHub Actions CI watched
@@ -208,9 +209,9 @@ README updated. (Figma design-system sync remains pending — Figma desktop is u
 
 ### Remaining work (consolidated)
 - **§5 UX:** AI/Agents 3-step governed wizard (Phase 6).
-- **Phase 5 (remaining):** Bioprocess (Biologics + Chemistry + RNA/oligos + In Vivo shipped).
 - **Phase 6 (optional):** governed AI assist, Agents-lite, Model Hub-lite, local Developer/CLI API.
 - **Housekeeping:** Figma design-system sync; bump deprecated `actions/checkout` Node 20 → newer.
+- **Phase 5: COMPLETE** (Biologics, Chemistry, RNA/oligos, In Vivo, Bioprocess all shipped).
 
 ## 7. Risks & mitigations
 - **Scope creep toward cloud:** keep multi-user/sync/GxP out-of-core; revisit only as a product decision.

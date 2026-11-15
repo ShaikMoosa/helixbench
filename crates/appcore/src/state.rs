@@ -30,6 +30,7 @@ pub enum View {
     Chemistry,
     Rna,
     InVivo,
+    Bioprocess,
 }
 
 impl View {
@@ -42,7 +43,7 @@ impl View {
         View::History,
     ];
 
-    pub const LAB: [View; 12] = [
+    pub const LAB: [View; 13] = [
         View::Home,
         View::Notebook,
         View::Registry,
@@ -55,6 +56,7 @@ impl View {
         View::Chemistry,
         View::Rna,
         View::InVivo,
+        View::Bioprocess,
     ];
 
     pub fn label(self) -> &'static str {
@@ -77,6 +79,7 @@ impl View {
             View::Chemistry => "Chemistry",
             View::Rna => "RNA / Oligos",
             View::InVivo => "In Vivo",
+            View::Bioprocess => "Bioprocess",
         }
     }
 
@@ -100,6 +103,7 @@ impl View {
             View::Chemistry => "⚗",
             View::Rna => "≈",
             View::InVivo => "▣",
+            View::Bioprocess => "∿",
         }
     }
 }
@@ -300,6 +304,8 @@ pub enum Dialog {
     IvStudy(IvStudyDraft),
     IvAnimal(IvAnimalDraft),
     IvMeasure(IvMeasureDraft),
+    BpRecipe(BpRecipeDraft),
+    BpReplicate(BpReplicateDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -525,6 +531,24 @@ pub struct IvMeasureDraft {
     pub error: Option<String>,
 }
 
+/// Phase 5 bioprocess: add-recipe dialog draft.
+#[derive(Clone, Default)]
+pub struct BpRecipeDraft {
+    pub name: String,
+    pub product: String,
+    pub error: Option<String>,
+}
+
+/// Phase 5 bioprocess: add-replicate dialog draft.
+#[derive(Clone, Default)]
+pub struct BpReplicateDraft {
+    pub label: String,
+    pub titer: String,
+    pub temp: String,
+    pub ph: String,
+    pub error: Option<String>,
+}
+
 #[derive(Clone, Default)]
 pub struct RegistryImportDraft {
     pub csv: String,
@@ -693,6 +717,10 @@ pub struct AppState {
     /// Dosing calculator inputs (mg/kg, mg/mL).
     pub iv_dose: String,
     pub iv_conc: String,
+    /// Phase 5 bioprocess recipes / runs.
+    pub bioprocess: storage::bioprocess::Bioprocess,
+    /// Selected run in the Bioprocess view.
+    pub bp_sel: Option<u64>,
     pub feature_sort: TableSort,
     pub primer_sort: TableSort,
     pub enzyme_sort: TableSort,
@@ -767,6 +795,8 @@ impl AppState {
             iv_sel: None,
             iv_dose: "10".into(),
             iv_conc: "5".into(),
+            bioprocess: storage::bioprocess::load(),
+            bp_sel: None,
             feature_sort: TableSort::default(),
             primer_sort: TableSort::default(),
             enzyme_sort: TableSort::default(),

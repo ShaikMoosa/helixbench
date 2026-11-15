@@ -2203,3 +2203,278 @@ pub fn render_chemistry(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> A
     p = p.child(body);
     p.into_any_element()
 }
+
+pub fn render_bioprocess(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
+    let mut p = page("Bioprocess", "ISA-88 recipes, runs, worksheets, replicates");
+    let mut body = scroll("bp-scroll");
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(
+                widgets::button("bp-recipe", "New recipe", Btn::Primary).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        act::open_bp_recipe(&mut t.app);
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(
+                widgets::button("bp-run", "Plan run", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        let n = t.app.bioprocess.runs.len() + 1;
+                        let _ = act::bp_run_create(&mut t.app, 0, &format!("Run-{n}"));
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    body = body.child(section_title("Recipes"));
+    if app.app.bioprocess.recipes.is_empty() {
+        body = body.child(widgets::label(
+            "No recipes. Create one (default upstream→downstream template).",
+            theme::T_SM,
+            theme::FAINT,
+        ));
+    }
+    for r in app.app.bioprocess.recipes.clone() {
+        body = body.child(
+            row_card()
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(format!("{} · {}", r.name, r.product)),
+                )
+                .child(widgets::label(
+                    &format!("{} ops · {:.0} h", r.ops.len(), r.total_duration_h()),
+                    theme::T_XS,
+                    theme::MUTED,
+                )),
+        );
+    }
+    body = body.child(section_title("Runs"));
+    for run in app.app.bioprocess.runs.clone() {
+        let id = run.id;
+        let selected = app.app.bp_sel == Some(id);
+        let mut actions = vec![widgets::button(
+            SharedString::from(format!("bp-sel-{id}")),
+            "Select",
+            if selected { Btn::Primary } else { Btn::Subtle },
+        )
+        .on_click(cx.listener(move |t, _, _, cx| {
+            t.app.bp_sel = Some(id);
+            cx.notify();
+        }))
+        .into_any_element()];
+        match run.status {
+            domain::bioprocess::RunStatus::Draft => actions.push(
+                widgets::button(
+                    SharedString::from(format!("bp-start-{id}")),
+                    "Start",
+                    Btn::Subtle,
+                )
+                .on_click(cx.listener(move |t, _, _, cx| {
+                    act::bp_run_action(&mut t.app, id, "start");
+                    cx.notify();
+                }))
+                .into_any_element(),
+            ),
+            domain::bioprocess::RunStatus::Executing => {
+                actions.push(
+                    widgets::button(
+                        SharedString::from(format!("bp-done-{id}")),
+                        "Complete",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::bp_run_action(&mut t.app, id, "complete");
+                        cx.notify();
+                    }))
+                    .into_any_element(),
+                );
+                actions.push(
+                    widgets::button(
+                        SharedString::from(format!("bp-abort-{id}")),
+                        "Abort",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::bp_run_action(&mut t.app, id, "abort");
+                        cx.notify();
+                    }))
+                    .into_any_element(),
+                );
+            }
+            _ => {}
+        }
+        actions.push(
+            widgets::button(
+                SharedString::from(format!("bp-del-{id}")),
+                "Delete",
+                Btn::Ghost,
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                act::bp_delete_run(&mut t.app, id);
+                cx.notify();
+            }))
+            .into_any_element(),
+        );
+        body = body.child(
+            row_card()
+                .child(
+                    div()
+                        .flex_grow()
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.0))
+                        .child(
+                            div()
+                                .text_size(px(theme::T_SM))
+                                .text_color(theme::TEXT)
+                                .child(run.name.clone()),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(theme::T_XS))
+                                .text_color(theme::FAINT)
+                                .child(format!(
+                                    "{} · {:.0}% · {} reps",
+                                    run.status.label(),
+                                    run.progress() * 100.0,
+                                    run.replicates.len()
+                                )),
+                        ),
+                )
+                .children(actions),
+        );
+    }
+    if let Some(sel) = app.app.bp_sel {
+        if let Some(run) = app
+            .app
+            .bioprocess
+            .runs
+            .iter()
+            .find(|r| r.id == sel)
+            .cloned()
+        {
+            body = body.child(section_title(&format!("Worksheet · {}", run.name)));
+            for (i, op) in run.ops.iter().enumerate() {
+                body = body.child(
+                    row_card()
+                        .child(
+                            div()
+                                .flex_grow()
+                                .text_size(px(theme::T_SM))
+                                .text_color(if op.done { theme::OK } else { theme::TEXT })
+                                .child(format!(
+                                    "{} · {} ({:.1} h)",
+                                    op.name,
+                                    op.kind.label(),
+                                    op.duration_h
+                                )),
+                        )
+                        .child(
+                            widgets::button(
+                                SharedString::from(format!("bp-step-{i}")),
+                                if op.done { "Done ✓" } else { "Mark done" },
+                                if op.done { Btn::Primary } else { Btn::Subtle },
+                            )
+                            .on_click(cx.listener(
+                                move |t, _, _, cx| {
+                                    act::bp_step_toggle(&mut t.app, sel, i);
+                                    cx.notify();
+                                },
+                            )),
+                        ),
+                );
+            }
+            body = body.child(
+                widgets::button("bp-rep", "Add replicate", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        act::open_bp_replicate(&mut t.app);
+                        cx.notify();
+                    },
+                )),
+            );
+            for rep in &run.replicates {
+                let temp = rep.conditions.get("temp_C").cloned().unwrap_or_default();
+                let ph = rep.conditions.get("pH").cloned().unwrap_or_default();
+                body = body.child(
+                    div()
+                        .font_family(theme::MONO_FONT)
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::MUTED)
+                        .child(format!(
+                            "{} · {} mg/L · {}°C pH{}",
+                            rep.label, rep.titer_mg_l, temp, ph
+                        )),
+                );
+            }
+            if !run.replicates.is_empty() {
+                body = body.child(widgets::label(
+                    &format!("Mean titer {:.1} mg/L", run.mean_titer()),
+                    theme::T_SM,
+                    theme::ACCENT,
+                ));
+            }
+        }
+    }
+    // cross-run titer comparison
+    let series = domain::bioprocess::titer_series(&app.app.bioprocess.runs);
+    if !series.is_empty() {
+        body = body.child(section_title("Cross-run titer (mg/L)"));
+        let ser = series.clone();
+        body = body.child(
+            div()
+                .h(px(140.0))
+                .w_full()
+                .rounded(px(8.0))
+                .bg(theme::PANEL)
+                .border_1()
+                .border_color(theme::BORDER)
+                .child(
+                    canvas(
+                        move |_, _, _| {},
+                        move |bounds, _s, window, cx| {
+                            let max = ser.iter().map(|(_, v)| *v).fold(1.0, f32::max);
+                            let n = ser.len().max(1);
+                            let bw = (bounds.size.width.v() - 20.0) / n as f32;
+                            for (i, (label, v)) in ser.iter().enumerate() {
+                                let h = (v / max) * (bounds.size.height.v() - 30.0);
+                                let x = bounds.origin.x.v() + 10.0 + i as f32 * bw;
+                                let y = bounds.origin.y.v() + bounds.size.height.v() - 20.0 - h;
+                                draw::rect(
+                                    window,
+                                    gpui::Bounds::new(
+                                        gpui::point(px(x + 4.0), px(y)),
+                                        size(px(bw - 8.0), px(h)),
+                                    ),
+                                    3.0,
+                                    theme::ACCENT,
+                                );
+                                draw::text(
+                                    window,
+                                    cx,
+                                    gpui::point(
+                                        px(x + bw / 2.0),
+                                        px(bounds.origin.y.v() + bounds.size.height.v() - 8.0),
+                                    ),
+                                    label,
+                                    9.0,
+                                    theme::MUTED,
+                                    theme::ui_font(),
+                                    draw::Align::Center,
+                                );
+                            }
+                        },
+                    )
+                    .size_full(),
+                ),
+        );
+    }
+    p = p.child(body);
+    p.into_any_element()
+}

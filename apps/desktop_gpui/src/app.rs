@@ -257,6 +257,8 @@ impl HelixBench {
             Some(Dialog::IvStudy(_)) => "iv-study".into(),
             Some(Dialog::IvAnimal(_)) => "iv-animal".into(),
             Some(Dialog::IvMeasure(_)) => "iv-measure".into(),
+            Some(Dialog::BpRecipe(_)) => "bp-recipe".into(),
+            Some(Dialog::BpReplicate(_)) => "bp-replicate".into(),
         }
     }
 
@@ -1669,6 +1671,7 @@ impl HelixBench {
             View::Chemistry => crate::lab::render_chemistry(self, cx),
             View::Rna => crate::lab::render_rna(self, cx),
             View::InVivo => crate::lab::render_invivo(self, cx),
+            View::Bioprocess => crate::lab::render_bioprocess(self, cx),
         }
     }
 

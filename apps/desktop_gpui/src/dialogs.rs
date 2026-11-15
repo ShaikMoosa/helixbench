@@ -226,6 +226,10 @@ pub fn show(
         iv_animal(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::IvMeasure(_))) {
         iv_measure(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::BpRecipe(_))) {
+        bp_recipe(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::BpReplicate(_))) {
+        bp_replicate(app, cx, max_h)
     } else {
         return None;
     };
@@ -6695,6 +6699,141 @@ fn iv_measure(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels)
         app,
         cx,
         "Record Measurement",
+        620.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: Bioprocess dialogs
+// ---------------------------------------------------------------------------
+
+fn bp_recipe(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::BpRecipe(d)) => d.clone(),
+        _ => return div().into_any_element(),
+    };
+    let name_inp = app.input_entity(cx, "dlg:bp:name", &draft.name, "Recipe name", false);
+    let prod_inp = app.input_entity(cx, "dlg:bp:product", &draft.product, "Product", false);
+    if let Some(Dialog::BpRecipe(d)) = &mut app.app.dialog {
+        d.name = name_inp.read(cx).text();
+        d.product = prod_inp.read(cx).text();
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(field_row(
+        "Name",
+        input_field(name_inp, 372.0).into_any_element(),
+    ));
+    body = body.child(field_row(
+        "Product",
+        input_field(prod_inp, 240.0).into_any_element(),
+    ));
+    body = body.child(widgets::label(
+        "Creates a default template: Inoculate → Feed → Induce → Harvest → Clarify → Purify.",
+        theme::T_XS,
+        theme::FAINT,
+    ));
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("bp-recipe-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("bp-recipe-save", "Create", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::BpRecipe(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::bp_recipe_save(&mut t.app, &d) {
+                    Ok(_) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::BpRecipe(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "New Recipe",
+        620.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn bp_replicate(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::BpReplicate(d)) => d.clone(),
+        _ => return div().into_any_element(),
+    };
+    let label_inp = app.input_entity(cx, "dlg:bp:label", &draft.label, "Replicate label", false);
+    let titer_inp = app.input_entity(cx, "dlg:bp:titer", &draft.titer, "mg/L", true);
+    let temp_inp = app.input_entity(cx, "dlg:bp:temp", &draft.temp, "37", true);
+    let ph_inp = app.input_entity(cx, "dlg:bp:ph", &draft.ph, "7.0", true);
+    if let Some(Dialog::BpReplicate(d)) = &mut app.app.dialog {
+        d.label = label_inp.read(cx).text();
+        d.titer = titer_inp.read(cx).text();
+        d.temp = temp_inp.read(cx).text();
+        d.ph = ph_inp.read(cx).text();
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(field_row(
+        "Label",
+        input_field(label_inp, 200.0).into_any_element(),
+    ));
+    body = body.child(field_row(
+        "Titer (mg/L)",
+        input_field(titer_inp, 120.0).into_any_element(),
+    ));
+    body = body.child(field_row(
+        "Temp (°C)",
+        input_field(temp_inp, 90.0).into_any_element(),
+    ));
+    body = body.child(field_row(
+        "pH",
+        input_field(ph_inp, 90.0).into_any_element(),
+    ));
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("bp-rep-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("bp-rep-save", "Add", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::BpReplicate(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::bp_replicate_save(&mut t.app, &d) {
+                    Ok(_) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::BpReplicate(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Add Replicate",
         620.0,
         max_h,
         true,

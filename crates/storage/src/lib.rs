@@ -6,6 +6,7 @@
 pub mod alignments;
 pub mod analytics;
 pub mod biologics;
+pub mod bioprocess;
 pub mod chemistry;
 pub mod config;
 pub mod fasta;

@@ -5,6 +5,7 @@ pub mod assembly;
 pub mod audit;
 pub mod automation;
 pub mod biologics;
+pub mod bioprocess;
 pub mod blast;
 pub mod chemistry;
 pub mod codon;
