@@ -135,8 +135,9 @@ Goal: analyze and transform local data; reusable pipelines.
 - **RNA/oligos — SHIPPED (v1.12.0):** RNA sequences, modified-monomer library (2'-OMe / 2'-F / LNA /
   PS / 5mC / pseudouridine), bulk modification patterns, linear HELM subset (emit + parse),
   oligo MW/GC, RNA view with add-oligo dialog + pattern application.
-- **In Vivo:** studies, cohorts/cages, randomization, scheduling, dosing (weight-based), timeseries
-  tables, study graphs, welfare alerts, audit.
+- **In Vivo — SHIPPED (v1.13.0):** studies/cohorts/cages/animals, seeded balanced randomization,
+  weight-based dosing (mg/kg × kg / mg/mL), timeseries measurements, mean-weight-by-day graph,
+  welfare alerts (≥20% weight loss), TGI helper. Local persistence + In Vivo view.
 - **Bioprocess:** ISA-88 recipes, unit operations, conditions/replicates, operator worksheets,
   run planning (draft→exec), cross-run visualization.
 - Each is a self-contained module behind a feature flag; share the Phase 1–4 record/audit foundation.
@@ -197,6 +198,7 @@ Goal: analyze and transform local data; reusable pipelines.
 | v1.10 | Biologics (Phase 5) | formats, chains/domains, numbering, glyph, registration wizard | shipped |
 | v1.11 | Chemistry (Phase 5) | SMILES parse, formula/MW, substructure search, reactions, salts | shipped |
 | v1.12 | RNA/oligos (Phase 5) | modified monomers, patterns, HELM, oligo MW/GC | shipped |
+| v1.13 | In Vivo (Phase 5) | studies, randomization, dosing, welfare alerts, weight graph | shipped |
 | v1.x | Specialist modules (Phase 5) | per-module acceptance (above) | in progress |
 | v2.0 (optional) | Governed AI/integration (Phase 6) | approval+audit on all automated actions | optional |
 
@@ -206,7 +208,7 @@ README updated. (Figma design-system sync remains pending — Figma desktop is u
 
 ### Remaining work (consolidated)
 - **§5 UX:** AI/Agents 3-step governed wizard (Phase 6).
-- **Phase 5 (remaining):** In Vivo, Bioprocess (Biologics + Chemistry + RNA/oligos shipped).
+- **Phase 5 (remaining):** Bioprocess (Biologics + Chemistry + RNA/oligos + In Vivo shipped).
 - **Phase 6 (optional):** governed AI assist, Agents-lite, Model Hub-lite, local Developer/CLI API.
 - **Housekeeping:** Figma design-system sync; bump deprecated `actions/checkout` Node 20 → newer.
 

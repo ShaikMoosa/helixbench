@@ -220,6 +220,12 @@ pub fn show(
         chem_lot(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Rna(_))) {
         rna(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::IvStudy(_))) {
+        iv_study(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::IvAnimal(_))) {
+        iv_animal(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::IvMeasure(_))) {
+        iv_measure(app, cx, max_h)
     } else {
         return None;
     };
@@ -6452,6 +6458,244 @@ fn rna(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> Any
         cx,
         "Add Oligo",
         660.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: In Vivo dialogs
+// ---------------------------------------------------------------------------
+
+fn iv_study(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::IvStudy(d)) => d.clone(),
+        _ => return div().into_any_element(),
+    };
+    let name_inp = app.input_entity(cx, "dlg:iv:name", &draft.name, "Study name", false);
+    let sp_inp = app.input_entity(cx, "dlg:iv:species", &draft.species, "mouse", false);
+    let st_inp = app.input_entity(cx, "dlg:iv:strain", &draft.strain, "BALB/c", false);
+    if let Some(Dialog::IvStudy(d)) = &mut app.app.dialog {
+        d.name = name_inp.read(cx).text();
+        d.species = sp_inp.read(cx).text();
+        d.strain = st_inp.read(cx).text();
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(field_row(
+        "Name",
+        input_field(name_inp, 372.0).into_any_element(),
+    ));
+    body = body.child(field_row(
+        "Species",
+        input_field(sp_inp, 200.0).into_any_element(),
+    ));
+    body = body.child(field_row(
+        "Strain",
+        input_field(st_inp, 200.0).into_any_element(),
+    ));
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("iv-study-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("iv-study-save", "Create", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::IvStudy(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::iv_study_save(&mut t.app, &d) {
+                    Ok(_) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::IvStudy(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "New Study",
+        620.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn iv_animal(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::IvAnimal(d)) => d.clone(),
+        _ => return div().into_any_element(),
+    };
+    let tag_inp = app.input_entity(cx, "dlg:iv:tag", &draft.tag, "M1", false);
+    let w_inp = app.input_entity(cx, "dlg:iv:weight", &draft.weight, "20", true);
+    if let Some(Dialog::IvAnimal(d)) = &mut app.app.dialog {
+        d.tag = tag_inp.read(cx).text();
+        d.weight = w_inp.read(cx).text();
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(field_row(
+        "Tag",
+        input_field(tag_inp, 200.0).into_any_element(),
+    ));
+    let mut sexes = div().flex().gap(px(6.0));
+    for (i, label) in [(0usize, "Female"), (1, "Male")] {
+        let sel = draft.sex == i;
+        sexes = sexes.child(
+            widgets::button(
+                SharedString::from(format!("iv-sex-{i}")),
+                label,
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::IvAnimal(d)) = &mut t.app.dialog {
+                    d.sex = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(field_row("Sex", sexes.into_any_element()));
+    body = body.child(field_row(
+        "Weight (g)",
+        input_field(w_inp, 120.0).into_any_element(),
+    ));
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("iv-animal-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("iv-animal-save", "Add", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::IvAnimal(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::iv_animal_save(&mut t.app, &d) {
+                    Ok(_) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::IvAnimal(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Add Animal",
+        620.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn iv_measure(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::IvMeasure(d)) => d.clone(),
+        _ => return div().into_any_element(),
+    };
+    let day_inp = app.input_entity(cx, "dlg:iv:day", &draft.day, "0", true);
+    let w_inp = app.input_entity(cx, "dlg:iv:mweight", &draft.weight, "20", true);
+    let t_inp = app.input_entity(cx, "dlg:iv:tumor", &draft.tumor, "optional mm3", true);
+    if let Some(Dialog::IvMeasure(d)) = &mut app.app.dialog {
+        d.day = day_inp.read(cx).text();
+        d.weight = w_inp.read(cx).text();
+        d.tumor = t_inp.read(cx).text();
+    }
+    let study = app.app.iv_sel;
+    let animals: Vec<domain::invivo::Animal> = app
+        .app
+        .invivo
+        .animals
+        .iter()
+        .filter(|a| {
+            app.app
+                .invivo
+                .cohorts
+                .iter()
+                .any(|c| c.id == a.cohort && Some(c.study) == study)
+        })
+        .cloned()
+        .collect();
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    let mut picks = div().flex().flex_wrap().gap(px(6.0));
+    for (i, a) in animals.iter().enumerate() {
+        let sel = draft.animal == i;
+        picks = picks.child(
+            widgets::button(
+                SharedString::from(format!("iv-manim-{i}")),
+                &a.tag,
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::IvMeasure(d)) = &mut t.app.dialog {
+                    d.animal = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(field_row("Animal", picks.into_any_element()));
+    body = body.child(field_row(
+        "Day",
+        input_field(day_inp, 90.0).into_any_element(),
+    ));
+    body = body.child(field_row(
+        "Weight (g)",
+        input_field(w_inp, 120.0).into_any_element(),
+    ));
+    body = body.child(field_row(
+        "Tumor (mm3)",
+        input_field(t_inp, 120.0).into_any_element(),
+    ));
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("iv-measure-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("iv-measure-save", "Record", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::IvMeasure(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::iv_measure_save(&mut t.app, &d) {
+                    Ok(_) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::IvMeasure(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Record Measurement",
+        620.0,
         max_h,
         true,
         body.into_any_element(),

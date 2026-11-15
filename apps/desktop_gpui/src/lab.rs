@@ -1664,6 +1664,281 @@ pub fn render_rna(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElem
     p.into_any_element()
 }
 
+pub fn render_invivo(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
+    let mut p = page(
+        "In Vivo",
+        "Studies, cohorts, randomization, dosing, welfare",
+    );
+    let mut body = scroll("iv-scroll");
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(
+                widgets::button("iv-study", "New study", Btn::Primary).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        act::open_iv_study(&mut t.app);
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(widgets::label(
+                &format!("{} studies", app.app.invivo.studies.len()),
+                theme::T_SM,
+                theme::MUTED,
+            )),
+    );
+    for s in app.app.invivo.studies.clone() {
+        let id = s.id;
+        let selected = app.app.iv_sel == Some(id);
+        body = body.child(
+            row_card()
+                .child(
+                    div()
+                        .flex_grow()
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.0))
+                        .child(
+                            div()
+                                .text_size(px(theme::T_SM))
+                                .text_color(theme::TEXT)
+                                .child(s.name.clone()),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(theme::T_XS))
+                                .text_color(theme::FAINT)
+                                .child(format!("{} · {}", s.species, s.strain)),
+                        ),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("iv-sel-{id}")),
+                        "Select",
+                        if selected { Btn::Primary } else { Btn::Subtle },
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        t.app.iv_sel = Some(id);
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("iv-del-{id}")),
+                        "Delete",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::iv_delete_study(&mut t.app, id);
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    if let Some(sel) = app.app.iv_sel {
+        let cohort_ids: Vec<u64> = app
+            .app
+            .invivo
+            .cohorts
+            .iter()
+            .filter(|c| c.study == sel)
+            .map(|c| c.id)
+            .collect();
+        let animals: Vec<domain::invivo::Animal> = app
+            .app
+            .invivo
+            .animals
+            .iter()
+            .filter(|a| cohort_ids.contains(&a.cohort))
+            .cloned()
+            .collect();
+        body = body.child(section_title("Animals"));
+        body = body.child(
+            div()
+                .flex()
+                .gap(px(6.0))
+                .child(
+                    widgets::button("iv-animal", "Add animal", Btn::Outline).on_click(cx.listener(
+                        |t, _, _, cx| {
+                            act::open_iv_animal(&mut t.app);
+                            cx.notify();
+                        },
+                    )),
+                )
+                .child(
+                    widgets::button("iv-measure", "Record measurement", Btn::Outline).on_click(
+                        cx.listener(|t, _, _, cx| {
+                            act::open_iv_measure(&mut t.app);
+                            cx.notify();
+                        }),
+                    ),
+                )
+                .child(
+                    widgets::button("iv-rand", "Randomize (2 groups)", Btn::Subtle).on_click(
+                        cx.listener(|t, _, _, cx| {
+                            act::iv_randomize(&mut t.app, 2, 42);
+                            cx.notify();
+                        }),
+                    ),
+                ),
+        );
+        let mut alerts = Vec::new();
+        for a in &animals {
+            let latest = app
+                .app
+                .invivo
+                .measurements
+                .iter()
+                .filter(|m| m.animal == a.id)
+                .max_by_key(|m| m.day);
+            let cur = latest.map(|m| m.weight_g).unwrap_or(a.baseline_weight_g);
+            let alert = domain::invivo::welfare_alert(a.baseline_weight_g, cur, 0.2);
+            if alert {
+                alerts.push(format!(
+                    "{}: weight {:.1}→{:.1} g (≥20% loss)",
+                    a.tag, a.baseline_weight_g, cur
+                ));
+            }
+            body = body.child(
+                row_card()
+                    .child(
+                        div()
+                            .flex_grow()
+                            .text_size(px(theme::T_SM))
+                            .text_color(theme::TEXT)
+                            .child(format!("{} · {} · group {}", a.tag, a.sex, a.group + 1)),
+                    )
+                    .child(widgets::label(
+                        &format!("{:.1} g", cur),
+                        theme::T_XS,
+                        if alert { theme::DANGER } else { theme::MUTED },
+                    )),
+            );
+        }
+        if !alerts.is_empty() {
+            body = body.child(section_title("Welfare alerts"));
+            for al in alerts {
+                body = body.child(
+                    div()
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::DANGER)
+                        .child(al),
+                );
+            }
+        }
+        // mean weight per day graph
+        let mut by_day: std::collections::BTreeMap<u32, (f32, usize)> =
+            std::collections::BTreeMap::new();
+        for m in &app.app.invivo.measurements {
+            if animals.iter().any(|a| a.id == m.animal) {
+                let e = by_day.entry(m.day).or_insert((0.0, 0));
+                e.0 += m.weight_g;
+                e.1 += 1;
+            }
+        }
+        let series: Vec<(u32, f32)> = by_day
+            .iter()
+            .map(|(d, (s, n))| (*d, s / *n as f32))
+            .collect();
+        if !series.is_empty() {
+            body = body.child(section_title("Mean weight by day"));
+            let ser = series.clone();
+            body = body.child(
+                div()
+                    .h(px(140.0))
+                    .w_full()
+                    .rounded(px(8.0))
+                    .bg(theme::PANEL)
+                    .border_1()
+                    .border_color(theme::BORDER)
+                    .child(
+                        canvas(
+                            move |_, _, _| {},
+                            move |bounds, _s, window, cx| {
+                                let maxw = ser.iter().map(|(_, w)| *w).fold(1.0, f32::max);
+                                let maxd = ser.iter().map(|(d, _)| *d).max().unwrap_or(1).max(1);
+                                let pts: Vec<gpui::Point<gpui::Pixels>> = ser
+                                    .iter()
+                                    .map(|(d, w)| {
+                                        let x = bounds.origin.x.v()
+                                            + 20.0
+                                            + (*d as f32 / maxd as f32)
+                                                * (bounds.size.width.v() - 40.0);
+                                        let y = bounds.origin.y.v() + bounds.size.height.v()
+                                            - 20.0
+                                            - (w / maxw) * (bounds.size.height.v() - 40.0);
+                                        gpui::point(px(x), px(y))
+                                    })
+                                    .collect();
+                                draw::polyline(window, &pts, 2.0, theme::ACCENT);
+                                for (i, (d, w)) in ser.iter().enumerate() {
+                                    draw::disc(window, pts[i], 3.0, theme::ACCENT);
+                                    draw::text(
+                                        window,
+                                        cx,
+                                        gpui::point(
+                                            pts[i].x,
+                                            bounds.origin.y + bounds.size.height - px(8.0),
+                                        ),
+                                        &format!("d{d}"),
+                                        9.0,
+                                        theme::MUTED,
+                                        theme::ui_font(),
+                                        draw::Align::Center,
+                                    );
+                                    let _ = w;
+                                }
+                            },
+                        )
+                        .size_full(),
+                    ),
+            );
+        }
+        // dosing calculator
+        body = body.child(section_title("Dosing calculator (weight-based)"));
+        let dose_seed = app.app.iv_dose.clone();
+        let conc_seed = app.app.iv_conc.clone();
+        let dose_inp = app.input_entity(cx, "iv:dose", &dose_seed, "mg/kg", true);
+        let conc_inp = app.input_entity(cx, "iv:conc", &conc_seed, "mg/mL", true);
+        app.app.iv_dose = dose_inp.read(cx).text();
+        app.app.iv_conc = conc_inp.read(cx).text();
+        let dose: f32 = app.app.iv_dose.trim().parse().unwrap_or(10.0);
+        let conc: f32 = app.app.iv_conc.trim().parse().unwrap_or(5.0);
+        body = body.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .child(div().w(px(80.0)).child(dose_inp))
+                .child(widgets::label("mg/kg", theme::T_XS, theme::FAINT))
+                .child(div().w(px(80.0)).child(conc_inp))
+                .child(widgets::label("mg/mL", theme::T_XS, theme::FAINT)),
+        );
+        for a in animals.iter().take(6) {
+            let latest = app
+                .app
+                .invivo
+                .measurements
+                .iter()
+                .filter(|m| m.animal == a.id)
+                .max_by_key(|m| m.day);
+            let w = latest.map(|m| m.weight_g).unwrap_or(a.baseline_weight_g);
+            let vol = domain::invivo::dose_volume_ml(dose, w, conc);
+            body = body.child(
+                div()
+                    .font_family(theme::MONO_FONT)
+                    .text_size(px(theme::T_XS))
+                    .text_color(theme::MUTED)
+                    .child(format!("{} ({:.1} g): {:.3} mL", a.tag, w, vol)),
+            );
+        }
+    }
+    p = p.child(body);
+    p.into_any_element()
+}
+
 pub fn render_chemistry(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
     let mut p = page(
         "Chemistry",

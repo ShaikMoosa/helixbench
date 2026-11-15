@@ -29,6 +29,7 @@ pub enum View {
     Biologics,
     Chemistry,
     Rna,
+    InVivo,
 }
 
 impl View {
@@ -41,7 +42,7 @@ impl View {
         View::History,
     ];
 
-    pub const LAB: [View; 11] = [
+    pub const LAB: [View; 12] = [
         View::Home,
         View::Notebook,
         View::Registry,
@@ -53,6 +54,7 @@ impl View {
         View::Biologics,
         View::Chemistry,
         View::Rna,
+        View::InVivo,
     ];
 
     pub fn label(self) -> &'static str {
@@ -74,6 +76,7 @@ impl View {
             View::Biologics => "Biologics",
             View::Chemistry => "Chemistry",
             View::Rna => "RNA / Oligos",
+            View::InVivo => "In Vivo",
         }
     }
 
@@ -96,6 +99,7 @@ impl View {
             View::Biologics => "Y",
             View::Chemistry => "⚗",
             View::Rna => "≈",
+            View::InVivo => "▣",
         }
     }
 }
@@ -293,6 +297,9 @@ pub enum Dialog {
     ChemReaction(ChemReactionDraft),
     ChemLot(ChemLotDraft),
     Rna(RnaDraft),
+    IvStudy(IvStudyDraft),
+    IvAnimal(IvAnimalDraft),
+    IvMeasure(IvMeasureDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -490,6 +497,34 @@ pub struct RnaDraft {
     pub error: Option<String>,
 }
 
+/// Phase 5 in-vivo: add-study dialog draft.
+#[derive(Clone, Default)]
+pub struct IvStudyDraft {
+    pub name: String,
+    pub species: String,
+    pub strain: String,
+    pub error: Option<String>,
+}
+
+/// Phase 5 in-vivo: add-animal dialog draft.
+#[derive(Clone, Default)]
+pub struct IvAnimalDraft {
+    pub tag: String,
+    pub sex: usize, // 0 F, 1 M
+    pub weight: String,
+    pub error: Option<String>,
+}
+
+/// Phase 5 in-vivo: add-measurement dialog draft.
+#[derive(Clone, Default)]
+pub struct IvMeasureDraft {
+    pub animal: usize,
+    pub day: String,
+    pub weight: String,
+    pub tumor: String,
+    pub error: Option<String>,
+}
+
 #[derive(Clone, Default)]
 pub struct RegistryImportDraft {
     pub csv: String,
@@ -651,6 +686,13 @@ pub struct AppState {
     pub rna: storage::rna::Rna,
     /// Selected oligo in the RNA view.
     pub rna_sel: Option<u64>,
+    /// Phase 5 in-vivo studies.
+    pub invivo: storage::invivo::Invivo,
+    /// Selected study in the In Vivo view.
+    pub iv_sel: Option<u64>,
+    /// Dosing calculator inputs (mg/kg, mg/mL).
+    pub iv_dose: String,
+    pub iv_conc: String,
     pub feature_sort: TableSort,
     pub primer_sort: TableSort,
     pub enzyme_sort: TableSort,
@@ -721,6 +763,10 @@ impl AppState {
             chem_search: String::new(),
             rna: storage::rna::load(),
             rna_sel: None,
+            invivo: storage::invivo::load(),
+            iv_sel: None,
+            iv_dose: "10".into(),
+            iv_conc: "5".into(),
             feature_sort: TableSort::default(),
             primer_sort: TableSort::default(),
             enzyme_sort: TableSort::default(),

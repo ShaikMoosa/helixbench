@@ -12,6 +12,7 @@ pub mod fasta;
 pub mod feature_lib;
 pub mod genbank;
 pub mod inventory;
+pub mod invivo;
 pub mod records;
 pub mod registry;
 pub mod rna;

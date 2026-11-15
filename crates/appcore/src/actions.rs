@@ -12,9 +12,9 @@ use crate::state::{
     AlignmentDraft, AppState, AssemblyDraft, AuditDraft, BiologicsDraft, BlastDraft, ChemAddDraft,
     ChemLotDraft, ChemReactionDraft, CodonDraft, ColorDraft, ColorsMode, CombDraft, CrisprDraft,
     Dialog, EntityMapDraft, EntryEditDraft, FeatureDraft, FeatureLibDraft, HomeDraft,
-    InventoryDraft, NewSeqState, NotebookDraft, OpenDoc, PcrDraft, PendingAction,
-    PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft, RegistryDraft, RegistryEditDraft,
-    RegistryImportDraft, RnaDraft, WorkflowDraft, WorkspaceDraft,
+    InventoryDraft, IvAnimalDraft, IvMeasureDraft, IvStudyDraft, NewSeqState, NotebookDraft,
+    OpenDoc, PcrDraft, PendingAction, PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft,
+    RegistryDraft, RegistryEditDraft, RegistryImportDraft, RnaDraft, WorkflowDraft, WorkspaceDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -2300,6 +2300,162 @@ pub fn rna_delete(app: &mut AppState, id: u64) {
         }
         audit(app, &format!("oligo:{id}"), "deleted", "");
         app.toast("Oligo deleted");
+    }
+}
+
+/// Open the in-vivo add-study dialog.
+pub fn open_iv_study(app: &mut AppState) {
+    app.dialog = Some(Dialog::IvStudy(IvStudyDraft {
+        species: "mouse".into(),
+        strain: "BALB/c".into(),
+        ..Default::default()
+    }));
+}
+
+pub fn iv_study_save(app: &mut AppState, draft: &IvStudyDraft) -> Result<u64, String> {
+    if draft.name.trim().is_empty() {
+        return Err("Study name required".into());
+    }
+    let id = app.invivo.add_study(
+        draft.name.trim(),
+        draft.species.trim(),
+        draft.strain.trim(),
+        unix_now(),
+    );
+    // default cohort/cage for the study
+    app.invivo.add_cohort(id, "C1", "cage-1");
+    let _ = storage::invivo::save(&app.invivo);
+    audit(app, &format!("study:{id}"), "created", &draft.name);
+    app.iv_sel = Some(id);
+    app.toast("Study created");
+    Ok(id)
+}
+
+pub fn open_iv_animal(app: &mut AppState) {
+    app.dialog = Some(Dialog::IvAnimal(IvAnimalDraft {
+        weight: "20".into(),
+        ..Default::default()
+    }));
+}
+
+pub fn iv_animal_save(app: &mut AppState, draft: &IvAnimalDraft) -> Result<u64, String> {
+    let Some(study) = app.iv_sel else {
+        return Err("Select a study first".into());
+    };
+    let cohort = app
+        .invivo
+        .cohorts
+        .iter()
+        .find(|c| c.study == study)
+        .map(|c| c.id)
+        .ok_or("No cohort")?;
+    let weight: f32 = draft.weight.trim().parse().map_err(|_| "Invalid weight")?;
+    if draft.tag.trim().is_empty() {
+        return Err("Tag required".into());
+    }
+    let sex = if draft.sex == 1 { 'M' } else { 'F' };
+    let id = app.invivo.add_animal(cohort, draft.tag.trim(), sex, weight);
+    let _ = storage::invivo::save(&app.invivo);
+    audit(app, &format!("animal:{id}"), "added", &draft.tag);
+    app.toast("Animal added");
+    Ok(id)
+}
+
+pub fn open_iv_measure(app: &mut AppState) {
+    app.dialog = Some(Dialog::IvMeasure(IvMeasureDraft {
+        day: "0".into(),
+        ..Default::default()
+    }));
+}
+
+pub fn iv_measure_save(app: &mut AppState, draft: &IvMeasureDraft) -> Result<(), String> {
+    let Some(study) = app.iv_sel else {
+        return Err("Select a study first".into());
+    };
+    let animals: Vec<u64> = app
+        .invivo
+        .animals
+        .iter()
+        .filter(|a| {
+            app.invivo
+                .cohorts
+                .iter()
+                .any(|c| c.id == a.cohort && c.study == study)
+        })
+        .map(|a| a.id)
+        .collect();
+    let animal = *animals
+        .get(draft.animal.min(animals.len().saturating_sub(1)))
+        .ok_or("No animals")?;
+    let day: u32 = draft.day.trim().parse().map_err(|_| "Invalid day")?;
+    let weight: f32 = draft.weight.trim().parse().map_err(|_| "Invalid weight")?;
+    let tumor = if draft.tumor.trim().is_empty() {
+        None
+    } else {
+        Some(
+            draft
+                .tumor
+                .trim()
+                .parse::<f32>()
+                .map_err(|_| "Invalid tumor")?,
+        )
+    };
+    app.invivo.add_measurement(domain::invivo::Measurement {
+        animal,
+        day,
+        weight_g: weight,
+        tumor_mm3: tumor,
+    });
+    let _ = storage::invivo::save(&app.invivo);
+    audit(
+        app,
+        &format!("animal:{animal}"),
+        "measured",
+        &format!("day {day}"),
+    );
+    app.toast("Measurement recorded");
+    Ok(())
+}
+
+/// Randomize the selected study's animals into `groups` balanced groups.
+pub fn iv_randomize(app: &mut AppState, groups: u32, seed: u64) {
+    let Some(study) = app.iv_sel else { return };
+    let ids: Vec<u64> = app
+        .invivo
+        .animals
+        .iter()
+        .filter(|a| {
+            app.invivo
+                .cohorts
+                .iter()
+                .any(|c| c.id == a.cohort && c.study == study)
+        })
+        .map(|a| a.id)
+        .collect();
+    let assign = domain::invivo::randomize(&ids, groups, seed);
+    for (id, g) in assign {
+        if let Some(a) = app.invivo.animals.iter_mut().find(|a| a.id == id) {
+            a.group = g;
+        }
+    }
+    let _ = storage::invivo::save(&app.invivo);
+    audit(
+        app,
+        &format!("study:{study}"),
+        "randomized",
+        &format!("{groups} groups"),
+    );
+    app.toast("Randomized");
+}
+
+pub fn iv_delete_study(app: &mut AppState, id: u64) {
+    if app.invivo.remove_study(id) {
+        let _ = storage::invivo::save(&app.invivo);
+        if app.iv_sel == Some(id) {
+            app.iv_sel = None;
+        }
+        audit(app, &format!("study:{id}"), "deleted", "");
+        app.toast("Study deleted");
     }
 }
 

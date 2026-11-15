@@ -21,6 +21,7 @@ pub mod feature_lib;
 pub mod genetic_code;
 pub mod insights;
 pub mod inventory;
+pub mod invivo;
 pub mod iupac;
 pub mod msa;
 pub mod notebook;
