@@ -986,7 +986,7 @@ impl HelixBench {
             .border_1()
             .border_color(theme::BORDER_STRONG)
             .rounded(px(8.0))
-            .shadow_lg()
+            .shadow(theme::shadow_menu())
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|_, _, _, cx| cx.stop_propagation()),
@@ -1471,7 +1471,8 @@ impl HelixBench {
             } else {
                 theme::transparent()
             })
-            .hover(|s| s.bg(theme::SURFACE))
+            .hover(|s| s.bg(theme::FILL_HOVER))
+            .active(|s| s.bg(theme::FILL_PRESSED))
             .child(div().w(px(3.0)).h(px(16.0)).rounded(px(2.0)).bg(if active {
                 theme::ACCENT
             } else {

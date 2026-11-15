@@ -33,7 +33,8 @@ fn button_base(id: impl Into<ElementId>, variant: Btn) -> Stateful<Div> {
         .px(px(12.0))
         .rounded(px(6.0))
         .text_size(px(theme::T_BASE))
-        .cursor_pointer();
+        .cursor_pointer()
+        .active(|s| s.bg(theme::FILL_PRESSED));
     match variant {
         Btn::Primary => base
             .bg(theme::ACCENT)
@@ -44,11 +45,11 @@ fn button_base(id: impl Into<ElementId>, variant: Btn) -> Stateful<Div> {
             .border_1()
             .border_color(theme::BORDER_STRONG)
             .text_color(theme::TEXT)
-            .hover(|s| s.bg(theme::SURFACE_2)),
+            .hover(|s| s.bg(theme::FILL_HOVER)),
         Btn::Ghost => base
             .bg(theme::transparent())
             .text_color(theme::TEXT)
-            .hover(|s| s.bg(theme::SURFACE_2)),
+            .hover(|s| s.bg(theme::FILL_HOVER)),
         Btn::Danger => base
             .bg(theme::transparent())
             .border_1()
@@ -58,7 +59,7 @@ fn button_base(id: impl Into<ElementId>, variant: Btn) -> Stateful<Div> {
         Btn::Subtle => base
             .bg(theme::SURFACE)
             .text_color(theme::MUTED)
-            .hover(|s| s.bg(theme::SURFACE_2).text_color(theme::TEXT)),
+            .hover(|s| s.bg(theme::FILL_HOVER).text_color(theme::TEXT)),
     }
 }
 
@@ -111,7 +112,7 @@ pub fn menu_row(
                 .child(shortcut.to_owned()),
         );
     if enabled {
-        d.text_color(theme::TEXT).hover(|s| s.bg(theme::SURFACE_2))
+        d.text_color(theme::TEXT).hover(|s| s.bg(theme::FILL_HOVER))
     } else {
         d.text_color(theme::FAINT).opacity(0.6)
     }
@@ -131,7 +132,7 @@ pub fn menu_check(id: impl Into<ElementId>, label: &str, checked: bool) -> State
         .text_size(px(theme::T_BASE))
         .cursor_pointer()
         .text_color(theme::TEXT)
-        .hover(|s| s.bg(theme::SURFACE_2))
+        .hover(|s| s.bg(theme::FILL_HOVER))
         .child(
             div()
                 .w(px(14.0))
@@ -207,7 +208,7 @@ pub fn row_card() -> Div {
         .bg(theme::PANEL)
         .border_1()
         .border_color(theme::BORDER)
-        .shadow_sm()
+        .shadow(theme::shadow_card())
 }
 
 /// A section heading within a page body.

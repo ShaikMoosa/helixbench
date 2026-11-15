@@ -293,9 +293,9 @@ impl HelixBench {
                             .items_center()
                             .bg(row_bg(r.selected, idx))
                             .border_b_1()
-                            .border_color(theme::BORDER.opacity(0.45))
+                            .border_color(theme::HAIRLINE)
                             .cursor_pointer()
-                            .hover(|s| s.bg(theme::SURFACE_2.opacity(0.6)))
+                            .hover(|s| s.bg(theme::FILL_HOVER_STRONG))
                             .on_click(move |_, _, cx| {
                                 e_sel.update(cx, |t, cx| {
                                     t.app.selected_primer = Some(id);

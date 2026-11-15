@@ -272,7 +272,7 @@ fn modal_shell(
         .border_1()
         .border_color(theme::BORDER_STRONG)
         .rounded(px(10.0))
-        .shadow_lg()
+        .shadow(theme::shadow_dialog())
         .overflow_hidden()
         .on_mouse_down(
             MouseButton::Left,
@@ -2337,7 +2337,7 @@ fn render_dlg_combo(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> Optio
         .border_1()
         .border_color(theme::BORDER_STRONG)
         .rounded(px(8.0))
-        .shadow_lg()
+        .shadow(theme::shadow_dialog())
         .overflow_hidden()
         .on_mouse_down(
             MouseButton::Left,

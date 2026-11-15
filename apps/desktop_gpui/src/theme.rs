@@ -3,7 +3,7 @@
 //! selection, and pastel feature fills so annotations read softly on light.
 //! Spacing sits on a 4px grid; radii nest (8 outer / 6 inner / 4).
 
-use gpui::{hsla, Font, Hsla};
+use gpui::{hsla, point, px, BoxShadow, Font, Hsla};
 
 /// Compile-time sRGB hex -> Hsla so palette entries are plain `const` values
 /// that flow straight into `.bg()`, `.text_color()` and `.border_color()`.
@@ -119,6 +119,70 @@ pub const OK: Hsla = hex(0x2f9e57);
 pub const WARN: Hsla = hex(0xc08a20);
 pub const DANGER: Hsla = hex(0xd64545);
 pub const INFO: Hsla = hex(0x2f7fd6);
+
+// --- Alpha-based interaction fills (sit naturally on any surface) ----------
+// Mirrors the quiet-md approach: hover/pressed/selected are black-at-alpha
+// rather than opaque variants, so they read correctly over panels and rows.
+pub const FILL_HOVER: Hsla = Hsla {
+    h: 0.0,
+    s: 0.0,
+    l: 0.0,
+    a: 0.045,
+};
+pub const FILL_HOVER_STRONG: Hsla = Hsla {
+    h: 0.0,
+    s: 0.0,
+    l: 0.0,
+    a: 0.06,
+};
+pub const FILL_PRESSED: Hsla = Hsla {
+    h: 0.0,
+    s: 0.0,
+    l: 0.0,
+    a: 0.09,
+};
+pub const ROW_SELECTED: Hsla = Hsla {
+    h: 0.0,
+    s: 0.0,
+    l: 0.0,
+    a: 0.072,
+};
+pub const HAIRLINE: Hsla = Hsla {
+    h: 0.0,
+    s: 0.0,
+    l: 0.0,
+    a: 0.08,
+};
+
+// --- Layered elevation (soft two-layer shadows, quiet-md family) -----------
+fn shadow(a: f32, y: f32, blur: f32, spread: f32) -> BoxShadow {
+    BoxShadow {
+        color: hsla(0.0, 0.0, 0.0, a),
+        offset: point(px(0.0), px(y)),
+        blur_radius: px(blur),
+        spread_radius: px(spread),
+    }
+}
+
+/// Menus / dropdowns / popovers.
+pub fn shadow_menu() -> Vec<BoxShadow> {
+    vec![shadow(0.05, 1.0, 3.0, 0.0), shadow(0.10, 8.0, 24.0, 0.0)]
+}
+
+/// Second-level panels, search popups, toasts.
+pub fn shadow_panel() -> Vec<BoxShadow> {
+    vec![shadow(0.05, 1.0, 4.0, 0.0), shadow(0.12, 12.0, 32.0, 0.0)]
+}
+
+/// Modal dialogs.
+pub fn shadow_dialog() -> Vec<BoxShadow> {
+    vec![shadow(0.06, 2.0, 8.0, 0.0), shadow(0.16, 24.0, 64.0, 0.0)]
+}
+
+/// Cards resting on a surface: faint lift, no border weight.
+pub fn shadow_card() -> Vec<BoxShadow> {
+    vec![shadow(0.04, 1.0, 2.0, 0.0), shadow(0.06, 4.0, 14.0, 0.0)]
+}
 
 // --- ORF strands ------------------------------------------------------------
 pub const ORF_TOP: Hsla = hex(0xd97b3f);

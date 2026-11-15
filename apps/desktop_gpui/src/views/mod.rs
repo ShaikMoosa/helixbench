@@ -195,7 +195,7 @@ pub fn check_box(id: impl Into<ElementId>, checked: bool) -> Stateful<Div> {
 /// Striped row background with a teal-tinted selected state.
 pub fn row_bg(selected: bool, idx: usize) -> Hsla {
     if selected {
-        theme::ACCENT.opacity(0.14)
+        theme::ROW_SELECTED
     } else if idx % 2 == 1 {
         theme::SURFACE.opacity(0.5)
     } else {

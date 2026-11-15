@@ -435,9 +435,9 @@ impl HelixBench {
                             .items_center()
                             .bg(row_bg(in_set && n_cuts > 0, idx))
                             .border_b_1()
-                            .border_color(theme::BORDER.opacity(0.45))
+                            .border_color(theme::HAIRLINE)
                             .cursor_pointer()
-                            .hover(|s| s.bg(theme::SURFACE_2.opacity(0.6)))
+                            .hover(|s| s.bg(theme::FILL_HOVER_STRONG))
                             .on_click(move |_, _, cx| {
                                 if let Some(pos) = first_site {
                                     let nm = name.clone();
@@ -665,7 +665,7 @@ impl HelixBench {
             .border_1()
             .border_color(theme::BORDER_STRONG)
             .rounded(px(8.0))
-            .shadow_lg()
+            .shadow(theme::shadow_menu())
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|_, _, _, cx| cx.stop_propagation()),

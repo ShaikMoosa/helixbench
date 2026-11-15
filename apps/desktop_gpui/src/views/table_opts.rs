@@ -74,7 +74,7 @@ pub fn render_table_opts(
         .border_1()
         .border_color(theme::BORDER_STRONG)
         .rounded(px(8.0))
-        .shadow_lg()
+        .shadow(theme::shadow_menu())
         .on_mouse_down(
             MouseButton::Left,
             cx.listener(|_, _, _, cx| cx.stop_propagation()),
