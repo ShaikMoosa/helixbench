@@ -250,6 +250,9 @@ impl HelixBench {
             Some(Dialog::Inventory(_)) => "inventory".into(),
             Some(Dialog::Workflows(_)) => "workflows".into(),
             Some(Dialog::Biologics(_)) => "biologics".into(),
+            Some(Dialog::ChemAdd(_)) => "chem-add".into(),
+            Some(Dialog::ChemReaction(_)) => "chem-reaction".into(),
+            Some(Dialog::ChemLot(_)) => "chem-lot".into(),
         }
     }
 
@@ -1659,6 +1662,7 @@ impl HelixBench {
             View::Automation => crate::lab::render_automation(self, cx),
             View::Split => crate::lab::render_split(self, cx),
             View::Biologics => crate::lab::render_biologics(self, cx),
+            View::Chemistry => crate::lab::render_chemistry(self, cx),
         }
     }
 

@@ -27,6 +27,7 @@ pub enum View {
     Automation,
     Split,
     Biologics,
+    Chemistry,
 }
 
 impl View {
@@ -39,7 +40,7 @@ impl View {
         View::History,
     ];
 
-    pub const LAB: [View; 9] = [
+    pub const LAB: [View; 10] = [
         View::Home,
         View::Notebook,
         View::Registry,
@@ -49,6 +50,7 @@ impl View {
         View::Automation,
         View::Split,
         View::Biologics,
+        View::Chemistry,
     ];
 
     pub fn label(self) -> &'static str {
@@ -68,6 +70,7 @@ impl View {
             View::Automation => "Automation",
             View::Split => "Split",
             View::Biologics => "Biologics",
+            View::Chemistry => "Chemistry",
         }
     }
 
@@ -88,6 +91,7 @@ impl View {
             View::Automation => "⚙",
             View::Split => "⧉",
             View::Biologics => "Y",
+            View::Chemistry => "⚗",
         }
     }
 }
@@ -281,6 +285,9 @@ pub enum Dialog {
     Inventory(InventoryDraft),
     Workflows(WorkflowDraft),
     Biologics(BiologicsDraft),
+    ChemAdd(ChemAddDraft),
+    ChemReaction(ChemReactionDraft),
+    ChemLot(ChemLotDraft),
 }
 
 #[derive(Clone, Copy)]
@@ -438,6 +445,34 @@ pub struct BiologicsDraft {
     pub error: Option<String>,
 }
 
+/// Phase 5 chemistry: add-compound dialog draft.
+#[derive(Clone, Default)]
+pub struct ChemAddDraft {
+    pub name: String,
+    pub smiles: String,
+    pub error: Option<String>,
+}
+
+/// Phase 5 chemistry: add-reaction dialog draft (compound indices + equivalents).
+#[derive(Clone, Default)]
+pub struct ChemReactionDraft {
+    pub name: String,
+    pub reactant: usize,
+    pub product: usize,
+    pub req: String,
+    pub peq: String,
+    pub error: Option<String>,
+}
+
+/// Phase 5 chemistry: add-lot dialog draft (form index into salt library).
+#[derive(Clone, Default)]
+pub struct ChemLotDraft {
+    pub form: usize,
+    pub quantity: String,
+    pub unit: String,
+    pub error: Option<String>,
+}
+
 #[derive(Clone, Default)]
 pub struct RegistryImportDraft {
     pub csv: String,
@@ -589,6 +624,12 @@ pub struct AppState {
     pub biologics: storage::biologics::Biologics,
     /// Selected biologic in the Biologics view.
     pub bio_sel: Option<u64>,
+    /// Phase 5 chemistry compounds / reactions / lots.
+    pub chemistry: storage::chemistry::Chemistry,
+    /// Selected compound in the Chemistry view.
+    pub chem_sel: Option<u64>,
+    /// Substructure SMILES filter in the Chemistry view.
+    pub chem_search: String,
     pub feature_sort: TableSort,
     pub primer_sort: TableSort,
     pub enzyme_sort: TableSort,
@@ -654,6 +695,9 @@ impl AppState {
             views: storage::views::load(),
             biologics: storage::biologics::load(),
             bio_sel: None,
+            chemistry: storage::chemistry::load(),
+            chem_sel: None,
+            chem_search: String::new(),
             feature_sort: TableSort::default(),
             primer_sort: TableSort::default(),
             enzyme_sort: TableSort::default(),

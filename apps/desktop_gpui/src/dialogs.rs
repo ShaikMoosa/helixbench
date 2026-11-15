@@ -212,6 +212,12 @@ pub fn show(
         workflows(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Biologics(_))) {
         biologics(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::ChemAdd(_))) {
+        chem_add(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::ChemReaction(_))) {
+        chem_reaction(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::ChemLot(_))) {
+        chem_lot(app, cx, max_h)
     } else {
         return None;
     };
@@ -6071,6 +6077,269 @@ fn biologics(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
         cx,
         "Register Biologic",
         660.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: Chemistry dialogs
+// ---------------------------------------------------------------------------
+
+fn chem_add(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::ChemAdd(d)) => d.clone(),
+        _ => return div().into_any_element(),
+    };
+    let name_inp = app.input_entity(cx, "dlg:chem:name", &draft.name, "Compound name", false);
+    let smi_inp = app.input_entity(
+        cx,
+        "dlg:chem:smiles",
+        &draft.smiles,
+        "SMILES e.g. CCO",
+        true,
+    );
+    if let Some(Dialog::ChemAdd(d)) = &mut app.app.dialog {
+        d.name = name_inp.read(cx).text();
+        d.smiles = smi_inp.read(cx).text();
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(field_row(
+        "Name",
+        input_field(name_inp, 372.0).into_any_element(),
+    ));
+    body = body.child(field_row(
+        "SMILES",
+        input_field(smi_inp, 480.0).into_any_element(),
+    ));
+    if let Ok(m) = domain::chemistry::Molecule::parse(&draft.smiles) {
+        body = body.child(widgets::label(
+            &format!("{} · MW {:.2}", m.formula(), m.molecular_weight()),
+            theme::T_SM,
+            theme::OK,
+        ));
+    }
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("chem-add-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("chem-add-save", "Add", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::ChemAdd(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::chem_add_save(&mut t.app, &d) {
+                    Ok(_) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::ChemAdd(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Add Compound",
+        620.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn chem_reaction(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::ChemReaction(d)) => d.clone(),
+        _ => return div().into_any_element(),
+    };
+    let name_inp = app.input_entity(cx, "dlg:rxn:name", &draft.name, "Reaction name", false);
+    let req_inp = app.input_entity(cx, "dlg:rxn:req", &draft.req, "1.0", true);
+    let peq_inp = app.input_entity(cx, "dlg:rxn:peq", &draft.peq, "1.0", true);
+    if let Some(Dialog::ChemReaction(d)) = &mut app.app.dialog {
+        d.name = name_inp.read(cx).text();
+        d.req = req_inp.read(cx).text();
+        d.peq = peq_inp.read(cx).text();
+    }
+    let compounds = app.app.chemistry.compounds.clone();
+    let n = compounds.len();
+    let rname = compounds
+        .get(draft.reactant.min(n.saturating_sub(1)))
+        .map(|c| c.name.clone())
+        .unwrap_or_else(|| "—".into());
+    let pname = compounds
+        .get(draft.product.min(n.saturating_sub(1)))
+        .map(|c| c.name.clone())
+        .unwrap_or_else(|| "—".into());
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    body = body.child(field_row(
+        "Name",
+        input_field(name_inp, 372.0).into_any_element(),
+    ));
+    body = body.child(field_row(
+        "Reactant",
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(
+                widgets::button("rxn-r-cycle", &rname, Btn::Outline).on_click(cx.listener(
+                    move |t, _, _, cx| {
+                        if let Some(Dialog::ChemReaction(d)) = &mut t.app.dialog {
+                            let n = t.app.chemistry.compounds.len().max(1);
+                            d.reactant = (d.reactant + 1) % n;
+                        }
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(div().w(px(70.0)).child(req_inp))
+            .child(widgets::label("eq", theme::T_XS, theme::FAINT))
+            .into_any_element(),
+    ));
+    body = body.child(field_row(
+        "Product",
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(
+                widgets::button("rxn-p-cycle", &pname, Btn::Outline).on_click(cx.listener(
+                    move |t, _, _, cx| {
+                        if let Some(Dialog::ChemReaction(d)) = &mut t.app.dialog {
+                            let n = t.app.chemistry.compounds.len().max(1);
+                            d.product = (d.product + 1) % n;
+                        }
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(div().w(px(70.0)).child(peq_inp))
+            .child(widgets::label("eq", theme::T_XS, theme::FAINT))
+            .into_any_element(),
+    ));
+    body = body.child(widgets::label(
+        "Click a compound button to cycle the selection.",
+        theme::T_XS,
+        theme::FAINT,
+    ));
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("rxn-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("rxn-save", "Add", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::ChemReaction(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::chem_reaction_save(&mut t.app, &d) {
+                    Ok(_) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::ChemReaction(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Add Reaction",
+        620.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn chem_lot(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::ChemLot(d)) => d.clone(),
+        _ => return div().into_any_element(),
+    };
+    let qty_inp = app.input_entity(cx, "dlg:lot:qty", &draft.quantity, "100", true);
+    let unit_inp = app.input_entity(cx, "dlg:lot:unit", &draft.unit, "mg", false);
+    if let Some(Dialog::ChemLot(d)) = &mut app.app.dialog {
+        d.quantity = qty_inp.read(cx).text();
+        d.unit = unit_inp.read(cx).text();
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(8.0));
+    let mut forms = div().flex().flex_wrap().gap(px(6.0));
+    for (i, f) in domain::chemistry::salt_solvate_library().iter().enumerate() {
+        let sel = draft.form == i;
+        forms = forms.child(
+            widgets::button(
+                SharedString::from(format!("lot-f-{i}")),
+                &f.name,
+                if sel { Btn::Primary } else { Btn::Outline },
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Some(Dialog::ChemLot(d)) = &mut t.app.dialog {
+                    d.form = i;
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(field_row("Form / salt", forms.into_any_element()));
+    body = body.child(field_row(
+        "Quantity",
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(div().w(px(90.0)).child(qty_inp))
+            .child(div().w(px(70.0)).child(unit_inp))
+            .into_any_element(),
+    ));
+    if let Some(e) = &draft.error {
+        body = body.child(error_label(e));
+    }
+    let footer = footer_row(vec![
+        widgets::button("lot-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("lot-save", "Add", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let d = match &t.app.dialog {
+                    Some(Dialog::ChemLot(d)) => d.clone(),
+                    _ => return,
+                };
+                match act::chem_lot_save(&mut t.app, &d) {
+                    Ok(_) => close_dialog(t, cx),
+                    Err(e) => {
+                        if let Some(Dialog::ChemLot(dd)) = &mut t.app.dialog {
+                            dd.error = Some(e);
+                        }
+                        cx.notify();
+                    }
+                }
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Add Lot",
+        620.0,
         max_h,
         true,
         body.into_any_element(),

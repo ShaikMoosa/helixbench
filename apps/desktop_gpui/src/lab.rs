@@ -1473,3 +1473,268 @@ pub fn render_biologics(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> A
     p = p.child(body);
     p.into_any_element()
 }
+
+pub fn render_chemistry(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
+    let mut p = page(
+        "Chemistry",
+        "Compounds, substructure search, reactions, lots, salts",
+    );
+    let mut body = scroll("chem-scroll");
+    let seed = app.app.chem_search.clone();
+    let search_inp = app.input_entity(cx, "filter:chem", &seed, "Substructure SMILES…", true);
+    app.app.chem_search = search_inp.read(cx).text();
+    let query = domain::chemistry::Molecule::parse(&app.app.chem_search).ok();
+    body = body.child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(div().w(px(220.0)).child(search_inp))
+            .child(
+                widgets::button("chem-add", "Add compound", Btn::Primary).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        act::open_chem_add(&mut t.app);
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(
+                widgets::button("chem-rxn", "Add reaction", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        act::open_chem_reaction(&mut t.app);
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    let compounds: Vec<domain::chemistry::Compound> = app
+        .app
+        .chemistry
+        .compounds
+        .iter()
+        .filter(|c| match &query {
+            Some(q) => domain::chemistry::Molecule::parse(&c.smiles)
+                .map(|m| m.contains(q))
+                .unwrap_or(false),
+            None => true,
+        })
+        .cloned()
+        .collect();
+    if compounds.is_empty() {
+        body = body.child(widgets::label(
+            "No compounds match. Add a compound (SMILES) or clear the substructure filter.",
+            theme::T_SM,
+            theme::FAINT,
+        ));
+    }
+    for c in compounds {
+        let id = c.id;
+        let selected = app.app.chem_sel == Some(id);
+        body = body.child(
+            row_card()
+                .child(
+                    div()
+                        .flex_grow()
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.0))
+                        .child(
+                            div()
+                                .text_size(px(theme::T_SM))
+                                .text_color(theme::TEXT)
+                                .child(c.name.clone()),
+                        )
+                        .child(
+                            div()
+                                .font_family(theme::MONO_FONT)
+                                .text_size(px(theme::T_XS))
+                                .text_color(theme::FAINT)
+                                .child(c.smiles.clone()),
+                        ),
+                )
+                .child(widgets::label(&c.formula, theme::T_XS, theme::ACCENT))
+                .child(widgets::label(
+                    &format!("{:.2} g/mol", c.mw),
+                    theme::T_XS,
+                    theme::MUTED,
+                ))
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("chem-sel-{id}")),
+                        "Select",
+                        if selected { Btn::Primary } else { Btn::Subtle },
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        t.app.chem_sel = Some(id);
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("chem-del-{id}")),
+                        "Delete",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::chem_delete_compound(&mut t.app, id);
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    if let Some(sel) = app.app.chem_sel {
+        if let Some(c) = app
+            .app
+            .chemistry
+            .compounds
+            .iter()
+            .find(|c| c.id == sel)
+            .cloned()
+        {
+            body = body.child(section_title(&format!("{} · {}", c.name, c.formula)));
+            if let Ok(m) = domain::chemistry::Molecule::parse(&c.smiles) {
+                body = body.child(
+                    div()
+                        .flex()
+                        .gap(px(14.0))
+                        .child(widgets::label(
+                            &format!("MW {:.2}", m.molecular_weight()),
+                            theme::T_SM,
+                            theme::TEXT,
+                        ))
+                        .child(widgets::label(
+                            &format!("H-donors {}", m.h_bond_donors()),
+                            theme::T_SM,
+                            theme::MUTED,
+                        ))
+                        .child(widgets::label(
+                            &format!("H-acceptors {}", m.h_bond_acceptors()),
+                            theme::T_SM,
+                            theme::MUTED,
+                        ))
+                        .child(widgets::label(
+                            &format!("{} atoms", m.atoms.len()),
+                            theme::T_SM,
+                            theme::MUTED,
+                        )),
+                );
+            }
+            body = body.child(
+                widgets::button("chem-lot", "Add lot", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        act::open_chem_lot(&mut t.app);
+                        cx.notify();
+                    },
+                )),
+            );
+            let lots: Vec<storage::chemistry::Lot> = app
+                .app
+                .chemistry
+                .lots
+                .iter()
+                .filter(|l| l.compound == sel)
+                .cloned()
+                .collect();
+            let lib = domain::chemistry::salt_solvate_library();
+            for l in lots {
+                let fname = lib
+                    .iter()
+                    .find(|f| f.id == l.form)
+                    .map(|f| f.name.clone())
+                    .unwrap_or_else(|| "free".into());
+                body = body.child(
+                    div()
+                        .font_family(theme::MONO_FONT)
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::MUTED)
+                        .child(format!("Lot: {} {} · {}", l.quantity, l.unit, fname)),
+                );
+            }
+        }
+    }
+    body = body.child(section_title("Reactions"));
+    if app.app.chemistry.reactions.is_empty() {
+        body = body.child(widgets::label(
+            "No reactions yet.",
+            theme::T_XS,
+            theme::FAINT,
+        ));
+    }
+    for r in app.app.chemistry.reactions.clone() {
+        let id = r.id;
+        let name_of = |cid: u64| {
+            app.app
+                .chemistry
+                .compounds
+                .iter()
+                .find(|c| c.id == cid)
+                .map(|c| c.name.clone())
+                .unwrap_or_else(|| "?".into())
+        };
+        let react: Vec<String> = r
+            .reactants
+            .iter()
+            .map(|x| format!("{} ({:.1} eq)", name_of(x.compound), x.equivalents))
+            .collect();
+        let prod: Vec<String> = r
+            .products
+            .iter()
+            .map(|x| format!("{} ({:.1} eq)", name_of(x.compound), x.equivalents))
+            .collect();
+        body = body.child(
+            row_card()
+                .child(
+                    div()
+                        .flex_grow()
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.0))
+                        .child(
+                            div()
+                                .text_size(px(theme::T_SM))
+                                .text_color(theme::TEXT)
+                                .child(r.name.clone()),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(theme::T_XS))
+                                .text_color(theme::FAINT)
+                                .child(format!("{} → {}", react.join(" + "), prod.join(" + "))),
+                        ),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("chem-rxdel-{id}")),
+                        "Delete",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::chem_delete_reaction(&mut t.app, id);
+                        cx.notify();
+                    })),
+                ),
+        );
+    }
+    body = body.child(section_title("Salt & solvate library"));
+    for f in domain::chemistry::salt_solvate_library() {
+        body = body.child(
+            div()
+                .flex()
+                .gap(px(8.0))
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::MUTED)
+                        .child(f.name.clone()),
+                )
+                .child(widgets::label(
+                    &format!("{} · {:.2}", f.formula, f.mw),
+                    theme::T_XS,
+                    theme::FAINT,
+                )),
+        );
+    }
+    p = p.child(body);
+    p.into_any_element()
+}

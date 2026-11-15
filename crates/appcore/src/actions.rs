@@ -9,11 +9,12 @@ use domain::sequence::{clean_sequence, reverse_complement};
 use domain::{ColorRegion, Document, Range, Topology};
 
 use crate::state::{
-    AlignmentDraft, AppState, AssemblyDraft, AuditDraft, BiologicsDraft, BlastDraft, CodonDraft,
-    ColorDraft, ColorsMode, CombDraft, CrisprDraft, Dialog, EntityMapDraft, EntryEditDraft,
-    FeatureDraft, FeatureLibDraft, HomeDraft, InventoryDraft, NewSeqState, NotebookDraft, OpenDoc,
-    PcrDraft, PendingAction, PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft,
-    RegistryDraft, RegistryEditDraft, RegistryImportDraft, WorkflowDraft, WorkspaceDraft,
+    AlignmentDraft, AppState, AssemblyDraft, AuditDraft, BiologicsDraft, BlastDraft, ChemAddDraft,
+    ChemLotDraft, ChemReactionDraft, CodonDraft, ColorDraft, ColorsMode, CombDraft, CrisprDraft,
+    Dialog, EntityMapDraft, EntryEditDraft, FeatureDraft, FeatureLibDraft, HomeDraft,
+    InventoryDraft, NewSeqState, NotebookDraft, OpenDoc, PcrDraft, PendingAction,
+    PrimerDesignDraft, PrimerDraft, ProjectsDraft, ProteinDraft, RegistryDraft, RegistryEditDraft,
+    RegistryImportDraft, WorkflowDraft, WorkspaceDraft,
 };
 
 pub fn region(range: Range) -> Vec<ColorRegion> {
@@ -2101,6 +2102,116 @@ pub fn biologics_delete(app: &mut AppState, id: u64) {
         }
         audit(app, &format!("biologic:{id}"), "deleted", "");
         app.toast("Biologic deleted");
+    }
+}
+
+/// Open the chemistry add-compound dialog.
+pub fn open_chem_add(app: &mut AppState) {
+    app.dialog = Some(Dialog::ChemAdd(ChemAddDraft::default()));
+}
+
+pub fn chem_add_save(app: &mut AppState, draft: &ChemAddDraft) -> Result<u64, String> {
+    if draft.name.trim().is_empty() {
+        return Err("Name required".into());
+    }
+    let id = app
+        .chemistry
+        .add_compound(draft.name.trim(), draft.smiles.trim())?;
+    let _ = storage::chemistry::save(&app.chemistry);
+    audit(app, &format!("compound:{id}"), "added", &draft.smiles);
+    app.chem_sel = Some(id);
+    app.toast("Compound added");
+    Ok(id)
+}
+
+pub fn open_chem_reaction(app: &mut AppState) {
+    app.dialog = Some(Dialog::ChemReaction(ChemReactionDraft {
+        req: "1.0".into(),
+        peq: "1.0".into(),
+        ..Default::default()
+    }));
+}
+
+pub fn chem_reaction_save(app: &mut AppState, draft: &ChemReactionDraft) -> Result<u64, String> {
+    if draft.name.trim().is_empty() {
+        return Err("Name required".into());
+    }
+    let n = app.chemistry.compounds.len();
+    if n < 2 {
+        return Err("Add at least two compounds first".into());
+    }
+    let r = draft.reactant.min(n - 1);
+    let p = draft.product.min(n - 1);
+    let req: f32 = draft
+        .req
+        .trim()
+        .parse()
+        .map_err(|_| "Invalid reactant eq")?;
+    let peq: f32 = draft.peq.trim().parse().map_err(|_| "Invalid product eq")?;
+    let rx = domain::chemistry::Reaction {
+        id: 0,
+        name: draft.name.trim().to_string(),
+        reactants: vec![domain::chemistry::ReactionComponent {
+            compound: app.chemistry.compounds[r].id,
+            equivalents: req,
+        }],
+        products: vec![domain::chemistry::ReactionComponent {
+            compound: app.chemistry.compounds[p].id,
+            equivalents: peq,
+        }],
+    };
+    let id = app.chemistry.add_reaction(rx);
+    let _ = storage::chemistry::save(&app.chemistry);
+    audit(app, &format!("reaction:{id}"), "added", &draft.name);
+    app.toast("Reaction added");
+    Ok(id)
+}
+
+pub fn open_chem_lot(app: &mut AppState) {
+    app.dialog = Some(Dialog::ChemLot(ChemLotDraft {
+        quantity: "100".into(),
+        unit: "mg".into(),
+        ..Default::default()
+    }));
+}
+
+pub fn chem_lot_save(app: &mut AppState, draft: &ChemLotDraft) -> Result<u64, String> {
+    let Some(comp) = app.chem_sel else {
+        return Err("Select a compound first".into());
+    };
+    let qty: f32 = draft
+        .quantity
+        .trim()
+        .parse()
+        .map_err(|_| "Invalid quantity")?;
+    let lib = domain::chemistry::salt_solvate_library();
+    let form = lib
+        .get(draft.form.min(lib.len() - 1))
+        .map(|f| f.id)
+        .unwrap_or(0);
+    let id = app.chemistry.add_lot(comp, form, qty, draft.unit.trim());
+    let _ = storage::chemistry::save(&app.chemistry);
+    audit(app, &format!("lot:{id}"), "added", "");
+    app.toast("Lot added");
+    Ok(id)
+}
+
+pub fn chem_delete_compound(app: &mut AppState, id: u64) {
+    if app.chemistry.remove_compound(id) {
+        let _ = storage::chemistry::save(&app.chemistry);
+        if app.chem_sel == Some(id) {
+            app.chem_sel = None;
+        }
+        audit(app, &format!("compound:{id}"), "deleted", "");
+        app.toast("Compound deleted");
+    }
+}
+
+pub fn chem_delete_reaction(app: &mut AppState, id: u64) {
+    if app.chemistry.remove_reaction(id) {
+        let _ = storage::chemistry::save(&app.chemistry);
+        audit(app, &format!("reaction:{id}"), "deleted", "");
+        app.toast("Reaction deleted");
     }
 }
 
