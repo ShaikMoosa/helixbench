@@ -55,7 +55,7 @@ Functional only: hover/pressed transitions, dialog/popover appear, drag feedback
 Target 120–300ms with ease-out; no looping/decorative animation.
 
 ## Roadmap (design)
-- **OKLab dark mode:** mirror lightness in OKLab (white→#1c1c1c, ink→near-white),
-  keep vivid hues; highlights stay light; shadows ×3 weight. (quiet-md `adapt`.)
 - **CSS/token-file theming:** user-extensible appearance via theme files.
-- **Icon optical weight:** evaluate 1.5-stroke @18px to match the reference.
+- **Icon optical weight:** verified — 2-stroke @24-grid rendered at 14px ≈ 1.17px,
+  matching the reference's 1.5-stroke @18-grid at 14px; no change needed.
+- Dark mode: **not planned** (product decision — light look only).

@@ -203,6 +203,7 @@ Goal: analyze and transform local data; reusable pipelines.
 | v1.14 | Bioprocess (Phase 5) | ISA-88 recipes, runs, worksheets, replicates, cross-run titer | shipped |
 | v1.15 | Design revamp | contrast fix, shared row/section/empty-state widgets, card elevation, nav accent indicator | shipped |
 | v1.16 | Design-system upgrade (quiet-md review) | alpha state fills, layered shadows, pressed states, measured neutrals, DESIGN.md contract | shipped |
+| v1.17 | Design consistency | unify remaining hover fills to alpha token; DESIGN.md finalised (dark mode not planned) | shipped |
 | v2.0 (optional) | Governed AI/integration (Phase 6) | approval+audit on all automated actions | optional |
 
 Every release: `fmt` / `clippy -D warnings` / workspace tests / build green; **GitHub Actions CI watched

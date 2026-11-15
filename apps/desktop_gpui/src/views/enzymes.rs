@@ -68,7 +68,7 @@ fn combo_btn(id: impl Into<ElementId>, label: &str, open: bool) -> Stateful<Div>
         .text_size(px(theme::T_SM))
         .text_color(theme::TEXT)
         .cursor_pointer()
-        .hover(|s| s.bg(theme::SURFACE_2))
+        .hover(|s| s.bg(theme::FILL_HOVER))
         .child(div().truncate().child(label.to_owned()))
         .child(div().text_color(theme::FAINT).text_size(px(9.0)).child("▾"))
 }

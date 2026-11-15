@@ -477,7 +477,7 @@ fn combo_button(id: impl Into<gpui::ElementId>, label: &str, w: f32) -> Stateful
         .cursor_pointer()
         .text_size(px(theme::T_SM))
         .text_color(theme::TEXT)
-        .hover(|s| s.bg(theme::SURFACE_2))
+        .hover(|s| s.bg(theme::FILL_HOVER))
         .child(div().truncate().child(label.to_owned()))
         .child(div().text_color(theme::FAINT).child("▾"))
 }
@@ -2202,7 +2202,7 @@ fn combo_row(id: impl Into<gpui::ElementId>, label: &str, checked: bool) -> Stat
         .text_size(px(theme::T_SM))
         .cursor_pointer()
         .text_color(theme::TEXT)
-        .hover(|s| s.bg(theme::SURFACE_2))
+        .hover(|s| s.bg(theme::FILL_HOVER))
         .child(
             div()
                 .w(px(12.0))

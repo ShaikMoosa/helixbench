@@ -313,7 +313,7 @@ impl HelixBench {
                             theme::BORDER
                         })
                         .cursor_pointer()
-                        .hover(|s| s.bg(theme::SURFACE_2))
+                        .hover(|s| s.bg(theme::FILL_HOVER))
                         .on_click(move |_, _, cx| {
                             e_click.update(cx, |t, cx| {
                                 t.app.history_highlight = Some(orig);

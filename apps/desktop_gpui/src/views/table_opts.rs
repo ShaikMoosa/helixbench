@@ -32,7 +32,7 @@ pub fn opts_button(id: impl Into<ElementId>, open: bool) -> Stateful<Div> {
         .text_size(px(theme::T_SM))
         .text_color(theme::TEXT)
         .cursor_pointer()
-        .hover(|s| s.bg(theme::SURFACE_2))
+        .hover(|s| s.bg(theme::FILL_HOVER))
         .child(crate::icons::icon("sliders", 14.0, theme::MUTED))
         .child("Columns / Views")
 }
