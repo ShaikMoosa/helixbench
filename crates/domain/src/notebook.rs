@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub enum EntryStatus {
     Draft,
     InReview,
+    ChangesRequested,
     Approved,
     Archived,
 }
@@ -16,6 +17,7 @@ impl EntryStatus {
         match self {
             EntryStatus::Draft => "Draft",
             EntryStatus::InReview => "In review",
+            EntryStatus::ChangesRequested => "Changes requested",
             EntryStatus::Approved => "Approved",
             EntryStatus::Archived => "Archived",
         }
@@ -56,6 +58,9 @@ pub struct Entry {
     pub status: EntryStatus,
     pub template: Option<String>,
     pub reviews: Vec<ReviewEvent>,
+    /// Number of (re)submissions; increments on corrected re-submission.
+    #[serde(default)]
+    pub revision: u32,
     pub created: u64,
     pub updated: u64,
 }
@@ -75,6 +80,7 @@ impl Entry {
             status: EntryStatus::Draft,
             template: None,
             reviews: Vec::new(),
+            revision: 0,
             created: now,
             updated: now,
         }
@@ -110,11 +116,48 @@ impl Entry {
             return false;
         }
         self.status = EntryStatus::InReview;
+        self.revision = self.revision.max(1);
         self.reviews.push(ReviewEvent {
             ts: now,
             actor: actor.into(),
             action: "submitted".into(),
             comment: String::new(),
+        });
+        self.updated = now;
+        true
+    }
+
+    /// Reviewer asks for corrections; entry stays editable but flagged.
+    pub fn request_changes(&mut self, actor: &str, comment: &str, now: u64) -> bool {
+        if self.status != EntryStatus::InReview {
+            return false;
+        }
+        self.status = EntryStatus::ChangesRequested;
+        self.reviews.push(ReviewEvent {
+            ts: now,
+            actor: actor.into(),
+            action: "changes_requested".into(),
+            comment: comment.into(),
+        });
+        self.updated = now;
+        true
+    }
+
+    /// Author corrects and re-submits after changes requested / rejection.
+    pub fn resubmit(&mut self, actor: &str, comment: &str, now: u64) -> bool {
+        if !matches!(
+            self.status,
+            EntryStatus::ChangesRequested | EntryStatus::Draft
+        ) {
+            return false;
+        }
+        self.status = EntryStatus::InReview;
+        self.revision += 1;
+        self.reviews.push(ReviewEvent {
+            ts: now,
+            actor: actor.into(),
+            action: format!("resubmitted (rev {})", self.revision),
+            comment: comment.into(),
         });
         self.updated = now;
         true
@@ -251,6 +294,26 @@ mod tests {
         e.submit_review("a", 2);
         assert!(e.reject("b", "fix", 3));
         assert_eq!(e.status, EntryStatus::Draft);
+    }
+
+    #[test]
+    fn corrected_resubmission_cycle() {
+        let mut e = Entry::new(1, "t".into(), 1);
+        assert!(e.submit_review("a", 2));
+        assert_eq!(e.revision, 1);
+        assert!(e.request_changes("b", "add control", 3));
+        assert_eq!(e.status, EntryStatus::ChangesRequested);
+        assert!(!e.locked()); // editable while changes requested
+        assert!(e.resubmit("a", "added control", 4));
+        assert_eq!(e.status, EntryStatus::InReview);
+        assert_eq!(e.revision, 2);
+        assert!(e.approve("b", "ok", 5));
+        assert!(e.locked());
+        assert!(!e.resubmit("a", "", 6)); // locked
+        assert!(e
+            .reviews
+            .iter()
+            .any(|r| r.action.contains("resubmitted (rev 2)")));
     }
 
     #[test]

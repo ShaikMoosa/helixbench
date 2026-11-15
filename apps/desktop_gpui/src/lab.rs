@@ -118,6 +118,189 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
     }
     body = body.child(cards);
 
+    body = body.child(section_title("Calendar"));
+    let y = app.cal_year;
+    let m = app.cal_month;
+    let mut buckets: std::collections::HashMap<u32, (usize, usize)> =
+        std::collections::HashMap::new();
+    for e in &app.app.records.entries {
+        let (ey, em, ed) = crate::util::civil_from_unix(e.created);
+        if ey == y && em == m {
+            buckets.entry(ed).or_insert((0, 0)).0 += 1;
+        }
+    }
+    for t in &app.app.workflows.tasks {
+        let (ty, tm, td) = crate::util::civil_from_unix(t.created);
+        if ty == y && tm == m {
+            buckets.entry(td).or_insert((0, 0)).1 += 1;
+        }
+    }
+    let mut hdr = div().flex().items_center().gap(px(8.0));
+    hdr = hdr.child(
+        widgets::button("cal-prev", "‹", Btn::Ghost).on_click(cx.listener(|t, _, _, cx| {
+            let (ny, nm) = crate::util::add_months(t.cal_year, t.cal_month, -1);
+            t.cal_year = ny;
+            t.cal_month = nm;
+            t.cal_day = None;
+            cx.notify();
+        })),
+    );
+    hdr = hdr.child(widgets::label(
+        &format!("{y:04}-{m:02}"),
+        theme::T_SM,
+        theme::TEXT,
+    ));
+    hdr = hdr.child(
+        widgets::button("cal-next", "›", Btn::Ghost).on_click(cx.listener(|t, _, _, cx| {
+            let (ny, nm) = crate::util::add_months(t.cal_year, t.cal_month, 1);
+            t.cal_year = ny;
+            t.cal_month = nm;
+            t.cal_day = None;
+            cx.notify();
+        })),
+    );
+    hdr = hdr.child(
+        widgets::button("cal-today", "Today", Btn::Subtle).on_click(cx.listener(|t, _, _, cx| {
+            let (ny, nm, nd) = crate::util::civil_from_unix(crate::util::now_unix());
+            t.cal_year = ny;
+            t.cal_month = nm;
+            t.cal_day = Some(nd);
+            cx.notify();
+        })),
+    );
+    body = body.child(hdr);
+    let mut grid = div().flex().flex_col().gap(px(2.0));
+    let mut week = div().flex().gap(px(2.0));
+    for wd in ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] {
+        week = week.child(
+            div()
+                .w(px(36.0))
+                .text_size(px(theme::T_XS))
+                .text_color(theme::FAINT)
+                .child(wd),
+        );
+    }
+    grid = grid.child(week);
+    let start_wd = crate::util::weekday(y, m, 1);
+    let dim = crate::util::days_in_month(y, m);
+    let mut row = div().flex().gap(px(2.0));
+    for _ in 0..start_wd {
+        row = row.child(div().w(px(36.0)).h(px(32.0)));
+    }
+    let mut cell = start_wd;
+    for d in 1..=dim {
+        let (ne, nt) = buckets.get(&d).copied().unwrap_or((0, 0));
+        let selected = app.cal_day == Some(d);
+        row = row.child(
+            div()
+                .id(SharedString::from(format!("cal-{y}-{m}-{d}")))
+                .w(px(36.0))
+                .h(px(32.0))
+                .flex()
+                .flex_col()
+                .items_center()
+                .justify_center()
+                .rounded(px(4.0))
+                .cursor_pointer()
+                .bg(if selected {
+                    theme::SURFACE_2
+                } else {
+                    theme::transparent()
+                })
+                .hover(|s| s.bg(theme::SURFACE))
+                .child(
+                    div()
+                        .text_size(px(theme::T_XS))
+                        .text_color(theme::TEXT)
+                        .child(d.to_string()),
+                )
+                .child(if ne + nt > 0 {
+                    div()
+                        .text_size(px(9.0))
+                        .text_color(theme::ACCENT)
+                        .child(format!("{}", ne + nt))
+                } else {
+                    div()
+                })
+                .on_click(cx.listener(move |t, _, _, cx| {
+                    t.cal_day = Some(d);
+                    cx.notify();
+                })),
+        );
+        cell += 1;
+        if cell.is_multiple_of(7) {
+            grid = grid.child(row);
+            row = div().flex().gap(px(2.0));
+        }
+    }
+    if !cell.is_multiple_of(7) {
+        while !cell.is_multiple_of(7) {
+            row = row.child(div().w(px(36.0)).h(px(32.0)));
+            cell += 1;
+        }
+        grid = grid.child(row);
+    }
+    body = body.child(grid);
+    if let Some(d) = app.cal_day {
+        let day_start = crate::util::unix_from_civil(y, m, d);
+        let day_end = day_start + 86400;
+        let mut list = div().flex().flex_col().gap(px(4.0));
+        let mut any = false;
+        for e in &app.app.records.entries {
+            if e.created >= day_start && e.created < day_end {
+                any = true;
+                let id = e.id;
+                list = list.child(
+                    row_card()
+                        .child(
+                            div()
+                                .flex_grow()
+                                .text_size(px(theme::T_SM))
+                                .text_color(theme::TEXT)
+                                .child(format!("Entry: {}", e.title)),
+                        )
+                        .child(
+                            widgets::button(
+                                SharedString::from(format!("cal-open-{id}")),
+                                "Open",
+                                Btn::Subtle,
+                            )
+                            .on_click(cx.listener(
+                                move |t, _, _, cx| {
+                                    act::open_entry_editor(&mut t.app, Some(id), 0);
+                                    cx.notify();
+                                },
+                            )),
+                        ),
+                );
+            }
+        }
+        for t in &app.app.workflows.tasks {
+            if t.created >= day_start && t.created < day_end {
+                any = true;
+                list = list.child(
+                    row_card()
+                        .child(
+                            div()
+                                .flex_grow()
+                                .text_size(px(theme::T_SM))
+                                .text_color(theme::TEXT)
+                                .child(format!("Task: {}", t.title)),
+                        )
+                        .child(widgets::label(t.status.label(), theme::T_XS, theme::MUTED)),
+                );
+            }
+        }
+        if !any {
+            list = list.child(widgets::label(
+                "Nothing on this day.",
+                theme::T_XS,
+                theme::FAINT,
+            ));
+        }
+        body = body.child(list);
+    }
+
     body = body.child(section_title("My Work"));
     body = body.child(
         row_card()
@@ -316,6 +499,71 @@ pub fn render_notebook(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> An
     }
     for e in entries {
         let id = e.id;
+        let status = e.status;
+        let rev = e.revision;
+        let mut actions: Vec<AnyElement> = vec![widgets::button(
+            SharedString::from(format!("nb-open-{id}")),
+            "Open",
+            Btn::Subtle,
+        )
+        .on_click(cx.listener(move |t, _, _, cx| {
+            act::open_entry_editor(&mut t.app, Some(id), 0);
+            cx.notify();
+        }))
+        .into_any_element()];
+        match status {
+            domain::notebook::EntryStatus::Draft => actions.push(
+                widgets::button(
+                    SharedString::from(format!("nb-sub-{id}")),
+                    "Submit",
+                    Btn::Subtle,
+                )
+                .on_click(cx.listener(move |t, _, _, cx| {
+                    act::entry_action(&mut t.app, id, "submit");
+                    cx.notify();
+                }))
+                .into_any_element(),
+            ),
+            domain::notebook::EntryStatus::ChangesRequested => actions.push(
+                widgets::button(
+                    SharedString::from(format!("nb-resub-{id}")),
+                    "Resubmit",
+                    Btn::Primary,
+                )
+                .on_click(cx.listener(move |t, _, _, cx| {
+                    act::entry_action(&mut t.app, id, "resubmit");
+                    cx.notify();
+                }))
+                .into_any_element(),
+            ),
+            domain::notebook::EntryStatus::InReview => {
+                actions.push(
+                    widgets::button(
+                        SharedString::from(format!("nb-chg-{id}")),
+                        "Request changes",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::entry_action(&mut t.app, id, "request_changes");
+                        cx.notify();
+                    }))
+                    .into_any_element(),
+                );
+                actions.push(
+                    widgets::button(
+                        SharedString::from(format!("nb-app-{id}")),
+                        "Approve",
+                        Btn::Subtle,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        act::entry_action(&mut t.app, id, "approve");
+                        cx.notify();
+                    }))
+                    .into_any_element(),
+                );
+            }
+            _ => {}
+        }
         body = body.child(
             row_card()
                 .child(
@@ -335,46 +583,27 @@ pub fn render_notebook(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> An
                                 .text_size(px(theme::T_XS))
                                 .text_color(theme::FAINT)
                                 .child(format!(
-                                    "{} sections · {} tables",
+                                    "{} sections · {} tables{}",
                                     e.sections.len(),
-                                    e.tables.len()
+                                    e.tables.len(),
+                                    if rev > 0 {
+                                        format!(" · rev {rev}")
+                                    } else {
+                                        String::new()
+                                    }
                                 )),
                         ),
                 )
-                .child(widgets::label(e.status.label(), theme::T_XS, theme::MUTED))
-                .child(
-                    widgets::button(
-                        SharedString::from(format!("nb-open-{id}")),
-                        "Open",
-                        Btn::Subtle,
-                    )
-                    .on_click(cx.listener(move |t, _, _, cx| {
-                        act::open_entry_editor(&mut t.app, Some(id), 0);
-                        cx.notify();
-                    })),
-                )
-                .child(
-                    widgets::button(
-                        SharedString::from(format!("nb-sub-{id}")),
-                        "Submit",
-                        Btn::Subtle,
-                    )
-                    .on_click(cx.listener(move |t, _, _, cx| {
-                        act::entry_action(&mut t.app, id, "submit");
-                        cx.notify();
-                    })),
-                )
-                .child(
-                    widgets::button(
-                        SharedString::from(format!("nb-app-{id}")),
-                        "Approve",
-                        Btn::Subtle,
-                    )
-                    .on_click(cx.listener(move |t, _, _, cx| {
-                        act::entry_action(&mut t.app, id, "approve");
-                        cx.notify();
-                    })),
-                ),
+                .child(widgets::label(
+                    status.label(),
+                    theme::T_XS,
+                    if status == domain::notebook::EntryStatus::ChangesRequested {
+                        theme::WARN
+                    } else {
+                        theme::MUTED
+                    },
+                ))
+                .children(actions),
         );
     }
     p = p.child(body);

@@ -3,6 +3,9 @@
 **Grounded in:** `reference-features-ui-research.docx` + `reference-research/screens/`
 (15 capability areas, 82 screen groups, 178 public UI assets, 84 sources; research date 14 Nov 2026).
 **Baseline:** HelixBench v0.6.0 (local-first, pure-Rust, offline, single-user Windows DNA workbench).
+**Current status:** v1.9.0 shipped. Phases 1–4 complete; the §5 editor/UX parity list is complete
+except the governed AI/Agents wizard. Next major direction is **Phase 5 specialist modules
+(user picks a focus)** or Phase 6 governed intelligence.
 
 This roadmap translates the reference platform research into a phased plan for HelixBench. It keeps
 HelixBench's identity — **local-first, offline, single-user, pure Rust** — and adapts the reference platform's
@@ -32,25 +35,25 @@ HelixBench's identity — **local-first, offline, single-user, pure Rust** — a
 
 ---
 
-## 2. Current coverage (v0.6.0) vs the 15 research areas
+## 2. Current coverage (v1.8.0) vs the 15 research areas
 
-| # | Reference area | HelixBench v0.6.0 | Status |
+| # | Reference area | HelixBench v1.8.0 | Status |
 |---|---|---|---|
-| 1 | Notebook | — (no entries/templates/review) | **Gap → Phase 1** |
-| 2 | Registry | local catalog (plasmid/strain/primer) + link-to-doc | Partial → Phase 1 (schemas, lineage, import) |
-| 3 | Inventory | — | **Gap → Phase 2** |
-| 4 | Molecular Biology | map/sequence/primers/digest/alignment/assembly/CRISPR/PCR/codon/BLAST/protein | **Shipped** (deepen: split workspace, saved alignments, secondary structure) |
-| 5 | Workflows | — | **Gap → Phase 3** |
+| 1 | Notebook | entries + sections + result tables, templates, submit→approve review, audit | **Shipped** (v0.7) |
+| 2 | Registry | typed catalog (plasmid/strain/primer), link-to-doc, Entity Map, archive, CSV import w/ mapping + per-row errors | **Shipped** (v0.5/v0.7/v1.7) |
+| 3 | Inventory | storage tree, plates/wells, fill-wells, immutable snapshots, entity lookup | **Shipped** (v0.8) |
+| 4 | Molecular Biology | map/sequence/primers/digest/alignment/assembly/CRISPR/PCR/codon/BLAST/protein + view tabs, split workspace, saved alignments, secondary structure, find-by-cuts/region | **Shipped + deepened** (v0.2–v1.5) |
+| 5 | Workflows | tasks, requests (draft→sent), local flowchart executor | **Shipped** (v0.9) |
 | 6 | Development/Bioprocess | — | Optional module (Phase 5) |
 | 7 | In Vivo | — | Optional module (Phase 5) |
-| 8 | Insights | — | **Gap → Phase 4** (local dashboards) |
-| 9 | Automation/Connect | — | **Gap → Phase 4** (local pipelines) |
+| 8 | Insights | local datasets + group-by dashboards + CSV export | **Shipped** (v1.0) |
+| 9 | Automation/Connect | CSV ingest→transform→writeback pipelines, draft→published, run history | **Shipped** (v1.0) |
 | 10 | AI/Agents/Model Hub | — | Optional (Phase 6, governed) |
 | 11 | Biologics/PipeBio | protein analysis only | Optional module (Phase 5) |
 | 12 | Chemistry | — | Optional module (Phase 5) |
 | 13 | RNA/modified oligos | RNA translation only | Optional (Phase 5) |
 | 14 | Developer Platform | — (no API/apps) | Optional (Phase 6, local API/CLI) |
-| 15 | Validated Cloud/admin | local config + audit-lite | Partial → audit in Phase 1; GxP/multi-user out-of-core |
+| 15 | Validated Cloud/admin | local config + audit log + CSV export | **Shipped (audit)**; GxP/multi-user out-of-core |
 
 ---
 
@@ -72,7 +75,7 @@ HelixBench's identity — **local-first, offline, single-user, pure Rust** — a
 
 ## 4. Phased roadmap
 
-### Phase 1 — v0.7 "Connected local records" (Notebook-lite + Registry depth + projects)
+### Phase 1 — v0.7 "Connected local records" (Notebook-lite + Registry depth + projects) — SHIPPED (v0.7.0)
 Goal: turn isolated documents into a connected local knowledge base.
 - **Projects/folders:** local tree organizing documents, entries, registry items; drag/move; star.
 - **Registry depth:** typed schemas (field types, dropdowns, uniqueness, name templates), spreadsheet
@@ -83,8 +86,10 @@ Goal: turn isolated documents into a connected local knowledge base.
 - **Home/My Work:** recent items, my entries/tasks, status filters, calendar-lite.
 - **Audit log (P6):** per-object + global, CSV export.
 - Acceptance: one entity traceable sequence→registry→entry→result; import validates; review locks.
+- Shipped scope: projects/tags, notebook entries + result tables + templates + submit/approve review,
+  registry schemas + Entity Map + archive, per-object/global audit with CSV export, Home hub.
 
-### Phase 2 — v0.8 "Inventory & sample custody"
+### Phase 2 — v0.8 "Inventory & sample custody" — SHIPPED (v0.8.0)
 Goal: physical storage tracking linked to registry identity.
 - Local storage hierarchy: locations → boxes/plates → containers; schema-configurable nesting/units.
 - Containers: entity link, quantity, concentration, location; plate grid (A1…) with roles
@@ -93,14 +98,18 @@ Goal: physical storage tracking linked to registry identity.
 - Entity→container lookup ("where is this plasmid?") grouped-by-contents search.
 - Immutable plate snapshots in entries vs live inventory (research finding).
 - Acceptance: place/take samples, find all containers of an entity, bulk transfer with audit.
+- Shipped scope: storage tree (locations/boxes/plates/containers), plate well grid + fill-wells,
+  immutable plate snapshots into entries, entity→container lookup.
 
-### Phase 3 — v0.9 "Workflows & requests (local)"
+### Phase 3 — v0.9 "Workflows & requests (local)" — SHIPPED (v0.9.0)
 Goal: assigned, trackable lab work without a server.
 - Task schemas (inputs/outputs/status lifecycle/owner), task dashboard + My Work assignments.
 - Execution modes: direct task, entry-based (template), and a simple local flowchart with data passing.
 - Requests/Forms intake (local), draft→sent (read-only) states, watchers.
 - Failed-mapping recovery modal + bulk fix (research 05 06).
 - Acceptance: request → task → execute → output linked; failed mapping recoverable.
+- Shipped scope: task dashboard + lifecycle, request intake (draft→sent), local flowchart executor
+  with data passing; CI (GitHub Actions) added and kept green.
 
 ### Phase 4 — v1.0 "Insights + Automation (local)" — SHIPPED (v1.0.0)
 Goal: analyze and transform local data; reusable pipelines.
@@ -153,30 +162,47 @@ Goal: analyze and transform local data; reusable pipelines.
   **Submit** persistence boundary, template editor with locked columns, review badges, Entity Map graph,
   plate grid + fill-wells, storage tree.
 - **Home/AI screens:** home = resume-work hub (My Work / recent files / worklist / recent entries)
-  shipped (v1.6.0); calendar and the AI/Agents 3-step governed wizard (setup → data access →
-  collaborators) with "uses mine / has its own" permissions remain.
+  shipped (v1.6.0); **Home month calendar** (entries/tasks per day, month nav, day drill-down)
+  shipped (v1.9.0); the AI/Agents 3-step governed wizard (setup → data access → collaborators)
+  with "uses mine / has its own" permissions remains.
 - **States to design for every module:** empty, loading, long-running, validation-error, partial-select,
   async-creating, locked, archived, view-only, no-access, review-pending, failed-mapping.
 - **Density & recovery:** virtualized tables, bulk bars, undo/redo present; **registry import with
   column mapping + per-row errors** shipped (v1.7.0); **column config + saved views** for the
-  Features/Primers/Enzymes tables (show/hide columns; named presets of columns+sort+filter,
-  persisted) shipped (v1.8.0); corrected re-submission remains.
+  Features/Primers/Enzymes tables shipped (v1.8.0); **corrected re-submission** (request-changes →
+  author corrects → resubmit with revision history) shipped (v1.9.0).
 
 ---
 
 ## 6. Release plan & success criteria
 
-| Release | Theme | Exit criteria |
-|---|---|---|
-| v0.7 | Connected records | lineage traceable; registry import validates; review locks; audit export |
-| v0.8 | Inventory | place/find/transfer samples; plate snapshots immutable |
-| v0.9 | Workflows | request→task→execute→output; failed-mapping recovery |
-| v1.0 (shipped) | Insights+Automation | ingest→transform→writeback; dashboards; template lifecycle |
-| v1.x | Specialist modules | per-module acceptance (above) |
-| v2.0 (optional) | Governed AI/integration | approval+audit on all automated actions |
+| Release | Theme | Exit criteria | Status |
+|---|---|---|---|
+| v0.7 | Connected records | lineage traceable; registry import validates; review locks; audit export | shipped |
+| v0.8 | Inventory | place/find/transfer samples; plate snapshots immutable | shipped |
+| v0.9 | Workflows | request→task→execute→output; failed-mapping recovery | shipped |
+| v1.0 | Insights+Automation + UI revamp | ingest→transform→writeback; dashboards; template lifecycle; nav sidebar + full-page views | shipped |
+| v1.1 | Editor view tabs | Plasmid / Linear / Metadata without changing topology | shipped |
+| v1.2 | Split Workspace | side-by-side compare of two open documents | shipped |
+| v1.3 | Saved alignments | save / load / delete named alignment snapshots | shipped |
+| v1.4 | Primer secondary structure | hairpin + self-dimer preview & design badges | shipped |
+| v1.5 | Enzyme find by cuts/region | cut-count + selection/custom-range filters | shipped |
+| v1.6 | Home resume hub | My Work / recent files / worklist / recent entries | shipped |
+| v1.7 | Import mapping + per-row errors | file-driven CSV, Name-column mapping, row issue report | shipped |
+| v1.8 | Column config + saved views | show/hide columns; named column+sort+filter presets | shipped |
+| v1.9 | Re-submission + Home calendar | request-changes→correct→resubmit w/ revisions; month calendar | shipped |
+| v1.x | Specialist modules (Phase 5) | per-module acceptance (above) | next (pick focus) |
+| v2.0 (optional) | Governed AI/integration (Phase 6) | approval+audit on all automated actions | optional |
 
-Every release: `fmt` / `clippy -D warnings` / workspace tests / build green; runtime-verified UI;
-installer + portable published; README + Figma design system updated.
+Every release: `fmt` / `clippy -D warnings` / workspace tests / build green; **GitHub Actions CI watched
+to completion (green)**; runtime-verified UI in the running app; installer + portable published;
+README updated. (Figma design-system sync remains pending — Figma desktop is unstable on this machine.)
+
+### Remaining work (consolidated)
+- **§5 UX:** AI/Agents 3-step governed wizard (Phase 6).
+- **Phase 5 (pick one):** Biologics, Chemistry, RNA/modified oligos, In Vivo, Bioprocess.
+- **Phase 6 (optional):** governed AI assist, Agents-lite, Model Hub-lite, local Developer/CLI API.
+- **Housekeeping:** Figma design-system sync; bump deprecated `actions/checkout` Node 20 → newer.
 
 ## 7. Risks & mitigations
 - **Scope creep toward cloud:** keep multi-user/sync/GxP out-of-core; revisit only as a product decision.

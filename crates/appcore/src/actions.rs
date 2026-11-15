@@ -1729,6 +1729,8 @@ pub fn entry_action(app: &mut AppState, id: u64, action: &str) {
         "submit" => e.submit_review("local", now),
         "approve" => e.approve("local", "", now),
         "reject" => e.reject("local", "", now),
+        "request_changes" => e.request_changes("local", "", now),
+        "resubmit" => e.resubmit("local", "", now),
         "archive" => {
             e.archive(now);
             true

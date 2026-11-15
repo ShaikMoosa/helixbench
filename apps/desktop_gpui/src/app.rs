@@ -102,6 +102,10 @@ pub struct HelixBench {
     /// Which list table's column/view options popup is open (table id).
     pub opts: Option<String>,
     pub opts_anchor: Point<Pixels>,
+    /// Home calendar displayed month + selected day.
+    pub cal_year: i64,
+    pub cal_month: u32,
+    pub cal_day: Option<u32>,
 
     // Find bar recents popup
     pub find_recents_open: bool,
@@ -155,6 +159,9 @@ impl HelixBench {
             combo_anchor: point(px(0.0), px(0.0)),
             opts: None,
             opts_anchor: point(px(0.0), px(0.0)),
+            cal_year: crate::util::civil_from_unix(crate::util::now_unix()).0,
+            cal_month: crate::util::civil_from_unix(crate::util::now_unix()).1,
+            cal_day: None,
             find_recents_open: false,
             find_recents_anchor: point(px(0.0), px(0.0)),
             dlg_combo: None,
