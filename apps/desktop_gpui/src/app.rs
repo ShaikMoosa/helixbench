@@ -2,6 +2,7 @@
 //! status bar), keyboard shortcuts, overlays and view dispatch. All document
 //! logic lives in `appcore`; this file is presentation + interaction only.
 
+use crate::draw::PxVal;
 use std::collections::HashMap;
 
 use gpui::{
@@ -28,6 +29,7 @@ actions!(
         Redo,
         Find,
         WorkspaceFind,
+        Inspector,
         Escape,
         SelectAll,
         Copy,
@@ -54,6 +56,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("ctrl-y", Redo, Some("HelixBench")),
         KeyBinding::new("ctrl-f", Find, Some("HelixBench")),
         KeyBinding::new("ctrl-k", WorkspaceFind, Some("HelixBench")),
+        KeyBinding::new("ctrl-shift-i", Inspector, Some("HelixBench")),
         KeyBinding::new("escape", Escape, Some("HelixBench")),
         KeyBinding::new("ctrl-a", SelectAll, Some("HelixBench")),
         KeyBinding::new("ctrl-c", Copy, Some("HelixBench")),
@@ -112,6 +115,8 @@ pub struct HelixBench {
     profile_ui: appcore::first_use::ProfileUiSession<ProfileUiState>,
     pub app: AppState,
     pub focus_handle: FocusHandle,
+    pub inspector_toggle_focus: FocusHandle,
+    pub page_tools_focus: FocusHandle,
     initialized: bool,
     last_title: String,
     toast_armed: Option<std::time::Instant>,
@@ -184,6 +189,8 @@ impl HelixBench {
             app,
             profile_ui: Default::default(),
             focus_handle: cx.focus_handle(),
+            inspector_toggle_focus: cx.focus_handle(),
+            page_tools_focus: cx.focus_handle(),
             initialized: false,
             last_title: String::new(),
             toast_armed: None,
@@ -961,6 +968,9 @@ impl HelixBench {
         }
         cx.notify();
     }
+    fn on_inspector(&mut self, _: &Inspector, window: &mut Window, cx: &mut Context<Self>) {
+        crate::shell::toggle_inspector(self, window, cx);
+    }
     fn on_workspace_find(&mut self, _: &WorkspaceFind, _: &mut Window, cx: &mut Context<Self>) {
         self.menu = None;
         if let Err(error) = appcore::workspace_search::open(&mut self.app) {
@@ -986,6 +996,11 @@ impl HelixBench {
             self.menu = None;
         } else if self.dlg_combo.is_some() {
             self.dlg_combo = None;
+        } else if self.app.dialog.is_none()
+            && self.app.shell.layout(self.viewport.width.v()).inspector
+                == appcore::shell::InspectorPlacement::Drawer
+        {
+            crate::shell::close_inspector(self, window);
         } else {
             match &self.app.dialog {
                 Some(Dialog::SampleExit) | Some(Dialog::SampleCopy(_)) => {
@@ -1085,6 +1100,22 @@ impl HelixBench {
     }
 
     fn on_key_down(&mut self, ev: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if self.page_tools_focus.is_focused(window)
+            && matches!(ev.keystroke.key.as_str(), "enter" | "space")
+        {
+            crate::shell::open_page_tools(self, cx);
+            cx.stop_propagation();
+            return;
+        }
+
+        if self.inspector_toggle_focus.is_focused(window)
+            && matches!(ev.keystroke.key.as_str(), "enter" | "space")
+        {
+            crate::shell::toggle_inspector(self, window, cx);
+            cx.stop_propagation();
+            return;
+        }
+
         if self.app.workspace_search.open || self.app.dialog.is_some() || self.menu.is_some() {
             return;
         }
@@ -1128,31 +1159,9 @@ impl HelixBench {
             .flex_row()
             .items_center()
             .gap(px(2.0))
-            .h(px(40.0))
-            .px(px(8.0))
+            .h(px(30.0))
+            .px(px(theme::PAGE_PAD))
             .bg(theme::TOPBAR);
-        // Brand mark
-        bar = bar.child(
-            div()
-                .flex()
-                .items_center()
-                .gap(px(7.0))
-                .px(px(8.0))
-                .mr(px(6.0))
-                .child(
-                    div()
-                        .w(px(18.0))
-                        .h(px(18.0))
-                        .rounded(px(4.0))
-                        .bg(theme::ACCENT),
-                )
-                .child(
-                    div()
-                        .text_size(px(theme::T_BASE))
-                        .text_color(theme::TOPBAR_TEXT)
-                        .child("HelixBench"),
-                ),
-        );
         for (kind, label) in items {
             let active = self.menu == Some(kind);
             let d = div()
@@ -1185,39 +1194,15 @@ impl HelixBench {
                 })
             });
         }
-        bar = bar.child(
-            div()
-                .flex_grow()
-                .flex()
-                .justify_end()
-                .items_center()
-                .gap(px(8.0))
-                .px(px(8.0))
-                .child(
-                    div()
-                        .w(px(22.0))
-                        .h(px(22.0))
-                        .rounded_full()
-                        .bg(theme::ACCENT)
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .text_size(px(theme::T_XS))
-                        .text_color(theme::TOPBAR_TEXT)
-                        .child("L"),
-                )
-                .child(
-                    div()
-                        .text_size(px(theme::T_SM))
-                        .text_color(theme::TOPBAR_MUTED)
-                        .child("Local workspace"),
-                ),
-        );
         bar.into_any_element()
     }
 
     fn tab_bar(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let mut row = div()
+            .id("gallery-document-tabs")
+            .overflow_x_scroll()
+            .w_full()
+            .min_w(px(0.0))
             .flex()
             .flex_row()
             .items_center()
@@ -1347,151 +1332,7 @@ impl HelixBench {
     }
 
     fn left_rail(&mut self, cx: &mut Context<Self>) -> AnyElement {
-        let mut col = div()
-            .flex()
-            .flex_col()
-            .gap(px(2.0))
-            .w(px(180.0))
-            .h_full()
-            .py(px(8.0))
-            .px(px(8.0))
-            .bg(theme::PANEL)
-            .border_r_1()
-            .border_color(theme::BORDER);
-        col = col.child(widgets::label("Workspace", theme::T_XS, theme::FAINT));
-        for v in View::LAB {
-            col = col.child(self.nav_row(v, cx));
-        }
-        col = col.child(widgets::divider());
-        col = col.child(widgets::label("Sequence", theme::T_XS, theme::FAINT));
-        for v in View::ALL {
-            col = col.child(self.nav_row(v, cx));
-        }
-        col = col.child(widgets::divider());
-        let can_undo = !self.app.history.is_empty();
-        let can_redo = !self.app.future.is_empty();
-        let actions: [(&str, &str, u8); 8] = [
-            ("rail-new", "plus", 0),
-            ("rail-open", "scan", 1),
-            ("rail-save", "check", 2),
-            ("rail-undo", "undo", 3),
-            ("rail-redo", "redo", 4),
-            ("rail-find", "search", 5),
-            ("rail-zoom-in", "zoom-in", 6),
-            ("rail-zoom-out", "zoom-out", 7),
-        ];
-        let mut tools = div().flex().flex_wrap().gap(px(4.0)).pt(px(2.0));
-        for (id, glyph, kind) in actions {
-            let disabled = (kind == 3 && !can_undo) || (kind == 4 && !can_redo);
-            tools = tools.child(
-                div()
-                    .id(SharedString::from(id))
-                    .w(px(28.0))
-                    .h(px(28.0))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(px(6.0))
-                    .cursor_pointer()
-                    .opacity(if disabled { 0.4 } else { 1.0 })
-                    .hover(|s| s.bg(theme::SURFACE))
-                    .child(crate::icons::icon(glyph, 16.0, theme::MUTED))
-                    .on_click(cx.listener(move |this, _, window, cx| match kind {
-                        0 => this.on_new(&New, window, cx),
-                        1 => this.on_open(&Open, window, cx),
-                        2 => this.on_save(&Save, window, cx),
-                        3 => {
-                            if this.app.undo() {
-                                cx.notify();
-                            }
-                        }
-                        4 => {
-                            if this.app.redo() {
-                                cx.notify();
-                            }
-                        }
-                        5 => {
-                            this.app.search.open = !this.app.search.open;
-                            if this.app.search.open {
-                                this.app.search.focus_request = true;
-                            }
-                            cx.notify();
-                        }
-                        6 => {
-                            this.app.zoom_width = (this.app.zoom_width / 2).max(20);
-                            this.app.center_zoom_on_selection();
-                            cx.notify();
-                        }
-                        _ => {
-                            let l = this.app.doc.sequence.len().max(1);
-                            this.app.zoom_width = (this.app.zoom_width * 2).min(l);
-                            this.app.center_zoom_on_selection();
-                            cx.notify();
-                        }
-                    })),
-            );
-        }
-        tools = tools.child(
-            div()
-                .id("rail-options")
-                .w(px(28.0))
-                .h(px(28.0))
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(px(6.0))
-                .cursor_pointer()
-                .hover(|s| s.bg(theme::SURFACE))
-                .child(crate::icons::icon("sliders", 16.0, theme::MUTED))
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.app.dialog = Some(Dialog::Options);
-                    cx.notify();
-                })),
-        );
-        col = col.child(tools);
-        col.into_any_element()
-    }
-
-    fn nav_row(&mut self, v: View, cx: &mut Context<Self>) -> gpui::Stateful<gpui::Div> {
-        let active = self.app.view == v;
-        div()
-            .id(SharedString::from(format!("nav-{}", v.label())))
-            .h(px(30.0))
-            .flex()
-            .items_center()
-            .gap(px(8.0))
-            .px(px(8.0))
-            .rounded(px(6.0))
-            .cursor_pointer()
-            .bg(if active {
-                theme::SELECT_FILL
-            } else {
-                theme::transparent()
-            })
-            .hover(|s| s.bg(theme::FILL_HOVER))
-            .active(|s| s.bg(theme::FILL_PRESSED))
-            .child(div().w(px(3.0)).h(px(16.0)).rounded(px(2.0)).bg(if active {
-                theme::ACCENT
-            } else {
-                theme::transparent()
-            }))
-            .child(crate::icons::icon(
-                crate::icons::view_icon(v),
-                14.0,
-                if active { theme::ACCENT } else { theme::MUTED },
-            ))
-            .child(
-                div()
-                    .text_size(px(theme::T_SM))
-                    .font_weight(if active {
-                        gpui::FontWeight::SEMIBOLD
-                    } else {
-                        gpui::FontWeight::NORMAL
-                    })
-                    .text_color(if active { theme::TEXT } else { theme::MUTED })
-                    .child(v.label()),
-            )
-            .on_click(cx.listener(move |this, _, _, cx| this.set_view(v, cx)))
+        crate::shell::navigation(self, cx)
     }
 
     pub fn toggle_pref(&mut self, key: &str) {
@@ -1889,6 +1730,13 @@ impl Render for HelixBench {
         self.update_title(window);
 
         let central = self.central_view(window, cx);
+        let shell_layout = self.app.shell.layout(self.viewport.width.v());
+        let gallery_header = crate::shell::page_header(self, cx);
+        let inspector = if shell_layout.inspector != appcore::shell::InspectorPlacement::Hidden {
+            Some(crate::shell::inspector(self, cx))
+        } else {
+            None
+        };
         let toolbar = self.left_rail(cx);
         let menu_overlay = self.render_menu(cx);
         let dialog_overlay = crate::dialogs::show(self, window, cx);
@@ -1911,7 +1759,10 @@ impl Render for HelixBench {
             .flex_col()
             .bg(theme::BG)
             .text_color(theme::TEXT)
+            .font_family(theme::ui_family())
             .text_size(px(theme::T_BASE))
+            .line_height(px(19.0))
+            .relative()
             .on_action(cx.listener(Self::on_new))
             .on_action(cx.listener(Self::on_open))
             .on_action(cx.listener(Self::on_save))
@@ -1920,6 +1771,7 @@ impl Render for HelixBench {
             .on_action(cx.listener(Self::on_redo))
             .on_action(cx.listener(Self::on_find))
             .on_action(cx.listener(Self::on_workspace_find))
+            .on_action(cx.listener(Self::on_inspector))
             .on_action(cx.listener(Self::on_escape))
             .on_action(cx.listener(Self::on_select_all))
             .on_action(cx.listener(Self::on_copy))
@@ -1932,33 +1784,78 @@ impl Render for HelixBench {
             .on_action(cx.listener(|this, _: &View4, _, cx| this.set_view(View::Primers, cx)))
             .on_action(cx.listener(|this, _: &View5, _, cx| this.set_view(View::Enzymes, cx)))
             .on_action(cx.listener(|this, _: &View6, _, cx| this.set_view(View::History, cx)))
-            .on_key_down(cx.listener(Self::on_key_down))
+            .on_key_down(cx.listener(Self::on_key_down));
+        let mut workspace = div()
+            .flex_1()
+            .min_w(px(0.0))
+            .h_full()
+            .flex()
+            .flex_col()
+            .overflow_hidden()
             .child(self.menu_bar(cx))
-            .child(self.tab_bar(cx))
-            .child(workspace_toolbar);
+            .child(gallery_header);
+        if View::ALL.contains(&self.app.view) && !self.app.workspace_search.open {
+            workspace = workspace.child(self.tab_bar(cx));
+        }
+        workspace = workspace.child(workspace_toolbar);
         if let Some(banner) = sample_banner {
-            root = root.child(banner);
+            workspace = workspace.child(banner);
         }
         if let Some(detail) = inspected_record {
-            root = root.child(detail);
+            workspace = workspace.child(detail);
         }
         if let Some(feedback) = operation_feedback {
-            root = root.child(feedback);
+            workspace = workspace.child(feedback);
         }
         if let Some(fb) = find_bar {
-            root = root.child(fb);
+            workspace = workspace.child(fb);
         }
-        root = root
+        let scientific = View::ALL.contains(&self.app.view) && !self.app.workspace_search.open;
+        workspace = workspace
             .child(
                 div()
-                    .flex_grow()
-                    .flex()
-                    .flex_row()
+                    .flex_1()
+                    .min_h(px(0.0))
+                    .min_w(px(0.0))
                     .overflow_hidden()
-                    .child(toolbar)
-                    .child(div().flex_grow().h_full().overflow_hidden().child(central)),
+                    .when(scientific, |d| {
+                        d.px(px(shell_layout.page_padding)).pb(px(20.0))
+                    })
+                    .child(central),
             )
             .child(self.status_bar(cx));
+        let mut columns = div()
+            .flex()
+            .flex_row()
+            .flex_1()
+            .min_h(px(0.0))
+            .w_full()
+            .overflow_hidden()
+            .child(toolbar)
+            .child(workspace);
+        if shell_layout.inspector == appcore::shell::InspectorPlacement::Docked {
+            if let Some(panel) = inspector {
+                columns = columns.child(panel);
+            }
+        } else if shell_layout.inspector == appcore::shell::InspectorPlacement::Drawer {
+            if let Some(panel) = inspector {
+                root = root.child(
+                    gpui::deferred(
+                        div()
+                            .absolute()
+                            .top_0()
+                            .right_0()
+                            .h_full()
+                            .w(px(shell_layout.inspector_width))
+                            .shadow(theme::shadow_panel())
+                            .bg(theme::PANEL)
+                            .child(panel),
+                    )
+                    .with_priority(35),
+                );
+            }
+        }
+        root = root.child(columns);
         if let Some(m) = menu_overlay {
             root = root.child(m);
         }

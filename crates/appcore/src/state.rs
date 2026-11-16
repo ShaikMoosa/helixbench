@@ -650,6 +650,7 @@ pub enum MapMode {
 }
 
 pub struct AppState {
+    pub shell: crate::shell::ShellState,
     pub first_use: crate::first_use::FirstUseState,
     storage_root: PathBuf,
     pub workspace_search: crate::workspace_search::WorkspaceSearch,
@@ -763,6 +764,7 @@ impl AppState {
         let prefs = config.ui.clone();
         let zoom_width = doc.sequence.len().max(1);
         let mut s = Self {
+            shell: Default::default(),
             first_use: crate::first_use::FirstUseState::for_profile(&profile_root),
             storage_root: profile_root.clone(),
             workspace_search: Default::default(),

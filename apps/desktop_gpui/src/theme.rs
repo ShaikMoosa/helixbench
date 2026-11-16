@@ -60,17 +60,17 @@ const fn hex(v: u32) -> Hsla {
 }
 
 // --- Light neutral ramp -----------------------------------------------------
-pub const BG: Hsla = hex(0xf7f9fa); // app canvas
+pub const BG: Hsla = hex(0xf7f6f3); // app canvas
 pub const PANEL: Hsla = hex(0xffffff); // chrome bars / cards
-pub const SURFACE: Hsla = hex(0xf1f4f6); // fields / rows
-pub const SURFACE_2: Hsla = hex(0xe4e9ee); // hover / selected row
+pub const SURFACE: Hsla = hex(0xf1f5f5); // fields / rows
+pub const SURFACE_2: Hsla = hex(0xdcf4e9); // hover / selected row
 pub const OVERLAY: Hsla = hex(0xffffff); // dialog surface
-pub const BORDER: Hsla = hex(0xdde3e8);
-pub const BORDER_STRONG: Hsla = hex(0xb9c4cd);
-pub const TEXT: Hsla = hex(0x1a2430);
-pub const MUTED: Hsla = hex(0x5a6b7c);
+pub const BORDER: Hsla = hex(0xe8e9e7);
+pub const BORDER_STRONG: Hsla = hex(0xc6cbc8);
+pub const TEXT: Hsla = hex(0x17191a);
+pub const MUTED: Hsla = hex(0x666b6e);
 // Darkened from #8fa0ae to reach ~4.5:1 on white for 11-12px secondary labels.
-pub const FAINT: Hsla = hex(0x66788a);
+pub const FAINT: Hsla = hex(0x6d7274);
 pub const SCRIM: Hsla = Hsla {
     h: 0.6,
     s: 0.2,
@@ -79,13 +79,13 @@ pub const SCRIM: Hsla = Hsla {
 };
 
 // --- Dark top application bar (the one dark chrome strip) -------------------
-pub const TOPBAR: Hsla = hex(0x0d1b2a);
-pub const TOPBAR_TEXT: Hsla = hex(0xe8eef4);
-pub const TOPBAR_MUTED: Hsla = hex(0x9db0c0);
+pub const TOPBAR: Hsla = hex(0xf7f6f3);
+pub const TOPBAR_TEXT: Hsla = hex(0x17191a);
+pub const TOPBAR_MUTED: Hsla = hex(0x666b6e);
 
 // --- Single UI accent (instrument teal) ------------------------------------
-pub const ACCENT: Hsla = hex(0x0e9aa8);
-pub const SELECT: Hsla = hex(0x0e9aa8);
+pub const ACCENT: Hsla = hex(0x357d73);
+pub const SELECT: Hsla = hex(0x357d73);
 
 // Translucent washes for selection + search hits on light.
 pub const SELECT_FILL: Hsla = Hsla {
@@ -115,9 +115,9 @@ pub const BASE_G: Hsla = hex(0xd99a2b);
 pub const BASE_N: Hsla = hex(0x8b97a7);
 
 // --- Semantic tones ---------------------------------------------------------
-pub const OK: Hsla = hex(0x2f9e57);
-pub const WARN: Hsla = hex(0xc08a20);
-pub const DANGER: Hsla = hex(0xd64545);
+pub const OK: Hsla = hex(0x286d4e);
+pub const WARN: Hsla = hex(0x956116);
+pub const DANGER: Hsla = hex(0xb23636);
 pub const INFO: Hsla = hex(0x2f7fd6);
 
 // --- Alpha-based interaction fills (sit naturally on any surface) ----------
@@ -179,11 +179,6 @@ pub fn shadow_dialog() -> Vec<BoxShadow> {
     vec![shadow(0.06, 2.0, 8.0, 0.0), shadow(0.16, 24.0, 64.0, 0.0)]
 }
 
-/// Cards resting on a surface: faint lift, no border weight.
-pub fn shadow_card() -> Vec<BoxShadow> {
-    vec![shadow(0.04, 1.0, 2.0, 0.0), shadow(0.06, 4.0, 14.0, 0.0)]
-}
-
 // --- ORF strands ------------------------------------------------------------
 pub const ORF_TOP: Hsla = hex(0xd97b3f);
 pub const ORF_BOTTOM: Hsla = hex(0x2e9e5b);
@@ -220,15 +215,15 @@ pub fn pastel(c: [u8; 3]) -> Hsla {
     rgb_arr([mix(c[0]), mix(c[1]), mix(c[2])])
 }
 
-pub const UI_FONT: &str = ".SystemUIFont";
+pub const UI_FONT: &str = "DM Sans";
 pub const MONO_FONT: &str = "Consolas";
 
 pub fn ui_font() -> Font {
-    gpui::font(UI_FONT)
+    gpui::font(ui_family())
 }
 
 pub fn mono_font() -> Font {
-    gpui::font(MONO_FONT)
+    gpui::font(mono_family())
 }
 
 // Type scale (px). Quiet chrome, one step up for the map title.
@@ -238,3 +233,52 @@ pub const T_BASE: f32 = 13.0;
 pub const T_MD: f32 = 14.0;
 pub const T_LG: f32 = 16.0;
 pub const T_XL: f32 = 20.0;
+
+// Approved UX v4 Soft Gallery roles (reference 1600×1080).
+pub const MINT: Hsla = hex(0xdcf4e9);
+pub const ACCENT_TEXT: Hsla = hex(0x2e7168);
+pub const NAV_WIDTH: f32 = 200.0;
+pub const INSPECTOR_WIDTH: f32 = 320.0;
+pub const PAGE_PAD: f32 = 32.0;
+pub const PANEL_PAD: f32 = 24.0;
+pub const CARD_RADIUS: f32 = 16.0;
+pub const ROW_RADIUS: f32 = 14.0;
+pub const T_SECTION: f32 = 19.0;
+pub const T_TITLE: f32 = 27.0;
+static UI_FAMILY: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+static MONO_FAMILY: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+pub fn ui_family() -> &'static str {
+    UI_FAMILY.get().copied().unwrap_or(UI_FONT)
+}
+pub fn mono_family() -> &'static str {
+    MONO_FAMILY.get().copied().unwrap_or(MONO_FONT)
+}
+pub fn load_fonts(cx: &gpui::App) -> Result<(), String> {
+    let mono = if cx
+        .text_system()
+        .all_font_names()
+        .iter()
+        .any(|name| name == "Cascadia Mono")
+    {
+        "Cascadia Mono"
+    } else {
+        MONO_FONT
+    };
+    let _ = MONO_FAMILY.set(mono);
+    match cx
+        .text_system()
+        .add_fonts(vec![std::borrow::Cow::Borrowed(include_bytes!(
+            "../assets/fonts/DMSans.ttf"
+        ))]) {
+        Ok(()) => {
+            let _ = UI_FAMILY.set(UI_FONT);
+            Ok(())
+        }
+        Err(error) => {
+            let _ = UI_FAMILY.set("Segoe UI");
+            Err(format!(
+                "DM Sans could not be loaded; using Segoe UI: {error}"
+            ))
+        }
+    }
+}

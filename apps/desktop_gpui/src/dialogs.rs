@@ -667,7 +667,7 @@ fn new_sequence(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixel
     body = body.child(div().w_full().mb(px(6.0)).child(text_inp));
     let mut stats = div().flex().gap(px(14.0)).child(
         div()
-            .font_family(theme::MONO_FONT)
+            .font_family(theme::mono_family())
             .text_size(px(theme::T_SM))
             .text_color(theme::MUTED)
             .child(format!("{input_length} input characters")),
@@ -676,7 +676,7 @@ fn new_sequence(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixel
         let gc = crate::app::gc_percent(&bases);
         stats = stats.child(
             div()
-                .font_family(theme::MONO_FONT)
+                .font_family(theme::mono_family())
                 .text_size(px(theme::T_SM))
                 .text_color(theme::MUTED)
                 .child(format!("GC {gc:.1}%")),
@@ -1010,7 +1010,8 @@ fn import_review(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
     }
     body = body.child(section_heading("Original input · first 600 characters"));
     body = body.child(
-        widgets::label(&original_excerpt, theme::T_SM, theme::MUTED).font_family(theme::MONO_FONT),
+        widgets::label(&original_excerpt, theme::T_SM, theme::MUTED)
+            .font_family(theme::mono_family()),
     );
     body = body.child(
         widgets::button(
@@ -1248,7 +1249,7 @@ fn feature_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pix
             let stops = aa.iter().filter(|&&a| a == b'*').count();
             let mut info = div().flex().gap(px(12.0)).items_center().child(
                 div()
-                    .font_family(theme::MONO_FONT)
+                    .font_family(theme::mono_family())
                     .text_size(px(theme::T_SM))
                     .text_color(theme::MUTED)
                     .child(format!("{} aa", aa.len())),
@@ -1283,7 +1284,7 @@ fn feature_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pix
                 div()
                     .mt(px(4.0))
                     .w_full()
-                    .font_family(theme::MONO_FONT)
+                    .font_family(theme::mono_family())
                     .text_size(px(11.5))
                     .text_color(theme::MUTED)
                     .child(preview),
@@ -1407,14 +1408,14 @@ fn primer_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
             .items_center()
             .child(
                 div()
-                    .font_family(theme::MONO_FONT)
+                    .font_family(theme::mono_family())
                     .text_size(px(theme::T_SM))
                     .text_color(theme::TEXT)
                     .child(format!("{} nt", cleaned.len())),
             )
             .child(
                 div()
-                    .font_family(theme::MONO_FONT)
+                    .font_family(theme::mono_family())
                     .text_size(px(theme::T_SM))
                     .text_color(theme::TEXT)
                     .child(format!("GC {:.1}%", p.gc_percent())),
@@ -1428,7 +1429,7 @@ fn primer_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
                 };
                 props = props.child(
                     div()
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_size(px(theme::T_SM))
                         .text_color(col)
@@ -1438,7 +1439,7 @@ fn primer_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
             None => {
                 props = props.child(
                     div()
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_size(px(theme::T_SM))
                         .text_color(theme::FAINT)
                         .child("Tm —"),
@@ -1468,7 +1469,7 @@ fn primer_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
                 };
                 ss_row = ss_row.child(
                     div()
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_size(px(theme::T_SM))
                         .text_color(col)
                         .child(format!("hairpin {stem} bp stem / {loop_len} nt loop")),
@@ -1485,7 +1486,7 @@ fn primer_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
         };
         ss_row = ss_row.child(
             div()
-                .font_family(theme::MONO_FONT)
+                .font_family(theme::mono_family())
                 .text_size(px(theme::T_SM))
                 .text_color(dcol)
                 .child(format!(
@@ -1537,7 +1538,7 @@ fn primer_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
                 };
                 list = list.child(
                     div()
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_size(px(11.5))
                         .text_color(theme::TEXT)
                         .child(format!(
@@ -1621,7 +1622,7 @@ fn genetic_codes(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
     body = body.child(field_row("Genetic code", combo.into_any_element()));
 
     let bases = *b"TCAG";
-    let mono = theme::MONO_FONT;
+    let mono = theme::mono_family();
     // header row
     let mut header = div()
         .flex()
@@ -1792,7 +1793,7 @@ fn letter_row(code: &str, meaning: &str) -> Div {
         .child(
             div()
                 .w(px(20.0))
-                .font_family(theme::MONO_FONT)
+                .font_family(theme::mono_family())
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_size(px(theme::T_SM))
                 .text_color(theme::ACCENT)
@@ -1872,7 +1873,7 @@ fn tip(q: &str, desc: &str) -> Div {
         .mb(px(6.0))
         .child(
             div()
-                .font_family(theme::MONO_FONT)
+                .font_family(theme::mono_family())
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_size(px(theme::T_SM))
                 .text_color(theme::ACCENT)
@@ -1956,7 +1957,7 @@ fn about(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> A
                 .child(
                     div()
                         .w(px(220.0))
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_size(px(11.5))
                         .text_color(theme::ACCENT)
                         .child(k),
@@ -2065,7 +2066,7 @@ fn options(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) ->
         .child(
             div()
                 .w(px(72.0))
-                .font_family(theme::MONO_FONT)
+                .font_family(theme::mono_family())
                 .text_size(px(theme::T_SM))
                 .text_color(theme::TEXT)
                 .child(format!("{orf_min} aa")),
@@ -2429,7 +2430,7 @@ fn detect_common(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
                         div()
                             .w(px(120.0))
                             .px(px(8.0))
-                            .font_family(theme::MONO_FONT)
+                            .font_family(theme::mono_family())
                             .text_size(px(11.5))
                             .text_color(theme::MUTED)
                             .child(r.range.clone()),
@@ -3028,7 +3029,7 @@ fn primer_design(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
                         div()
                             .flex_grow()
                             .text_size(px(theme::T_SM))
-                            .font_family(theme::MONO_FONT)
+                            .font_family(theme::mono_family())
                             .text_color(theme::TEXT)
                             .child(seq),
                     )
@@ -3232,7 +3233,7 @@ fn digest(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> 
                     div()
                         .flex_grow()
                         .text_size(px(theme::T_SM))
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_color(theme::TEXT)
                         .child(format!("{} bp", f.size)),
                 )
@@ -3444,7 +3445,7 @@ fn alignment(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
                         .child(
                             div()
                                 .text_size(px(theme::T_XS))
-                                .font_family(theme::MONO_FONT)
+                                .font_family(theme::mono_family())
                                 .text_color(theme::TEXT)
                                 .child(seg),
                         ),
@@ -3465,7 +3466,7 @@ fn alignment(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
                     .child(
                         div()
                             .text_size(px(theme::T_XS))
-                            .font_family(theme::MONO_FONT)
+                            .font_family(theme::mono_family())
                             .text_color(theme::ACCENT)
                             .child(cseg),
                     ),
@@ -3702,14 +3703,14 @@ fn assembly(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -
                     .child(
                         div()
                             .text_size(px(theme::T_XS))
-                            .font_family(theme::MONO_FONT)
+                            .font_family(theme::mono_family())
                             .text_color(theme::MUTED)
                             .child(format!("F: {}", String::from_utf8_lossy(&p.forward))),
                     )
                     .child(
                         div()
                             .text_size(px(theme::T_XS))
-                            .font_family(theme::MONO_FONT)
+                            .font_family(theme::mono_family())
                             .text_color(theme::MUTED)
                             .child(format!("R: {}", String::from_utf8_lossy(&p.reverse))),
                     ),
@@ -3843,7 +3844,7 @@ fn crispr(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> 
                     div()
                         .flex_grow()
                         .text_size(px(theme::T_XS))
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_color(theme::TEXT)
                         .child(seq),
                 )
@@ -4747,7 +4748,7 @@ fn protein(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) ->
             al = al.child(
                 div()
                     .text_size(px(theme::T_XS))
-                    .font_family(theme::MONO_FONT)
+                    .font_family(theme::mono_family())
                     .text_color(theme::TEXT)
                     .child(String::from_utf8_lossy(row).into_owned()),
             );
@@ -4830,7 +4831,7 @@ fn feature_lib(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels
                     div()
                         .flex_grow()
                         .text_size(px(theme::T_XS))
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_color(theme::MUTED)
                         .child(motif_s),
                 )
@@ -5466,7 +5467,7 @@ fn audit(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> A
                     div()
                         .w(px(70.0))
                         .text_size(px(theme::T_XS))
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_color(theme::FAINT)
                         .child(e.ts.to_string()),
                 )
@@ -5735,7 +5736,7 @@ fn registry_import(
     for l in draft.csv.lines().filter(|l| !l.trim().is_empty()).take(4) {
         prev = prev.child(
             div()
-                .font_family(theme::MONO_FONT)
+                .font_family(theme::mono_family())
                 .text_size(px(theme::T_XS))
                 .text_color(theme::MUTED)
                 .child(l.to_owned()),
@@ -5807,7 +5808,7 @@ fn registry_import(
         for e in draft.row_errors.iter().take(20) {
             list = list.child(
                 div()
-                    .font_family(theme::MONO_FONT)
+                    .font_family(theme::mono_family())
                     .text_size(px(theme::T_XS))
                     .text_color(theme::WARN)
                     .child(e.clone()),
@@ -6005,7 +6006,7 @@ fn inventory(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
                         div()
                             .w(px(40.0))
                             .text_size(px(theme::T_XS))
-                            .font_family(theme::MONO_FONT)
+                            .font_family(theme::mono_family())
                             .text_color(theme::TEXT)
                             .child(w.position.clone().unwrap_or_default()),
                     )

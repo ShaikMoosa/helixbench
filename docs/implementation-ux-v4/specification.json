@@ -21779,7 +21779,7 @@
       "module": "Home",
       "name": "Adaptive right-panel lifecycle",
       "phase": "P07",
-      "status": "Target UX addition; implementation required",
+      "status": "P07 typed adaptive shell verified; native Home/map and inspector checked at 1600 and 1280",
       "rules": [
         "Every command carries stable source/target IDs and relevant revision IDs. Never bind a mutation to a display name, row index or currently active record at completion time.",
         "UI coordinates are 1-based inclusive. Domain Range is zero-based start plus length, with documented circular wrap. Conversions occur at a typed boundary and are tested once.",

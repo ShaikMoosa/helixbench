@@ -381,9 +381,17 @@ pub fn render_editor(this: &mut HelixBench, cx: &mut Context<HelixBench>) -> Any
                 .flex_grow()
                 .overflow_hidden()
                 .child(left)
-                .child(seq),
+                .when(
+                    this.app.shell.sequence_preview
+                        && this.app.shell.layout(this.viewport.width.v()).content_width >= 900.0,
+                    |d| d.child(seq),
+                ),
         )
-        .child(cards)
+        .when(
+            this.app.shell.layout(this.viewport.width.v()).inspector
+                == appcore::shell::InspectorPlacement::Hidden,
+            |d| d.child(cards),
+        )
         .into_any_element()
 }
 
@@ -405,8 +413,9 @@ fn map_tabs(this: &mut HelixBench, cx: &mut Context<HelixBench>) -> gpui::Div {
         .border_b_1()
         .border_color(theme::BORDER);
     for (mode, label) in [
-        (MapMode::Plasmid, "Plasmid"),
-        (MapMode::Linear, "Linear"),
+        (MapMode::Auto, "Auto view"),
+        (MapMode::Plasmid, "Circular view"),
+        (MapMode::Linear, "Linear view"),
         (MapMode::Metadata, "Metadata"),
     ] {
         let active = eff == mode;
@@ -429,11 +438,31 @@ fn map_tabs(this: &mut HelixBench, cx: &mut Context<HelixBench>) -> gpui::Div {
                 .hover(|s| s.bg(theme::SURFACE))
                 .child(label)
                 .on_click(cx.listener(move |t, _, _, cx| {
-                    t.app.map_mode = mode;
+                    appcore::shell::set_representation(&mut t.app, mode);
                     cx.notify();
                 })),
         );
     }
+    row = row.child(
+        crate::widgets::button(
+            "map-sequence-preview",
+            if this.app.shell.sequence_preview {
+                "Hide sequence preview"
+            } else {
+                "Sequence preview"
+            },
+            crate::widgets::Btn::Ghost,
+        )
+        .on_click(cx.listener(|t, _, _, cx| {
+            if t.app.shell.layout(t.viewport.width.v()).content_width < 900.0 {
+                t.app
+                    .toast("Use the Sequence tab for a readable sequence at this width");
+            } else {
+                t.app.shell.sequence_preview = !t.app.shell.sequence_preview;
+            }
+            cx.notify();
+        })),
+    );
     row
 }
 

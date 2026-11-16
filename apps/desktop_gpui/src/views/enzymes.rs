@@ -520,7 +520,7 @@ impl HelixBench {
                                     .px(px(8.0))
                                     .child(
                                         div()
-                                            .font_family(theme::MONO_FONT)
+                                            .font_family(theme::mono_family())
                                             .font_weight(gpui::FontWeight::SEMIBOLD)
                                             .text_size(px(theme::T_SM))
                                             .text_color(cuts_col)

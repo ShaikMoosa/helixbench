@@ -16,7 +16,7 @@ pub enum Btn {
 
 fn variant_text(variant: Btn) -> Hsla {
     match variant {
-        Btn::Primary => theme::BG,
+        Btn::Primary => theme::PANEL,
         Btn::Danger => theme::DANGER,
         Btn::Subtle => theme::MUTED,
         _ => theme::TEXT,
@@ -29,21 +29,21 @@ fn button_base(id: impl Into<ElementId>, variant: Btn) -> Stateful<Div> {
         .flex()
         .items_center()
         .justify_center()
-        .h(px(30.0))
-        .px(px(12.0))
-        .rounded(px(6.0))
+        .h(px(36.0))
+        .px(px(16.0))
+        .rounded(px(18.0))
         .text_size(px(theme::T_BASE))
         .cursor_pointer()
         .active(|s| s.bg(theme::FILL_PRESSED));
     match variant {
         Btn::Primary => base
-            .bg(theme::ACCENT)
-            .text_color(theme::BG)
-            .hover(|s| s.bg(theme::ACCENT.opacity(0.88))),
+            .bg(theme::TEXT)
+            .text_color(theme::PANEL)
+            .hover(|s| s.bg(theme::TEXT.opacity(0.88))),
         Btn::Outline => base
-            .bg(theme::SURFACE)
+            .bg(theme::PANEL)
             .border_1()
-            .border_color(theme::BORDER_STRONG)
+            .border_color(theme::BORDER)
             .text_color(theme::TEXT)
             .hover(|s| s.bg(theme::FILL_HOVER)),
         Btn::Ghost => base
@@ -81,7 +81,7 @@ pub fn icon_button(
 
 pub fn icon_only(id: impl Into<ElementId>, icon: &str, variant: Btn) -> Stateful<Div> {
     button_base(id, variant)
-        .w(px(30.0))
+        .w(px(36.0))
         .px(px(0.0))
         .child(icons::icon(icon, 14.0, variant_text(variant)))
 }
@@ -167,31 +167,22 @@ pub fn label(text: &str, size: f32, color: Hsla) -> Div {
 pub fn page_header(title: &str, subtitle: &str) -> Div {
     div()
         .flex()
-        .items_center()
-        .justify_between()
-        .px(px(20.0))
-        .py(px(14.0))
-        .bg(theme::PANEL)
-        .border_b_1()
-        .border_color(theme::BORDER)
+        .flex_col()
+        .gap(px(10.0))
         .child(
             div()
-                .flex()
-                .flex_col()
-                .gap(px(3.0))
-                .child(
-                    div()
-                        .text_size(px(theme::T_LG))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .text_color(theme::TEXT)
-                        .child(title.to_owned()),
-                )
-                .child(
-                    div()
-                        .text_size(px(theme::T_SM))
-                        .text_color(theme::MUTED)
-                        .child(subtitle.to_owned()),
-                ),
+                .text_size(px(24.0))
+                .line_height(px(34.0))
+                .font_weight(gpui::FontWeight::MEDIUM)
+                .text_color(theme::TEXT)
+                .child(title.to_owned()),
+        )
+        .child(
+            div()
+                .text_size(px(15.0))
+                .line_height(px(21.0))
+                .text_color(theme::MUTED)
+                .child(subtitle.to_owned()),
         )
 }
 
@@ -204,19 +195,19 @@ pub fn row_card() -> Div {
         .gap(px(8.0))
         .px(px(10.0))
         .py(px(8.0))
-        .rounded(px(8.0))
+        .rounded(px(theme::ROW_RADIUS))
         .bg(theme::PANEL)
         .border_1()
         .border_color(theme::BORDER)
-        .shadow(theme::shadow_card())
 }
 
 /// A section heading within a page body.
 pub fn section_title(text: &str) -> Div {
     div()
         .pt(px(6.0))
-        .text_size(px(theme::T_MD))
-        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .text_size(px(theme::T_SECTION))
+        .line_height(px(27.0))
+        .font_weight(gpui::FontWeight::MEDIUM)
         .text_color(theme::TEXT)
         .child(text.to_owned())
 }

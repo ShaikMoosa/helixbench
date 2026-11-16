@@ -198,3 +198,45 @@ Next: P06 — first-use Home, samples and resume.
 The sample profile is temporary and is not automatically resumed on restart; profile files may remain in the OS temporary directory. Explicit exports still write the user-chosen destination. Personal copying transfers the reviewed active document only; other sample artifacts stay isolated. Saved-result refind/inspection is read-only here; P09 retains creation, tool-specific presentation, archive, rerun and comparison. Existing module persistence-error behavior beyond the routed namespace still belongs to its owning milestones. P07 owns the complete Soft Gallery shell/right panel, and P19 owns application-wide accessibility, performance and background execution.
 
 Next: P07 — Soft Gallery shell and contextual tools.
+
+
+## P07 — Soft Gallery shell and contextual tools
+
+16 November 2026. Branch `codex/ux-v4-p07`; base merged P06 `2edc483`.
+
+- Shared chrome now uses the approved Home/Map/inspector design roles, embedded
+  DM Sans, full-color logo, warm center, labeled 200px navigation, pill actions,
+  sequence tabs and reusable surfaces. Scientific colors and dynamic canvases remain.
+- A typed context inspector follows actual document/revision, feature, primer,
+  valid range, record and result identities. Search shows its own scope and query.
+  Actions revalidate context; stale IDs or open forms cannot retarget a mutation.
+- Page tools opens a shared catalog in one click; choosing a tool is the second.
+  Missing prerequisites are visible. Edit feature/primer and related-record routes
+  use current IDs. Add primer from range requires an explicit valid nonempty range.
+- At1600px the320px inspector docks; at1280px it opens as an explicit drawer.
+  Close persists across resize and returns focus to the originating control.
+  Ctrl+Shift+I toggles it. Circular/linear representation does not change topology.
+- Native visual checks covered Home1600, live sample Map, linear representation
+  with circular topology preserved, Close→Enter reopening Page tools, Home1280,
+  drawer opening and scrolling through PCR/primer tools. The visual pass found
+  clipped inspector content and compressed controls; width bounds and a separate
+  scroll viewport corrected both. These observations do not establish complete
+  accessibility or every module's visual acceptance.
+- Automated verification: 325 core tests passed (11 P07 cases), strict core Clippy,
+  non-incremental native executable build, formatting and source/diff checks.
+  Upstream proc-macro-error2 future-compatibility notice remains.
+- Fresh branch review found cleared-range primer fallback and incorrect Close
+  focus target. Regression cases and validated range extraction corrected the
+  former; the native Close handler now consumes the stored opener and the native
+  Page tools→Close→Enter check verified reopening. No additional reviewer is claimed.
+
+Scope decisions: approved fixture names/arcs are replaced with live data; module
+screens retain P08–P17 ownership. The empty Home reference has no illustration
+slot. Darker secondary/selected text improves contrast. Native menus remain to
+preserve existing capabilities. P19 retains full accessibility/performance work.
+
+Follow-up: P08A — map, sequence and coordinate synchronization. The legacy linear
+canvas caption says “linear” for the representation; clarify its view/topology
+wording alongside coordinate/selection UX. Inspector topology and document status
+remain authoritative and unchanged. Detailed scientific label contrast/overlap,
+zoom fitting and lower Home content density also retain their owning screen work.

@@ -13,13 +13,8 @@ use crate::theme;
 use crate::views::map::{paint as paint_map, MapDraw};
 use crate::widgets::{self, row_card, section_title, Btn};
 
-fn page(title: &str, subtitle: &str) -> gpui::Div {
-    div()
-        .flex()
-        .flex_col()
-        .size_full()
-        .bg(theme::BG)
-        .child(widgets::page_header(title, subtitle))
+fn page(_title: &str, _subtitle: &str) -> gpui::Div {
+    div().flex().flex_col().size_full().bg(theme::BG)
 }
 
 fn scroll(id: &str) -> gpui::Stateful<gpui::Div> {
@@ -28,8 +23,8 @@ fn scroll(id: &str) -> gpui::Stateful<gpui::Div> {
         .flex_1()
         .min_h(px(0.0))
         .overflow_y_scroll()
-        .px(px(20.0))
-        .py(px(14.0))
+        .px(px(theme::PAGE_PAD))
+        .py(px(16.0))
         .flex()
         .flex_col()
         .gap(px(8.0))
@@ -41,44 +36,17 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
     }
     let mut p = page("Home", "Your local workspace at a glance");
     let mut body = scroll("home-scroll").child(first_use_home(app, cx));
-    let mut cards = div().flex().gap(px(10.0));
-    for (label, value) in [
-        (
-            "Documents",
+    body = body.child(widgets::label(
+        &format!(
+            "{} open documents · {} Registry entities · {} inventory containers · {} tasks",
             app.app.library.len() + usize::from(!app.app.doc.sequence.is_empty() || app.app.dirty),
+            app.app.registry.entries.len(),
+            app.app.inventory.containers.len(),
+            app.app.workflows.tasks.len()
         ),
-        ("Registry", app.app.registry.entries.len()),
-        ("Inventory", app.app.inventory.containers.len()),
-        ("Tasks", app.app.workflows.tasks.len()),
-        ("Entries", app.app.records.entries.len()),
-    ] {
-        cards = cards.child(
-            div()
-                .flex_1()
-                .flex()
-                .flex_col()
-                .gap(px(4.0))
-                .p(px(12.0))
-                .rounded(px(8.0))
-                .bg(theme::PANEL)
-                .border_1()
-                .border_color(theme::BORDER)
-                .child(
-                    div()
-                        .text_size(px(theme::T_XL))
-                        .font_weight(gpui::FontWeight::BOLD)
-                        .text_color(theme::ACCENT)
-                        .child(value.to_string()),
-                )
-                .child(
-                    div()
-                        .text_size(px(theme::T_SM))
-                        .text_color(theme::MUTED)
-                        .child(label.to_owned()),
-                ),
-        );
-    }
-    body = body.child(cards);
+        theme::T_SM,
+        theme::MUTED,
+    ));
 
     body = body.child(section_title("Calendar"));
     let y = app.cal_year;
@@ -1148,7 +1116,7 @@ pub fn render_automation(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> 
             body = body.child(
                 div()
                     .text_size(px(theme::T_XS))
-                    .font_family(theme::MONO_FONT)
+                    .font_family(theme::mono_family())
                     .text_color(theme::FAINT)
                     .child(l.clone()),
             );
@@ -1475,7 +1443,7 @@ pub fn render_biologics(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> A
                         .unwrap_or_default();
                     body = body.child(
                         div()
-                            .font_family(theme::MONO_FONT)
+                            .font_family(theme::mono_family())
                             .text_size(px(theme::T_XS))
                             .text_color(theme::MUTED)
                             .child(format!(
@@ -1500,7 +1468,7 @@ pub fn render_biologics(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> A
                 ));
                 body = body.child(
                     div()
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_size(px(theme::T_XS))
                         .text_color(theme::TEXT)
                         .child(preview),
@@ -1563,7 +1531,7 @@ pub fn render_rna(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElem
                         )
                         .child(
                             div()
-                                .font_family(theme::MONO_FONT)
+                                .font_family(theme::mono_family())
                                 .text_size(px(theme::T_XS))
                                 .text_color(theme::FAINT)
                                 .child(format!(
@@ -1608,7 +1576,7 @@ pub fn render_rna(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElem
             body = body.child(section_title(&format!("{} · {} nt", o.name, o.len())));
             body = body.child(
                 div()
-                    .font_family(theme::MONO_FONT)
+                    .font_family(theme::mono_family())
                     .text_size(px(theme::T_SM))
                     .text_color(theme::TEXT)
                     .child(o.seq.clone()),
@@ -1625,7 +1593,7 @@ pub fn render_rna(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElem
             body = body.child(widgets::label("HELM:", theme::T_SM, theme::FAINT));
             body = body.child(
                 div()
-                    .font_family(theme::MONO_FONT)
+                    .font_family(theme::mono_family())
                     .text_size(px(theme::T_XS))
                     .text_color(theme::ACCENT)
                     .child(o.to_helm()),
@@ -1641,7 +1609,7 @@ pub fn render_rna(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElem
                         .unwrap_or_else(|| m.code.clone());
                     body = body.child(
                         div()
-                            .font_family(theme::MONO_FONT)
+                            .font_family(theme::mono_family())
                             .text_size(px(theme::T_XS))
                             .text_color(theme::MUTED)
                             .child(format!("pos {} · {} ({})", m.pos + 1, m.code, name)),
@@ -1679,7 +1647,7 @@ pub fn render_rna(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElem
                 .child(
                     div()
                         .w(px(50.0))
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_size(px(theme::T_XS))
                         .text_color(theme::ACCENT)
                         .child(m.code.clone()),
@@ -1966,7 +1934,7 @@ pub fn render_invivo(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyE
             let vol = domain::invivo::dose_volume_ml(dose, w, conc);
             body = body.child(
                 div()
-                    .font_family(theme::MONO_FONT)
+                    .font_family(theme::mono_family())
                     .text_size(px(theme::T_XS))
                     .text_color(theme::MUTED)
                     .child(format!("{} ({:.1} g): {:.3} mL", a.tag, w, vol)),
@@ -2049,7 +2017,7 @@ pub fn render_chemistry(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> A
                         )
                         .child(
                             div()
-                                .font_family(theme::MONO_FONT)
+                                .font_family(theme::mono_family())
                                 .text_size(px(theme::T_XS))
                                 .text_color(theme::FAINT)
                                 .child(c.smiles.clone()),
@@ -2147,7 +2115,7 @@ pub fn render_chemistry(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> A
                     .unwrap_or_else(|| "free".into());
                 body = body.child(
                     div()
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_size(px(theme::T_XS))
                         .text_color(theme::MUTED)
                         .child(format!("Lot: {} {} · {}", l.quantity, l.unit, fname)),
@@ -2442,7 +2410,7 @@ pub fn render_bioprocess(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> 
                 let ph = rep.conditions.get("pH").cloned().unwrap_or_default();
                 body = body.child(
                     div()
-                        .font_family(theme::MONO_FONT)
+                        .font_family(theme::mono_family())
                         .text_size(px(theme::T_XS))
                         .text_color(theme::MUTED)
                         .child(format!(
@@ -2530,60 +2498,71 @@ fn resume_work(
 fn first_use_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> gpui::Div {
     use appcore::first_use as first;
     use storage::config::RecentTarget;
-    let mut body = div().flex().flex_col().gap(px(10.0));
+    let mut body = div().flex().flex_col().gap(px(16.0));
     if !app.app.config.first_use_dismissed {
-        body=body.child(widgets::label("Start with a sequence",theme::T_XL,theme::TEXT))
-            .child(widgets::label("Import your DNA sequence, create one, or explore a sample. Your workspace stays local.",theme::T_BASE,theme::MUTED))
-            .child(widgets::button("home-hide-guidance","Hide this guidance",Btn::Ghost).on_click(cx.listener(|t,_,_,cx|{if let Err(error)=first::dismiss_guidance(&mut t.app){t.app.first_use.error=Some(error);}cx.notify();})));
+        body = body
+            .child(section_title("Start with your sequence"))
+            .child(widgets::label(
+                "Open your file, understand the input, and run your first analysis.",
+                theme::T_BASE,
+                theme::MUTED,
+            ));
     }
-    body = body.child(
-        div()
-            .flex()
-            .flex_wrap()
-            .gap(px(8.0))
+    body=body.child(div().flex().flex_col().gap(px(18.0)).p(px(28.0)).rounded(px(theme::CARD_RADIUS)).bg(theme::PANEL)
+        .child(widgets::page_header("Import a sequence","Open GenBank, FASTA or a HelixBench document. Review the recognized sequence before opening it."))
+        .child(div().flex().flex_wrap().gap(px(10.0))
+            .child(widgets::button("home-import","Import sequence",Btn::Primary).on_click(cx.listener(|t,_,_,cx|{act::guard(&mut t.app,appcore::state::PendingAction::Open);cx.notify();})))
+            .child(widgets::button("home-sample","Try a sample",Btn::Outline).on_click(cx.listener(|t,_,_,cx|{if let Err(error)=first::try_sample(&mut t.app){t.app.first_use.error=Some(error);}cx.notify();}))))
+        .child(widgets::label("No sequence ready? A sample is labeled and kept separate from your own files.",theme::T_BASE,theme::MUTED)));
+    body =
+        body.child(section_title("A short path to your first result"))
+            .child(widgets::label(
+                "Review input → inspect sequence → run analysis → save and find it again.",
+                theme::T_BASE,
+                theme::MUTED,
+            ))
             .child(
-                widgets::button("home-import", "Import sequence", Btn::Primary).on_click(
-                    cx.listener(|t, _, _, cx| {
-                        act::guard(&mut t.app, appcore::state::PendingAction::Open);
-                        cx.notify();
-                    }),
-                ),
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .gap(px(10.0))
+                    .child(
+                        widgets::button("home-create", "Create a blank sequence", Btn::Outline)
+                            .on_click(cx.listener(|t, _, _, cx| {
+                                act::guard(&mut t.app, appcore::state::PendingAction::NewEmpty);
+                                cx.notify();
+                            })),
+                    )
+                    .child(
+                        widgets::button("home-new-entry", "New notebook entry", Btn::Outline)
+                            .on_click(cx.listener(|t, _, _, cx| {
+                                if let Err(error) = appcore::commands::execute(
+                                    &mut t.app,
+                                    appcore::commands::CommandId::NewEntry,
+                                ) {
+                                    t.app.first_use.error = Some(error);
+                                }
+                                cx.notify();
+                            })),
+                    ),
             )
             .child(
-                widgets::button("home-create", "New sequence", Btn::Outline).on_click(cx.listener(
-                    |t, _, _, cx| {
-                        act::guard(&mut t.app, appcore::state::PendingAction::NewEmpty);
-                        cx.notify();
-                    },
-                )),
-            )
-            .child(
-                widgets::button("home-sample", "Try sample", Btn::Outline).on_click(cx.listener(
-                    |t, _, _, cx| {
-                        if let Err(error) = first::try_sample(&mut t.app) {
-                            t.app.first_use.error = Some(error);
-                        }
-                        cx.notify();
-                    },
-                )),
-            ),
-    );
-    body = body.child(
-        widgets::button("home-new-entry", "New notebook entry", Btn::Ghost).on_click(cx.listener(
-            |t, _, _, cx| {
-                if let Err(error) =
-                    appcore::commands::execute(&mut t.app, appcore::commands::CommandId::NewEntry)
-                {
-                    t.app.first_use.error = Some(error);
-                }
-                cx.notify();
-            },
-        )),
-    );
+                widgets::button(
+                    "home-hide-guidance",
+                    "Hide introductory guidance",
+                    Btn::Ghost,
+                )
+                .on_click(cx.listener(|t, _, _, cx| {
+                    if let Err(error) = first::dismiss_guidance(&mut t.app) {
+                        t.app.first_use.error = Some(error);
+                    }
+                    cx.notify();
+                })),
+            );
     if let Some(error) = &app.app.first_use.error {
         body = body.child(widgets::label(error, theme::T_BASE, theme::DANGER));
     }
-    body = body.child(section_title("Resume recent work"));
+    body = body.child(section_title("Continue working"));
     if app.app.config.recent_work.is_empty() {
         body=body.child(widgets::label("No recent work yet. Open a document, notebook entry, task or saved result to find it here.",theme::T_SM,theme::MUTED));
     }

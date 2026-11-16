@@ -194,7 +194,7 @@ fn status_label(app: &appcore::state::AppState, n: usize) -> Div {
     }
     let mut row = div().flex().items_center().gap(px(8.0)).child(
         div()
-            .font_family(theme::MONO_FONT)
+            .font_family(theme::mono_family())
             .font_weight(gpui::FontWeight::SEMIBOLD)
             .text_size(px(theme::T_SM))
             .text_color(theme::ACCENT)
@@ -208,7 +208,7 @@ fn status_label(app: &appcore::state::AppState, n: usize) -> Div {
         };
         row = row.child(
             div()
-                .font_family(theme::MONO_FONT)
+                .font_family(theme::mono_family())
                 .text_size(px(theme::T_XS))
                 .text_color(theme::MUTED)
                 .child(format!("{txt} · {strand}")),
@@ -316,36 +316,18 @@ actions!(
 );
 
 pub fn workspace_toolbar(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
-    use appcore::{commands, workspace_search as search};
     let mut row = div()
         .flex()
         .flex_wrap()
         .items_center()
         .gap(px(6.0))
-        .px(px(12.0))
-        .py(px(8.0))
-        .bg(theme::PANEL)
-        .border_b_1()
-        .border_color(theme::BORDER);
-    row = row.child(
-        widgets::button(
-            "workspace-search-open",
-            "Search workspace · Ctrl+K",
-            Btn::Outline,
-        )
-        .on_click(cx.listener(|t, _, _, cx| {
-            t.menu = None;
-            if let Err(error) = search::open(&mut t.app) {
-                t.app.toast(error);
-            }
-            cx.notify();
-        })),
-    );
+        .px(px(theme::PAGE_PAD))
+        .py(px(8.0));
     if app.app.workspace_search.can_return && !app.app.workspace_search.open {
         row = row.child(
             widgets::button("workspace-search-back", "Back to search", Btn::Outline).on_click(
                 cx.listener(|t, _, _, cx| {
-                    if let Err(error) = search::back_to_search(&mut t.app) {
+                    if let Err(error) = appcore::workspace_search::back_to_search(&mut t.app) {
                         t.app.toast(error);
                     }
                     cx.notify();
@@ -353,33 +335,28 @@ pub fn workspace_toolbar(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> 
             ),
         );
     }
-    if !app.app.workspace_search.open {
-        for descriptor in commands::owning_page(app.app.view) {
-            let id = descriptor.id;
-            let availability = commands::availability(&app.app, id);
-            let mut entry = div().flex().flex_col().max_w(px(290.0)).child(
+    if appcore::state::View::ALL.contains(&app.app.view) && !app.app.workspace_search.open {
+        for view in appcore::state::View::ALL {
+            row = row.child(
                 widgets::button(
-                    SharedString::from(format!("page-tool-{id:?}")),
-                    descriptor.label,
-                    Btn::Subtle,
+                    SharedString::from(format!("gallery-sequence-tab-{view:?}")),
+                    view.label(),
+                    if app.app.view == view {
+                        Btn::Subtle
+                    } else {
+                        Btn::Outline
+                    },
                 )
-                .opacity(if availability.enabled() { 1.0 } else { 0.55 })
-                .on_click(cx.listener(move |t, _, _, cx| {
-                    if let Err(error) = commands::execute(&mut t.app, id) {
-                        t.app.toast(error);
-                    }
-                    cx.notify();
-                })),
+                .on_click(cx.listener(move |t, _, _, cx| t.set_view(view, cx))),
             );
-            if !availability.enabled() {
-                entry = entry.child(widgets::label(
-                    availability.reason(),
-                    theme::T_XS,
-                    theme::MUTED,
-                ));
-            }
-            row = row.child(entry);
         }
+    }
+    if !app.app.workspace_search.open {
+        row = row.child(
+            widgets::button("gallery-open-page-tools", "Page tools", Btn::Ghost)
+                .track_focus(&app.page_tools_focus)
+                .on_click(cx.listener(|t, _, _, cx| crate::shell::open_page_tools(t, cx))),
+        );
     }
     row.into_any_element()
 }

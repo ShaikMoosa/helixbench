@@ -59,9 +59,9 @@ impl UniformListDecoration for ScrollbarDecoration {
 /// ellipsizes text laid out inside flex rows. Fit the string ourselves.
 pub fn ellipsize(window: &mut Window, text: &str, max_w: f32, size: f32, mono: bool) -> String {
     let font = gpui::font(if mono {
-        theme::MONO_FONT
+        theme::mono_family()
     } else {
-        theme::UI_FONT
+        theme::ui_family()
     });
     if crate::draw::measure(window, text, size, font.clone()).v() <= max_w {
         return text.to_owned();
@@ -97,7 +97,7 @@ pub fn cell(window: &mut Window, text: &str, w: f32, color: Hsla, mono: bool) ->
         .overflow_hidden()
         .child(fitted);
     if mono {
-        d = d.font_family(theme::MONO_FONT);
+        d = d.font_family(theme::mono_family());
     }
     d
 }

@@ -64,6 +64,33 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> gpui::Result<Option<Cow<'static, [u8]>>> {
+        let gallery: Option<&'static [u8]> = match path {
+            "gallery/logo-home.svg" => Some(include_bytes!("../assets/soft-gallery/logo-home.svg")),
+            "gallery/logo-workspace.svg" => {
+                Some(include_bytes!("../assets/soft-gallery/logo-workspace.svg"))
+            }
+            "gallery/fit.svg" => Some(include_bytes!("../assets/soft-gallery/fit.svg")),
+            "gallery/pencil.svg" => Some(include_bytes!("../assets/soft-gallery/pencil.svg")),
+            "gallery/features.svg" => Some(include_bytes!("../assets/soft-gallery/features.svg")),
+            "gallery/orfs.svg" => Some(include_bytes!("../assets/soft-gallery/orfs.svg")),
+            "gallery/redo.svg" => Some(include_bytes!("../assets/soft-gallery/redo.svg")),
+            "gallery/translation.svg" => {
+                Some(include_bytes!("../assets/soft-gallery/translation.svg"))
+            }
+            "gallery/sliders.svg" => Some(include_bytes!("../assets/soft-gallery/sliders.svg")),
+            "gallery/split.svg" => Some(include_bytes!("../assets/soft-gallery/split.svg")),
+            "gallery/panel-sliders.svg" => {
+                Some(include_bytes!("../assets/soft-gallery/panel-sliders.svg"))
+            }
+            "gallery/related-features.svg" => Some(include_bytes!(
+                "../assets/soft-gallery/related-features.svg"
+            )),
+            _ => None,
+        };
+        if let Some(bytes) = gallery {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
+
         if path == "logo.png" {
             return Ok(Some(Cow::Borrowed(include_bytes!(
                 "../assets/helixbench.png"
@@ -130,4 +157,38 @@ pub fn view_icon(v: View) -> &'static str {
         View::InVivo => "invivo",
         View::Bioprocess => "bioprocess",
     }
+}
+
+pub fn gallery_view(view: View, color: Hsla) -> Svg {
+    let name = match view {
+        View::Home => "fit",
+        View::Notebook => "pencil",
+        View::Registry => "features",
+        View::Inventory => "orfs",
+        View::Workflows => "redo",
+        View::Insights => "translation",
+        View::Automation => "sliders",
+        View::Split => "split",
+        _ => return icon(view_icon(view), 16.0, color),
+    };
+    svg()
+        .path(SharedString::from(format!("gallery/{name}.svg")))
+        .w(px(16.0))
+        .h(px(16.0))
+        .text_color(color)
+}
+pub fn gallery_related() -> Svg {
+    svg()
+        .path("gallery/related-features.svg")
+        .w(px(15.0))
+        .h(px(15.0))
+        .text_color(crate::theme::ACCENT_TEXT)
+}
+
+pub fn gallery_sliders() -> Svg {
+    svg()
+        .path("gallery/panel-sliders.svg")
+        .w(px(18.0))
+        .h(px(18.0))
+        .text_color(crate::theme::MUTED)
 }

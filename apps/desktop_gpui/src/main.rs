@@ -7,6 +7,7 @@ mod editor;
 mod find;
 mod icons;
 mod lab;
+mod shell;
 mod text_input;
 mod theme;
 mod util;
@@ -25,6 +26,7 @@ fn main() {
     Application::new()
         .with_assets(icons::Assets)
         .run(|cx: &mut App| {
+            let font_error = theme::load_fonts(cx).err();
             app::bind_keys(cx);
             text_input::bind_keys(cx);
             find::bind_keys(cx);
@@ -37,7 +39,10 @@ fn main() {
             } else {
                 WindowBounds::Windowed(restore)
             };
-            let state = appcore::first_use::startup(config);
+            let mut state = appcore::first_use::startup(config);
+            if let Some(error) = font_error {
+                state.operation_error = Some(error);
+            }
 
             cx.open_window(
                 WindowOptions {

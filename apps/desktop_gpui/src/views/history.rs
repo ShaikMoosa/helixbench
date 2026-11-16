@@ -333,7 +333,7 @@ impl HelixBench {
                         })
                         .child(
                             div()
-                                .font_family(theme::MONO_FONT)
+                                .font_family(theme::mono_family())
                                 .text_size(px(theme::T_SM))
                                 .text_color(theme::FAINT)
                                 .child(number.to_string()),
@@ -356,9 +356,9 @@ impl HelixBench {
                             div()
                                 .flex_shrink_0()
                                 .font_family(if whole {
-                                    theme::UI_FONT
+                                    theme::ui_family()
                                 } else {
-                                    theme::MONO_FONT
+                                    theme::mono_family()
                                 })
                                 .text_size(px(theme::T_XS))
                                 .text_color(if whole { theme::FAINT } else { theme::MUTED })
