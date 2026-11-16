@@ -185,6 +185,8 @@ pub fn show(
         pcr(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::PrimerDesign(_))) {
         primer_design(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::ResultRerun(_))) {
+        result_rerun(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Digest(_))) {
         digest(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::EnzymeSites(_))) {
@@ -2729,6 +2731,25 @@ fn pcr(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> Any
             .result
             .as_ref()
             .is_some_and(|r| draft.product_pick.is_some_and(|i| i < r.products.len()));
+    if let Some(run) = &draft.result {
+        let completed = run.clone();
+        body = body.child(
+            widgets::button(
+                "pcr-review-result",
+                "Review / save completed result",
+                Btn::Outline,
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                match appcore::results::from_pcr(&completed)
+                    .and_then(|r| appcore::results::open_preview(&mut t.app, r))
+                {
+                    Ok(()) => {}
+                    Err(e) => t.app.toast(e),
+                }
+                cx.notify();
+            })),
+        );
+    }
     let mut create = widgets::button("pcr-create", "Create independent product", Btn::Primary);
     if ready {
         create = create.on_click(cx.listener(|t, _, _, cx| {
@@ -2894,6 +2915,75 @@ fn primer_design(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
     )
 }
 
+fn result_rerun(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let plan = match &app.app.dialog {
+        Some(Dialog::ResultRerun(p)) => p.clone(),
+        _ => unreachable!(),
+    };
+    let mut body=div().flex().flex_col().gap(px(12.0)).child(widgets::label("Choose the input explicitly. A rerun allocates a new result ID and leaves the original output unchanged. Run review does not save the new result automatically.",theme::T_SM,theme::MUTED))
+ .child(widgets::label(&format!("Method {} · {} · revision {} · {} bp",plan.original.method_version,if plan.current{"Current open source"}else{"Captured historical input"},plan.input.source().revision,plan.input.document().sequence.len()),theme::T_BASE,theme::TEXT))
+ .child(crate::views::results::settings(&plan.original));
+    for (id, label, current) in [
+        ("captured", "Use captured input", false),
+        ("current", "Use current open source", true),
+    ] {
+        let original = plan.original.clone();
+        body = body.child(
+            widgets::button(
+                SharedString::from(format!("rerun-mode-{id}")),
+                label,
+                Btn::Outline,
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                match appcore::results::prepare_rerun(&t.app, &original, current) {
+                    Ok(p) => {
+                        t.app.dialog = Some(Dialog::ResultRerun(Box::new(p)));
+                        t.app.results.error = None;
+                    }
+                    Err(e) => t.app.results.error = Some(e),
+                }
+                cx.notify();
+            })),
+        );
+    }
+    if let Some(e) = &app.app.results.error {
+        body = body.child(widgets::label(e, theme::T_SM, theme::DANGER));
+    }
+    let footer = footer_row(vec![
+        widgets::button("rerun-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("rerun-run", "Run as a new result", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                let plan = match &t.app.dialog {
+                    Some(Dialog::ResultRerun(p)) => p.clone(),
+                    _ => return,
+                };
+                match appcore::results::rerun(&t.app, &plan) {
+                    Ok(result) => {
+                        t.app.dialog = None;
+                        if let Err(e) = appcore::results::open_preview(&mut t.app, result) {
+                            t.app.results.error = Some(e);
+                        }
+                    }
+                    Err(e) => t.app.results.error = Some(e),
+                }
+                cx.notify();
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Review rerun input and settings",
+        760.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
 fn digest(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
     let draft = match &app.app.dialog {
         Some(Dialog::Digest(d)) => d.clone(),
@@ -2909,6 +2999,24 @@ fn digest(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> 
         body = body.child(widgets::label(e, theme::T_SM, theme::DANGER));
     }
     if let Some(result) = &draft.result {
+        let completed = (**result).clone();
+        body = body.child(
+            widgets::button(
+                "digest-review-result",
+                "Review / save completed result",
+                Btn::Outline,
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                match appcore::results::from_digest(&completed)
+                    .and_then(|r| appcore::results::open_preview(&mut t.app, r))
+                {
+                    Ok(()) => {}
+                    Err(e) => t.app.toast(e),
+                }
+                cx.notify();
+            })),
+        );
+
         let frags = result.fragments.clone();
         let max_bp = 10000.0;
         body = body.child(widgets::label(

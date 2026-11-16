@@ -220,26 +220,8 @@ pub fn resume(app: &mut AppState, target: RecentTarget) -> Result<(), String> {
             hit.title
         }
         RecentTarget::Result(id) => {
-            let path = app.profile_path(storage::results::path());
-            let results = storage::results::load_from(&path).map_err(|e| {
-                format!("Could not read saved result catalog: {e}. The original file is preserved")
-            })?;
-            let result = results.results.iter().find(|r| r.id == *id).ok_or(
-                "This saved result no longer exists. Refresh the result list or forget this link",
-            )?;
-            let title = format!("{} result", result.tool);
-            navigation::request_navigation(
-                app,
-                NavigationIntent::Navigate(Route {
-                    view: View::Home,
-                    document: app.doc.id,
-                    record: None,
-                }),
-            )?;
-            app.first_use.results = results;
-            app.first_use.results_error = None;
-            app.first_use.selected_result = Some(*id);
-            title
+            crate::results::open(app, *id)?;
+            "Saved analysis result".into()
         }
     };
     app.first_use.error = None;

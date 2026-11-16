@@ -516,13 +516,13 @@ Tasks are ordered by dependency. Each task is a reviewable slice, not a promise 
 - `deleted_source_opens_tombstone`
 - `export_contains_input_and_method`
 
-- [ ] Step 1: Read the owning screen/feature/state contracts and the cited current APIs; record any newly discovered contradiction before changing scientific behavior.
-- [ ] Step 2: Add the listed behavior tests and representative valid/invalid/cancel/stale-ID fixtures in the proposed test file. Confirm the new expectation fails for the intended reason; P00 instead records the existing baseline.
-- [ ] Step 3: Run `cargo test -p appcore --test ux_v4_p09` and retain the initial result. Register the integration-test harness normally; do not claim an absent test file passed.
-- [ ] Step 4: Implement the minimal domain/storage/appcore contract and error propagation before wiring its GPUI controls. Reuse the current algorithm entry points; no fixture ID or result value may become a production default.
-- [ ] Step 5: Wire the UI states, prerequisites, labeled entry point and return context. Validate the success path plus the task-specific edge conditions and one persistence/cancel failure.
-- [ ] Step 6: Re-run the focused tests, `cargo test -p appcore` and `cargo check -p desktop_gpui` for changed bindings; run formatting and relevant scientific regression suites. Record actual outputs and update feature status.
-- [ ] Step 7: Review the diff against the acceptance IDs, stage only this task’s files and create a local checkpoint commit after checks pass. Publishing or external delivery follows the user’s authorization.
+- [x] Step 1: Read the owning screen/feature/state contracts and the cited current APIs; record any newly discovered contradiction before changing scientific behavior.
+- [x] Step 2: Add the listed behavior tests and representative valid/invalid/cancel/stale-ID fixtures in the proposed test file. Confirm the new expectation fails for the intended reason; P00 instead records the existing baseline.
+- [x] Step 3: Run `cargo test -p appcore --test ux_v4_p09` and retain the initial result. Register the integration-test harness normally; do not claim an absent test file passed.
+- [x] Step 4: Implement the minimal domain/storage/appcore contract and error propagation before wiring its GPUI controls. Reuse the current algorithm entry points; no fixture ID or result value may become a production default.
+- [x] Step 5: Wire the UI states, prerequisites, labeled entry point and return context. Validate the success path plus the task-specific edge conditions and one persistence/cancel failure.
+- [x] Step 6: Re-run the focused tests, `cargo test -p appcore` and `cargo check -p desktop_gpui` for changed bindings; run formatting and relevant scientific regression suites. Record actual outputs and update feature status.
+- [x] Step 7: Review the diff against the acceptance IDs, stage only this task’s files and create a local checkpoint commit after checks pass. Publishing or external delivery follows the user’s authorization.
 
 **Completion gate:** AnalysisResult catalog, save_analysis, source snapshot resolution, stale/rerun/export routes. The listed tests pass and the owning feature traceability entries include implementation/test evidence.
 

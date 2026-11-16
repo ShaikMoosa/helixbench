@@ -44,6 +44,7 @@ pub struct SelectionContext {
 
 #[derive(Clone)]
 pub struct ViewState {
+    pub result: Option<domain::ResultId>,
     pub zoom_start: usize,
     pub zoom_width: usize,
     pub scroll_to: Option<usize>,
@@ -81,6 +82,7 @@ impl ReturnLocation {
             },
             query: app.search.clone(),
             view_state: ViewState {
+                result: app.first_use.selected_result,
                 zoom_start: app.zoom_start,
                 zoom_width: app.zoom_width,
                 scroll_to: app.scroll_to,
@@ -289,6 +291,7 @@ fn apply_location(app: &mut AppState, location: ReturnLocation) {
         app.search.current = previous_hit.min(app.search.hit_count().saturating_sub(1));
     }
     let state = location.view_state;
+    app.first_use.selected_result = state.result;
     let len = app.doc.sequence.len().max(1);
     app.zoom_start = state.zoom_start.min(len - 1);
     app.zoom_width = state.zoom_width.clamp(1, len);

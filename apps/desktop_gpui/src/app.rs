@@ -296,6 +296,7 @@ impl HelixBench {
             }
             Some(Dialog::Pcr(d)) => format!("pcr:{:?}:{}", d.source, d.input_epoch),
             Some(Dialog::PrimerDesign(d)) => format!("pdesign:{:?}", d.source),
+            Some(Dialog::ResultRerun(d)) => format!("result-rerun:{}:{}", d.original.id, d.current),
             Some(Dialog::Digest(d)) => format!("digest:{:?}", d.source),
             Some(Dialog::EnzymeSites(d)) => format!("cuts:{}:{}", d.source.revision, d.enzyme),
             Some(Dialog::Checkpoint(d)) => format!("checkpoint:{}", d.source.revision),

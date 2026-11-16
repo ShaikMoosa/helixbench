@@ -508,3 +508,61 @@ Native presentation entry points:
 - Two documents share a name; the intended stable ID must open.
 - One dirty document in a multi-close operation fails to save or the user cancels.
 
+
+
+## P09 implemented flow and evidence — 17 November 2026
+
+Completed digest and PCR runs expose Review / save completed result. Review retains the
+owning setup and captured output; Back restores that draft. Save persists a validated,
+immutable AnalysisResult with its ResultId, OperationId, creation time, method version,
+full input snapshots, settings and actual output. Repeated Save is idempotent. Saving a
+result does not save, rename or mark its source document clean. Catalog or receipt failure
+keeps the completed run available for retry and refreshes visible operation Recovery.
+
+Home offers Browse and search all results, independent of its recent-work shortlist.
+Search resolves stable IDs, tool, method and input names. Opening a result reads the catalog
+again; a corrupt/newer catalog is reported and preserved. Empty catalog, no search matches,
+missing result and unreadable catalog are distinct states. Saved output remains readable
+when its source changes or is closed/unavailable. Current, Older input and unavailable
+labels compare the captured source identity and complete input hash. Unavailable does not
+claim permanent deletion and never silently resurrects a closed document.
+
+Inspect captured input shows source IDs, revision, length, topology, feature/primer counts,
+hash and a bounded read-only DNA preview; exports contain the complete snapshots. Open
+current source requires that same DocumentId already open and uses normal Map navigation;
+Back restores the exact saved ResultId. Reopen a closed source before choosing current input.
+
+Review rerun explicitly selects captured input or the current matching open source. Cancel
+leaves the original result unchanged. Run revalidates supported method and input, creates
+new result/operation IDs, and leaves a new unsaved output for explicit Save. Digest replays
+captured enzyme definitions; PCR replays captured primer sequences and binding settings.
+Only restriction-v1 and pcr-v1 currently have typed rerun adapters; later milestones own
+their respective tool adapters. Unknown methods remain readable and exportable.
+
+Compare selects another stable result ID and displays both methods, revisions and outputs,
+with parameter/output equality indicators. JSON and CSV export preserve input snapshots,
+methods, settings and output; comparison exports include both results. Native destination
+selection is explicit and cancel writes nothing. Export cannot replace the result catalog,
+config or open source paths. CSV scalar cells that could become spreadsheet formulas are
+neutralized. All writes use the shared operation journal; success requires a completion
+receipt. Catalog read/modify/write checks the hash of the exact bytes parsed and rejects
+intervening catalog changes instead of overwriting another result. This is optimistic
+conflict detection, not a new cross-process transaction service.
+
+Verification: all 410 workspace tests pass, including 17 P09 appcore regressions and a native
+UTC timestamp boundary test. Strict core Clippy and the native executable build pass.
+Initial missing APIs and CSV formula behavior were observed failing before implementation.
+Review regressions prove intervening-catalog rejection and failed export Recovery without
+restart; the latter failed on the cached Recovery assertion before the fix.
+
+Native 1280px sample walkthrough verified completed EcoRI digest, Save, captured-input
+rerun with a different ResultId, compare, JSON export, source Map / Back, captured input,
+search by ResultId and Older input after Undo. The exported JSON was read back and contains
+both real result IDs, restriction-v1, complete snapshots and computed fragments. History
+shows actual Undo/Redo target names and explicit UTC checkpoint creation timestamps.
+
+Deferred minor review items: comparison currently reports parameter equality rather than
+a field-by-field settings diff; the export UI does not yet explain CSV apostrophe
+neutralization. Large catalog/history profiling, background scheduling and comprehensive
+accessibility acceptance remain P19. Methylation prediction remains unsupported because
+no scientific metadata/model has been specified. Named checkpoint retention can grow storage.

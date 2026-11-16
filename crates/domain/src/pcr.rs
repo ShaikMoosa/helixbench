@@ -3,7 +3,7 @@
 use crate::primer::{binding_sites, BindingSite, HybridizationParams, Primer};
 use crate::sequence::{DnaSequence, Strand};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PcrProduct {
     /// Top-strand start of the amplicon (inclusive).
     pub start: usize,

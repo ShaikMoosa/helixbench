@@ -8736,7 +8736,7 @@
       "intendedOutcome": "Open PCR form with both primers preselected",
       "baselineNote": "PCR separate Tools item",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "P08C explicit pair-to-PCR handoff and captured prediction; independent product provenance verified",
+      "implementationStatus": "P08C PCR predictions preserved; P09 captured input/settings/output save, rerun, compare and export integrated",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10079,7 +10079,7 @@
       "intendedOutcome": "Review fragments and simulated gel",
       "baselineNote": "Tools menu / design action",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "P08D explicit whole-template captured digest, no-sites completion, cleavage accounting and labeled gel verified",
+      "implementationStatus": "P08D digest/gel preserved; P09 captured digest save, rerun, compare and export integrated",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10290,7 +10290,7 @@
       "intendedOutcome": "Name the operation being undone",
       "baselineNote": "Existing icon action / shortcut",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "P08D edit Undo preserves named checkpoints and correct saved/dirty truth; target-name button copy deferred",
+      "implementationStatus": "P08D Undo preserves checkpoints/dirty truth; P09 actual next operation label verified",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10360,7 +10360,7 @@
       "intendedOutcome": "Name the redo target",
       "baselineNote": "Existing icon action / shortcut",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "P08D edit Redo preserves named checkpoints and saved baseline; target-name button copy deferred",
+      "implementationStatus": "P08D Redo preserves checkpoints/dirty truth; P09 actual next operation label verified",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10571,7 +10571,7 @@
       "intendedOutcome": "Name / timestamp a recoverable snapshot",
       "baselineNote": "Existing action",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "P08D named local checkpoints retain scientific source identity and survive Undo; disk save state is explicit",
+      "implementationStatus": "P08D named checkpoints preserved; P09 explicit UTC creation timestamp verified",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -21527,7 +21527,7 @@
       "module": "Enzymes",
       "name": "Saved result/refind/stale/rerun/compare/export",
       "phase": "P09",
-      "status": "Target UX addition; implementation required",
+      "status": "P09 immutable saved result lifecycle implemented for digest/PCR; 17 regressions and native 1280 flow verified; later tool adapters remain in owning milestones",
       "rules": [
         "Every command carries stable source/target IDs and relevant revision IDs. Never bind a mutation to a display name, row index or currently active record at completion time.",
         "UI coordinates are 1-based inclusive. Domain Range is zero-based start plus length, with documented circular wrap. Conversions occur at a typed boundary and are tested once.",

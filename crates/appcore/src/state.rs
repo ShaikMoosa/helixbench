@@ -277,6 +277,7 @@ pub enum Dialog {
     ColorSelection(ColorDraft),
     Pcr(PcrDraft),
     PrimerDesign(PrimerDesignDraft),
+    ResultRerun(Box<crate::results::RerunPlan>),
     Digest(crate::enzyme_workflow::DigestDraft),
     EnzymeSites(crate::enzyme_workflow::CutSiteDraft),
     Checkpoint(crate::history_workflow::CheckpointDraft),
@@ -652,6 +653,7 @@ pub enum MapMode {
 }
 
 pub struct AppState {
+    pub results: crate::results::ResultsState,
     pub shell: crate::shell::ShellState,
     pub first_use: crate::first_use::FirstUseState,
     storage_root: PathBuf,
@@ -768,6 +770,7 @@ impl AppState {
         let zoom_width = doc.sequence.len().max(1);
         let mut s = Self {
             shell: Default::default(),
+            results: Default::default(),
             first_use: crate::first_use::FirstUseState::for_profile(&profile_root),
             storage_root: profile_root.clone(),
             workspace_search: Default::default(),

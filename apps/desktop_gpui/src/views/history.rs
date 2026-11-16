@@ -13,7 +13,19 @@ impl HelixBench {
     pub fn render_history(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let source = self.app.doc.source_ref();
         let mut toolbar = div().flex().flex_wrap().items_center().gap(px(8.0));
-        let undo = widgets::button("hist-undo", "Undo edit", Btn::Outline)
+        let undo_label = self
+            .app
+            .history
+            .last()
+            .map(|e| format!("Undo: {}", e.label))
+            .unwrap_or_else(|| "Undo — no earlier edit".into());
+        let redo_label = self
+            .app
+            .future
+            .last()
+            .map(|e| format!("Redo: {}", e.label))
+            .unwrap_or_else(|| "Redo — no later edit".into());
+        let undo = widgets::button("hist-undo", &undo_label, Btn::Outline)
             .opacity(if self.app.history.is_empty() {
                 0.4
             } else {
@@ -25,7 +37,7 @@ impl HelixBench {
                 }
                 cx.notify();
             }));
-        let redo = widgets::button("hist-redo", "Redo edit", Btn::Outline)
+        let redo = widgets::button("hist-redo", &redo_label, Btn::Outline)
             .opacity(if self.app.future.is_empty() { 0.4 } else { 1.0 })
             .on_click(cx.listener(move |t, _, _, cx| {
                 if flow_source(&mut t.app, source) {
@@ -84,6 +96,11 @@ impl HelixBench {
                         .flex_col()
                         .gap(px(4.0))
                         .child(widgets::label(&label, theme::T_BASE, theme::TEXT))
+                        .child(widgets::label(
+                            &format!("Created {}", crate::util::timestamp_utc(v.created)),
+                            theme::T_SM,
+                            theme::MUTED,
+                        ))
                         .child(widgets::label(
                             &format!(
                                 "Revision {} · {}",

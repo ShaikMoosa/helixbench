@@ -166,12 +166,27 @@ impl Journal {
         output: Output,
         require_new: bool,
     ) -> Result<WritePlan> {
+        self.prepare_checked(doc, path, output, require_new, None)
+    }
+    fn prepare_checked(
+        &self,
+        doc: &Document,
+        path: &Path,
+        output: Output,
+        require_new: bool,
+        captured_before: Option<Option<&str>>,
+    ) -> Result<WritePlan> {
         let _lock = OPERATIONS
             .lock()
             .map_err(|_| StorageError::Format("Operation controller is unavailable".into()))?;
         crate::migrations::validate_v2(doc)?;
         let destination = std::path::absolute(path)?;
         let before = crate::file_hash(&destination)?;
+        if captured_before.is_some_and(|captured| captured != before.as_deref()) {
+            return Err(StorageError::Format(
+                "Destination changed since it was read; refresh and retry".into(),
+            ));
+        }
         if require_new && before.is_some() {
             return Err(StorageError::Format(
                 "Choose a new file for the recovery copy".into(),
@@ -201,6 +216,16 @@ impl Journal {
     }
     pub fn prepare_text(&self, doc: &Document, path: &Path, text: String) -> Result<WritePlan> {
         self.prepare(doc, path, Output::Text(text), false)
+    }
+    /// Bind a read/modify/write to the exact version used to produce its output.
+    pub fn prepare_text_checked(
+        &self,
+        doc: &Document,
+        path: &Path,
+        text: String,
+        before: Option<&str>,
+    ) -> Result<WritePlan> {
+        self.prepare_checked(doc, path, Output::Text(text), false, Some(before))
     }
     fn disposition(plan: &WritePlan) -> Result<RecoveryDisposition> {
         let current = crate::file_hash(&plan.destination)?;

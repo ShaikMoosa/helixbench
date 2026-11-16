@@ -13,6 +13,7 @@ pub mod import;
 pub mod navigation;
 pub mod operations;
 pub mod primer_workflow;
+pub mod results;
 pub mod selection;
 pub mod shell;
 pub mod state;

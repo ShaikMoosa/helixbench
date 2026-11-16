@@ -29,9 +29,16 @@ fn validate(catalog: &ResultCatalog) -> Result<()> {
 }
 
 pub fn load_from(path: &Path) -> Result<ResultCatalog> {
+    Ok(load_captured(path)?.0)
+}
+
+/// Returns the hash of the exact bytes parsed, for a checked read/modify/write.
+pub fn load_captured(path: &Path) -> Result<(ResultCatalog, Option<String>)> {
     let bytes = match fs::read(path) {
         Ok(bytes) => bytes,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(ResultCatalog::default()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Ok((ResultCatalog::default(), None))
+        }
         Err(e) => return Err(e.into()),
     };
     let header: serde_json::Value = serde_json::from_slice(&bytes)?;
@@ -42,7 +49,7 @@ pub fn load_from(path: &Path) -> Result<ResultCatalog> {
     }
     let file: File = serde_json::from_slice(&bytes)?;
     validate(&file.catalog)?;
-    Ok(file.catalog)
+    Ok((file.catalog, Some(crate::content_hash(&bytes))))
 }
 
 pub fn save_to(catalog: &ResultCatalog, path: &Path) -> Result<()> {
@@ -72,4 +79,13 @@ pub fn save_to(catalog: &ResultCatalog, path: &Path) -> Result<()> {
 /// Shared durable catalog location; P09 owns creation and lifecycle UI.
 pub fn path() -> std::path::PathBuf {
     crate::config::config_dir().join("results.json")
+}
+
+/// Validated catalog encoding for the shared atomic operation journal.
+pub fn catalog_text(catalog: &ResultCatalog) -> Result<String> {
+    validate(catalog)?;
+    Ok(serde_json::to_string_pretty(&File {
+        version: 1,
+        catalog: catalog.clone(),
+    })?)
 }
