@@ -215,6 +215,9 @@ impl HelixBench {
 
     fn dialog_signature(&self) -> String {
         let signature: String = match &self.app.dialog {
+            Some(Dialog::ImportReview(draft)) => {
+                format!("import:{}:{}", draft.operation(), draft.active)
+            }
             None => "none".into(),
             Some(Dialog::FeatureEditor(d)) => format!("feat:{:?}", d.id),
             Some(Dialog::PrimerEditor(d)) => format!("primer:{:?}", d.id),
@@ -1056,6 +1059,11 @@ impl HelixBench {
             self.dlg_combo = None;
         } else {
             match &self.app.dialog {
+                Some(Dialog::ImportReview(_)) => {
+                    if let Err(error) = appcore::import::cancel_import(&mut self.app) {
+                        self.app.toast(error);
+                    }
+                }
                 Some(Dialog::Unsaved { .. }) => {
                     if let Err(error) = appcore::navigation::resolve_guard(
                         &mut self.app,
@@ -1097,14 +1105,8 @@ impl HelixBench {
     }
     fn on_paste(&mut self, _: &Paste, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(text) = cx.read_from_clipboard().and_then(|i| i.text()) {
-            let dna: String = text
-                .chars()
-                .filter(|c| {
-                    c.is_ascii() && domain::iupac::dna_mask(c.to_ascii_uppercase() as u8) != 0
-                })
-                .collect();
-            if !dna.is_empty() {
-                act::insert_bases(&mut self.app, &dna, true);
+            if let Err(error) = appcore::import::review_paste(&mut self.app, &text) {
+                self.app.toast(error);
             }
         }
         cx.notify();

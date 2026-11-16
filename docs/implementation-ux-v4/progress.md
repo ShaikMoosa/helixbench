@@ -42,7 +42,7 @@ P01 does not introduce the new application shell or claim the result lifecycle U
 
 ## Next
 
-P03: safe import interpretation, molecule/loss review and multi-record commit.
+P04: durable operation state, persistence errors and non-blocking feedback.
 
 ## P02 — implemented and verified by automated checks
 
@@ -74,3 +74,34 @@ Scope: the context types support later command/record/well/pane bindings; module
 - Checkpoint commits are pushed to this branch; `main` is preserved until integration is requested.
 - Prototype validations in the specification describe design wiring, not application test results. The source manifest describes the original baseline and will differ after implementation.
 - UUID v4/v5 and SHA-256 versions already existed in the workspace lockfile. Direct dependency features were added and validated with the installed toolchain; v5 is used only for deterministic legacy-source IDs, not security decisions.
+
+## P03 — implemented and verified by automated checks
+
+16 November 2026. Branch: `codex/ux-v4-p03`; base: merged P02 (`9c6802d`).
+
+- Added a non-mutating review for interchange-file Open, New Sequence and sequence clipboard paste. Native files continue through the identity-aware open flow. Original bytes remain available throughout review.
+- Review shows all FASTA/GenBank records, preserving their one-based source indices, including invalid/empty records. Checked valid records can be imported together; excluding any record requires acknowledgment. Invalid records cannot be silently skipped.
+- DNA/RNA/protein interpretation is explicit. Protein input is retained and recoverably blocked from the DNA workspace, with Biologics guidance. RNA remains blocked unless the user deliberately chooses DNA interpretation and acknowledges conversion. RNA subtype declarations (`mRNA`, `tRNA`, `rRNA`, `ss-RNA`) use the same safeguards.
+- U→T conversion, gap removal, topology overrides and unrepresented GenBank metadata require review acknowledgment. Unknown residues cannot disappear through generic sequence cleaning. GenBank gap removal is blocked because annotations would require remapping.
+- Annotation coordinates are validated before commit for circular and linear records; malformed source positions are rejected rather than clamped or wrapped onto unrelated residues. Supported joined/complement annotations are preserved.
+- Confirmed batches open as separately identified unsaved DNA documents while retaining the previous editing session. Duplicate display names create independent copies. A reviewed operation cannot be confirmed twice to create duplicate output; a changed review invalidates its prior plan.
+- Paste captures the exact destination document/revision, range and replacement mode. A stale target is rejected; a confirmed paste is one undoable mutation. Annotated source input must open as a new document to avoid losing annotations.
+- Saved provenance retains original per-record text, source filename, full-source SHA-256, source index and transformation report. Paste provenance also persists the captured target revision/range/mode/position. Whole multi-record source files are not duplicated into every imported document.
+- The review list uses GPUI virtualization. Error messages are bounded while the complete original text remains available. Cancel/Escape restores the invoking form and context without modifying scientific data.
+
+### Native format compatibility
+
+Current native format is **v3**. Provenance fields require a version boundary so a prior v2 writer refuses the new file instead of silently deleting those fields on save. Existing v1/v2 documents remain readable; opening does not change their bytes. Explicit save upgrades them to v3 and preserves the exact original as `.hbx.v1.bak` or `.hbx.v2.bak`. Conflicting backups and unsupported newer destinations block overwrite. P01's v2 entries above describe that historical milestone; v3 is the current implementation.
+
+### Verification
+
+- `cargo test -p domain -p storage -p appcore --locked --offline`: **257 passed, 0 failed** (222 prior + 35 P03 tests).
+- `cargo clippy -p domain -p storage -p appcore --all-targets --locked --offline -- -D warnings`: **passed**.
+- `cargo check -p desktop_gpui --locked --offline` and final `cargo build -p desktop_gpui --locked --offline`: **passed**. The prior upstream future-compatibility notice remains.
+- `cargo fmt --all -- --check`, `git diff --check` and a scan of all 95 Rust files for NUL content: **passed**.
+- Independent review identified RNA subtype classification, persisted paste lineage, metadata reporting and circular-coordinate validation concerns. Fixes and regression tests cover these cases, including removal of false metadata warnings for the GenBank `//` terminator.
+- Interactive UI inspection: an isolated-profile launch again did not expose a targetable native window. No successful live-window or visual-layout verification is claimed.
+
+### Scope and follow-up
+
+Protein/RNA specialist import is not fabricated: incompatible DNA imports are blocked with guidance; P17 supplies the later specialist workflows. Batch commit is in-memory and explicitly unsaved; durable operation recovery is P04/P16. The 64 MiB advisory appears in review; streaming, background parsing, performance budgets and large-data benchmarks remain P04/P19 release work. This milestone does not claim those later capabilities are implemented.

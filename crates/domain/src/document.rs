@@ -36,7 +36,32 @@ pub struct Version {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PasteTarget {
+    pub source: crate::SourceRef,
+    pub selection: Option<Range>,
+    pub replace_selection: bool,
+    pub insertion_position: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImportProvenance {
+    pub source_name: String,
+    pub source_sha256: String,
+    pub format: String,
+    pub record_index: usize,
+    pub original_record: String,
+    pub transformations: Vec<String>,
+    pub interpretation: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<PasteTarget>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Document {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub import_source: Option<ImportProvenance>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub import_history: Vec<ImportProvenance>,
     /// Missing IDs are nil only while reading a legacy document; storage migrates them.
     #[serde(default)]
     pub id: crate::identity::DocumentId,
@@ -63,6 +88,8 @@ pub struct Document {
 impl Document {
     pub fn new(name: String, bases: Vec<u8>, topology: Topology) -> Self {
         Self {
+            import_source: None,
+            import_history: Vec::new(),
             id: crate::identity::DocumentId::new(),
             revision_id: crate::identity::RevisionId::new(),
             name,

@@ -131,6 +131,7 @@ fn legacy_action(intent: &NavigationIntent) -> PendingAction {
 pub enum NavigationOutcome {
     Completed,
     AwaitingDecision,
+    ReviewingImport,
     Canceled,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -355,10 +356,22 @@ pub fn request_navigation(
         return Err("The document to close is no longer open".into());
     }
     let prepared = match &intent {
-        NavigationIntent::OpenFile(path) => Some(
-            storage::load_any(path)
-                .map_err(|e| format!("Could not open {}: {e}", path.display()))?,
-        ),
+        NavigationIntent::OpenFile(path) => {
+            let bytes = std::fs::read(path)
+                .map_err(|e| format!("Could not open {}: {e}", path.display()))?;
+            if !storage::imports::is_native_input(path, &bytes) {
+                crate::import::begin_review(
+                    app,
+                    crate::import::ImportSource::captured_file(path, bytes),
+                    crate::import::ImportDestination::NewDocuments,
+                )?;
+                return Ok(NavigationOutcome::ReviewingImport);
+            }
+            Some(
+                storage::load_captured(path, &bytes)
+                    .map_err(|e| format!("Could not open {}: {e}", path.display()))?,
+            )
+        }
         _ => None,
     };
     if let Some(doc) = &prepared {

@@ -287,10 +287,13 @@ pub fn cut_selection(app: &mut AppState) -> Option<String> {
 }
 
 pub fn insert_bases(app: &mut AppState, text: &str, replace_selection: bool) {
-    let bases = clean_sequence(text);
-    if bases.is_empty() {
-        return;
-    }
+    let bases = match storage::imports::strict_dna(text) {
+        Ok(bases) => bases,
+        Err(error) => {
+            app.toast(format!("Input needs review: {error}"));
+            return;
+        }
+    };
     let l = app.doc.sequence.len();
     let n = bases.len();
     if let Some(sel) = app.selection.filter(|_| replace_selection && l > 0) {
@@ -478,9 +481,11 @@ pub fn open_file_dialog(app: &mut AppState) {
 }
 
 pub fn open_path(app: &mut AppState, path: &std::path::Path) {
-    match storage::load_any(path) {
-        Ok(doc) => install_opened_document(app, doc, path),
-        Err(e) => app.toast(format!("Could not open {}: {e}", path.display())),
+    if let Err(error) = crate::navigation::request_navigation(
+        app,
+        crate::navigation::NavigationIntent::OpenFile(path.to_owned()),
+    ) {
+        app.toast(error);
     }
 }
 
@@ -611,7 +616,7 @@ pub fn persist_config(app: &mut AppState) {
 }
 
 pub fn create_from_dialog(app: &mut AppState, state: &NewSeqState) -> Result<(), String> {
-    let bases = clean_sequence(&state.text);
+    let bases = storage::imports::strict_dna(&state.text).map_err(|e| e.to_string())?;
     if bases.is_empty() {
         return Err("Paste or type a DNA sequence".into());
     }

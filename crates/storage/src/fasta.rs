@@ -14,31 +14,34 @@ pub fn parse_all(bytes: &[u8], fallback_name: &str) -> Result<Vec<Document>> {
     let mut seq = String::new();
     let mut circular = false;
     let mut saw_header = false;
+    let has_header = text.lines().any(|line| line.trim_start().starts_with('>'));
 
     let flush = |name: &Option<String>,
                  description: &str,
                  seq: &str,
                  circular: bool,
-                 docs: &mut Vec<Document>| {
+                 docs: &mut Vec<Document>|
+     -> Result<()> {
         if let Some(n) = name {
             let topo = if circular {
                 Topology::Circular
             } else {
                 Topology::Linear
             };
-            let mut d = Document::from_sequence_text(n.clone(), seq, topo);
+            let mut d = Document::new(n.clone(), crate::imports::strict_dna(seq)?, topo);
             d.description = description.to_string();
             if !d.sequence.is_empty() {
                 docs.push(d);
             }
         }
+        Ok(())
     };
 
     for line in text.lines() {
         let line = line.trim();
         if let Some(header) = line.strip_prefix('>') {
             saw_header = true;
-            flush(&name, &description, &seq, circular, &mut docs);
+            flush(&name, &description, &seq, circular, &mut docs)?;
             let header = header.trim();
             let (n, d) = match header.split_once(char::is_whitespace) {
                 Some((n, d)) => (n.to_string(), d.trim().to_string()),
@@ -63,10 +66,15 @@ pub fn parse_all(bytes: &[u8], fallback_name: &str) -> Result<Vec<Document>> {
             description = desc;
             seq.clear();
         } else if !line.is_empty() && !line.starts_with(';') {
+            if has_header && !saw_header {
+                return Err(StorageError::Format(
+                    "Sequence data before the first FASTA header requires correction".into(),
+                ));
+            }
             seq.push_str(line);
         }
     }
-    flush(&name, &description, &seq, circular, &mut docs);
+    flush(&name, &description, &seq, circular, &mut docs)?;
 
     if docs.is_empty() {
         if saw_header {
@@ -75,7 +83,11 @@ pub fn parse_all(bytes: &[u8], fallback_name: &str) -> Result<Vec<Document>> {
             ));
         }
         // No headers: treat the whole file as a raw sequence.
-        let d = Document::from_sequence_text(fallback_name.to_string(), text, Topology::Linear);
+        let d = Document::new(
+            fallback_name.to_string(),
+            crate::imports::strict_dna(text)?,
+            Topology::Linear,
+        );
         if d.sequence.is_empty() {
             return Err(StorageError::Format(
                 "no sequence found in FASTA file".into(),
@@ -89,6 +101,11 @@ pub fn parse_all(bytes: &[u8], fallback_name: &str) -> Result<Vec<Document>> {
 /// Parse a FASTA file, returning the first record.
 pub fn parse_first(bytes: &[u8], fallback_name: &str) -> Result<Document> {
     let mut docs = parse_all(bytes, fallback_name)?;
+    if docs.len() != 1 {
+        return Err(StorageError::Format(
+            "Multiple FASTA records require import review; none were discarded".into(),
+        ));
+    }
     Ok(docs.remove(0))
 }
 

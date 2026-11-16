@@ -101,6 +101,11 @@ fn opening_non_native_file_requires_native_save_as_and_retains_original() {
     let original = b">example\nATGC\n";
     std::fs::write(&path, original).unwrap();
     appcore::actions::open_path(&mut app, &path);
+    assert!(
+        matches!(app.dialog, Some(appcore::state::Dialog::ImportReview(_))),
+        "interchange input must be reviewed before commit"
+    );
+    appcore::import::confirm_import(&mut app).unwrap();
     assert_eq!(app.doc.sequence.bases, b"ATGC");
     assert!(
         app.path.is_none(),

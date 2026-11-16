@@ -4,6 +4,8 @@
 
 This is a code-ready specification and implementation order, not a statement that the target features are implemented. Begin with the shared contracts and foundation tasks; preserve the existing algorithms while replacing ambiguous context/state handling.
 
+Current implementation evidence and format compatibility are tracked in [implementation progress](progress.md). The chapters below retain the original specification baseline.
+
 ## Open the document
 
 - [Illustrated, searchable specification](index.html)

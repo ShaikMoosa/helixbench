@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use domain::feature::{kind_color, Direction, Feature};
 use domain::primer::{binding_sites, HybridizationParams, Primer};
-use domain::sequence::{clean_sequence, reverse_complement};
+use domain::sequence::reverse_complement;
 use domain::{Document, Range, Topology};
 
 use crate::{Result, StorageError};
@@ -13,24 +13,33 @@ pub fn parse(bytes: &[u8], fallback_name: &str) -> Result<Document> {
     let text = std::str::from_utf8(bytes)
         .map_err(|_| StorageError::Format("GenBank file is not valid UTF-8".into()))?;
     let lines: Vec<&str> = text.lines().collect();
+    if lines
+        .iter()
+        .filter(|line| line.starts_with("LOCUS"))
+        .count()
+        != 1
+    {
+        return Err(StorageError::Format(
+            "Multiple GenBank records require import review".into(),
+        ));
+    }
 
     let locus = lines
         .iter()
         .find(|l| l.starts_with("LOCUS"))
         .ok_or_else(|| StorageError::Format("missing LOCUS line".into()))?;
     let tokens: Vec<&str> = locus.split_whitespace().collect();
+    let molecule = crate::imports::declared_genbank_molecule(&tokens);
+    if molecule == Some(crate::imports::Molecule::Rna) {
+        return Err(StorageError::Format(
+            "RNA requires explicit molecule/conversion review; it was not converted to DNA".into(),
+        ));
+    }
     let name = tokens.get(1).copied().unwrap_or(fallback_name).to_string();
     let circular = tokens.iter().any(|t| t.eq_ignore_ascii_case("circular"));
-    let molecule_dna = tokens
-        .iter()
-        .any(|t| t.eq_ignore_ascii_case("DNA") || t.eq_ignore_ascii_case("RNA"));
-    if !molecule_dna
-        && tokens
-            .iter()
-            .any(|t| t.eq_ignore_ascii_case("PROTEIN") || t.eq_ignore_ascii_case("AA"))
-    {
+    if molecule == Some(crate::imports::Molecule::Protein) {
         return Err(StorageError::Format(
-            "protein GenBank files are not supported; use a DNA record".into(),
+            "Protein GenBank requires molecule-aware import review".into(),
         ));
     }
 
@@ -136,7 +145,8 @@ pub fn parse(bytes: &[u8], fallback_name: &str) -> Result<Document> {
         raw_features.push(f);
     }
 
-    let bases = clean_sequence(&seq_text);
+    let sequence_letters: String = seq_text.chars().filter(|c| !c.is_ascii_digit()).collect();
+    let bases = crate::imports::strict_dna(&sequence_letters)?;
     if bases.is_empty() {
         return Err(StorageError::Format(
             "GenBank record has no ORIGIN sequence".into(),
@@ -307,10 +317,10 @@ fn parse_loc_inner(loc: &str, seq_len: usize) -> Result<(Vec<Range>, bool)> {
     if start == 0 || end < start {
         return Err(StorageError::Format(format!("invalid location: {loc}")));
     }
-    let mut len = end - start + 1;
-    if seq_len > 0 && len > seq_len {
-        len = seq_len;
+    if seq_len == 0 || start > seq_len || end > seq_len {
+        return Err(StorageError::Format(format!("Location {loc} is outside the {seq_len}-base sequence; use valid joined segments for a circular origin crossing")));
     }
+    let len = end - start + 1;
     Ok((vec![Range::new(start - 1, len)], false))
 }
 

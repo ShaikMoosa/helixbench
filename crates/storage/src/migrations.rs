@@ -41,15 +41,23 @@ pub fn validate_v2(doc: &Document) -> Result<()> {
 }
 
 pub fn backup_path(path: &Path) -> PathBuf {
+    backup_path_for_version(path, 1)
+}
+
+pub fn backup_path_for_version(path: &Path, version: u32) -> PathBuf {
     let mut name = path.file_name().unwrap_or_default().to_os_string();
-    name.push(".v1.bak");
+    name.push(format!(".v{version}.bak"));
     path.with_file_name(name)
 }
 
 /// Never overwrite an unrelated backup or report a failed backup as a completed migration.
 pub fn preserve_v1(path: &Path, bytes: &[u8]) -> Result<()> {
+    preserve_original(path, bytes, 1)
+}
+
+pub fn preserve_original(path: &Path, bytes: &[u8], version: u32) -> Result<()> {
     use std::{fs, io::Write};
-    let backup = backup_path(path);
+    let backup = backup_path_for_version(path, version);
     let mut file = match fs::OpenOptions::new()
         .write(true)
         .create_new(true)

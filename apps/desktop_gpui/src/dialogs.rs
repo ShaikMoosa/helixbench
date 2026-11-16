@@ -138,7 +138,9 @@ pub fn show(
     }
     let max_h = (window.viewport_size().height - px(64.0)).max(px(360.0));
 
-    let card = if matches!(app.app.dialog, Some(Dialog::NewSequence(_))) {
+    let card = if matches!(app.app.dialog, Some(Dialog::ImportReview(_))) {
+        import_review(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::NewSequence(_))) {
         new_sequence(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::FeatureEditor(_))) {
         feature_editor(app, cx, max_h)
@@ -241,7 +243,11 @@ pub fn show(
 }
 
 fn close_dialog(app: &mut HelixBench, cx: &mut Context<HelixBench>) {
-    if app.app.navigation.pending.is_some() {
+    if matches!(app.app.dialog, Some(Dialog::ImportReview(_))) {
+        if let Err(error) = appcore::import::cancel_import(&mut app.app) {
+            app.app.toast(error);
+        }
+    } else if app.app.navigation.pending.is_some() {
         if let Err(error) = appcore::navigation::resolve_guard(
             &mut app.app,
             appcore::navigation::GuardDecision::Stay,
@@ -606,12 +612,13 @@ fn new_sequence(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixel
         cx,
         "dlg:new:text",
         &seed_text,
-        "ATGCCC…  paste letters only",
+        "Paste raw sequence, FASTA, or GenBank for review",
         true,
     );
     let name = name_inp.read(cx).text();
     let text = text_inp.read(cx).text();
-    let cleaned = clean_sequence(&text);
+    let input_length = text.chars().filter(|c| !c.is_whitespace()).count();
+    let validated = storage::imports::strict_dna(&text).ok();
     if let Some(Dialog::NewSequence(s)) = &mut app.app.dialog {
         s.name = name;
         s.text = text;
@@ -644,17 +651,19 @@ fn new_sequence(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixel
     }
     body = body.child(field_row("Topology", topo_row.into_any_element()));
 
-    body = body.child(section_heading("Sequence (paste or type — letters only)"));
+    body = body.child(section_heading(
+        "Original input · interpreted in the next step",
+    ));
     body = body.child(div().w_full().mb(px(6.0)).child(text_inp));
     let mut stats = div().flex().gap(px(14.0)).child(
         div()
             .font_family(theme::MONO_FONT)
             .text_size(px(theme::T_SM))
             .text_color(theme::MUTED)
-            .child(format!("{} bp", cleaned.len())),
+            .child(format!("{input_length} input characters")),
     );
-    if !cleaned.is_empty() {
-        let gc = crate::app::gc_percent(&cleaned);
+    if let Some(bases) = validated {
+        let gc = crate::app::gc_percent(&bases);
         stats = stats.child(
             div()
                 .font_family(theme::MONO_FONT)
@@ -676,19 +685,12 @@ fn new_sequence(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixel
         widgets::button("new-cancel", "Cancel", Btn::Ghost)
             .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
             .into_any_element(),
-        widgets::button("new-create", "Create", Btn::Primary)
+        widgets::button("new-create", "Review sequence", Btn::Primary)
             .on_click(cx.listener(|t, _, _, cx| {
-                let state = match &t.app.dialog {
-                    Some(Dialog::NewSequence(s)) => appcore::state::NewSeqState {
-                        name: s.name.clone(),
-                        text: s.text.clone(),
-                        topology: s.topology,
-                        error: None,
-                    },
-                    _ => return,
-                };
-                match act::create_from_dialog(&mut t.app, &state) {
-                    Ok(()) => close_dialog(t, cx),
+                match appcore::import::review_new_sequence(&mut t.app) {
+                    Ok(()) => {
+                        cx.notify();
+                    }
                     Err(e) => {
                         if let Some(Dialog::NewSequence(s)) = &mut t.app.dialog {
                             s.error = Some(e);
@@ -706,6 +708,358 @@ fn new_sequence(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixel
         520.0,
         max_h,
         true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn import_review(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    use appcore::import::{ImportDestination, Molecule};
+    let Some(Dialog::ImportReview(draft)) = &app.app.dialog else {
+        return div().into_any_element();
+    };
+    let active = draft
+        .active
+        .min(draft.preview.records.len().saturating_sub(1));
+    let Some(record) = draft.preview.records.get(active) else {
+        return div().child("No records found").into_any_element();
+    };
+    let source_name = draft.preview.source.name.clone();
+    let source_size = draft.preview.source.original_bytes().len();
+    let source_format = draft.preview.format.label();
+    let rows: Vec<_> = draft
+        .preview
+        .records
+        .iter()
+        .enumerate()
+        .map(|(i, row)| {
+            (
+                i,
+                row.index,
+                row.name.clone(),
+                row.interpreted.label(),
+                row.document.is_some() && row.errors.is_empty(),
+                draft.selected[i],
+                row.requires_acknowledgment,
+            )
+        })
+        .collect();
+    let count = rows.len();
+    let selected_count = draft.selected.iter().filter(|selected| **selected).count();
+    let seed_name = draft.names[active].clone();
+    let interpreted = record.interpreted;
+    let detected = record.detected.label();
+    let errors = record.errors.clone();
+    let changes = record.transformations.clone();
+    let original_excerpt: String = record.original_record.chars().take(600).collect();
+    let contains_u = record.original_sequence.to_ascii_uppercase().contains('U');
+    let contains_gaps = record.original_sequence.contains(['-', '.']);
+    let options = draft
+        .options
+        .get(&record.index)
+        .cloned()
+        .unwrap_or_default();
+    let topology = record
+        .document
+        .as_ref()
+        .map(|doc| doc.sequence.topology)
+        .or(options.topology);
+    let row_index = record.index;
+    let ack_changes = draft.acknowledge_changes;
+    let ack_skipped = draft.acknowledge_skipped;
+    let error = draft.error.clone();
+    let destination = match &draft.destination {
+        ImportDestination::NewDocuments => {
+            "Open checked records as separate unsaved DNA documents. Current work stays open."
+                .to_string()
+        }
+        ImportDestination::Insert { selection, .. } => format!(
+            "Insert one checked record into the captured sequence revision{}.",
+            selection
+                .map(|range| format!(" at {}..{}", range.start + 1, range.start + range.len))
+                .unwrap_or_else(|| " at the end".into())
+        ),
+    };
+    let existing_name = app.app.doc.name == seed_name
+        || app.app.library.iter().any(|doc| doc.doc.name == seed_name)
+        || draft
+            .names
+            .iter()
+            .filter(|name| **name == seed_name)
+            .count()
+            > 1;
+    let name_input = app.input_entity(cx, "dlg:import:name", &seed_name, "Record name", false);
+    let name = name_input.read(cx).text();
+    if let Some(Dialog::ImportReview(draft)) = &mut app.app.dialog {
+        if draft.names[active] != name {
+            draft.names[active] = name;
+            draft.invalidate();
+        }
+    }
+    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
+    body = body.child(widgets::label(
+        &format!("{source_name} · {source_format} · {count} record(s) · {source_size} bytes"),
+        theme::T_MD,
+        theme::TEXT,
+    ));
+    body = body.child(widgets::label(&destination, theme::T_BASE, theme::MUTED));
+    if source_size > 64 * 1024 * 1024 {
+        body = body.child(widgets::label("Large input: review memory and processing cost before importing; Cancel retains your original file.", theme::T_BASE, theme::WARN));
+    }
+    let owner = cx.entity();
+    let list = uniform_list("import-records", count, move |range, window, _cx| {
+        range
+            .map(|i| {
+                let (_, index, name, kind, valid, selected, requires_ack) = &rows[i];
+                let checkbox_owner = owner.clone();
+                let review_owner = owner.clone();
+                let valid = *valid;
+                let name = crate::views::ellipsize(window, name, 330.0, theme::T_BASE, false);
+                div()
+                    .id(("import-row", i))
+                    .h(px(34.0))
+                    .flex()
+                    .items_center()
+                    .gap(px(8.0))
+                    .bg(if i == active {
+                        theme::SURFACE_2
+                    } else {
+                        theme::PANEL
+                    })
+                    .child(
+                        check_box(SharedString::from(format!("import-check-{i}")), *selected)
+                            .on_click(move |_, _, cx| {
+                                checkbox_owner.update(cx, |this, cx| {
+                                    if let Some(Dialog::ImportReview(draft)) = &mut this.app.dialog
+                                    {
+                                        if valid {
+                                            draft.selected[i] = !draft.selected[i];
+                                            draft.acknowledge_skipped = false;
+                                            draft.invalidate();
+                                        } else {
+                                            draft.active = i;
+                                            draft.error = Some(
+                                                "Resolve this record's errors before including it"
+                                                    .into(),
+                                            );
+                                        }
+                                    }
+                                    cx.notify();
+                                });
+                            }),
+                    )
+                    .child(
+                        widgets::label(
+                            &format!(
+                                "{index}. {name} · {kind} · {}",
+                                if !valid {
+                                    "Needs correction"
+                                } else if *requires_ack {
+                                    "Review changes"
+                                } else {
+                                    "Ready"
+                                }
+                            ),
+                            theme::T_BASE,
+                            theme::TEXT,
+                        )
+                        .flex_grow(),
+                    )
+                    .child(
+                        widgets::button(
+                            SharedString::from(format!("import-review-{i}")),
+                            "Review",
+                            Btn::Subtle,
+                        )
+                        .on_click(move |_, _, cx| {
+                            review_owner.update(cx, |this, cx| {
+                                if let Some(Dialog::ImportReview(draft)) = &mut this.app.dialog {
+                                    draft.active = i;
+                                }
+                                cx.notify();
+                            });
+                        }),
+                    )
+                    .into_any_element()
+            })
+            .collect()
+    })
+    .h(px(170.0))
+    .w_full()
+    .track_scroll(app.detect_scroll.clone());
+    body = body.child(list);
+    body = body.child(section_heading(&format!(
+        "Record {row_index} · detected {detected}"
+    )));
+    body = body.child(field_row(
+        "Name",
+        input_field(name_input, 460.0).into_any_element(),
+    ));
+    if existing_name {
+        body = body.child(widgets::label("This name is already open. Import creates a new independent copy; it does not overwrite that document.", theme::T_BASE, theme::WARN));
+    }
+    let mut types = div().flex().gap(px(6.0));
+    for molecule in [Molecule::Dna, Molecule::Rna, Molecule::Protein] {
+        types = types.child(
+            seg(
+                SharedString::from(format!("import-type-{}", molecule.label())),
+                molecule.label(),
+                interpreted == molecule,
+            )
+            .on_click(cx.listener(move |this, _, _, cx| {
+                if let Some(Dialog::ImportReview(draft)) = &mut this.app.dialog {
+                    draft.options.entry(row_index).or_default().molecule = Some(molecule);
+                    if let Err(error) = draft.refresh() {
+                        draft.error = Some(error);
+                    }
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(field_row("Interpret as", types.into_any_element()));
+    let mut topologies = div().flex().gap(px(6.0));
+    for choice in [Topology::Linear, Topology::Circular] {
+        topologies = topologies.child(
+            seg(
+                SharedString::from(format!("import-topology-{}", choice.label())),
+                choice.label(),
+                topology == Some(choice),
+            )
+            .on_click(cx.listener(move |this, _, _, cx| {
+                if let Some(Dialog::ImportReview(draft)) = &mut this.app.dialog {
+                    draft.options.entry(row_index).or_default().topology = Some(choice);
+                    if let Err(error) = draft.refresh() {
+                        draft.error = Some(error);
+                    }
+                }
+                cx.notify();
+            })),
+        );
+    }
+    body = body.child(field_row("Topology", topologies.into_any_element()));
+    if contains_u {
+        body = body.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .child(
+                    check_box("import-convert-rna", options.convert_rna_to_dna).on_click(
+                        cx.listener(move |this, _, _, cx| {
+                            if let Some(Dialog::ImportReview(draft)) = &mut this.app.dialog {
+                                let options = draft.options.entry(row_index).or_default();
+                                options.convert_rna_to_dna = !options.convert_rna_to_dna;
+                                if let Err(error) = draft.refresh() {
+                                    draft.error = Some(error);
+                                }
+                            }
+                            cx.notify();
+                        }),
+                    ),
+                )
+                .child(widgets::label(
+                    "Allow U→T conversion when interpreting this record as DNA",
+                    theme::T_BASE,
+                    theme::TEXT,
+                )),
+        );
+    }
+    if contains_gaps {
+        body = body.child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .child(
+                    check_box("import-remove-gaps", options.remove_gaps).on_click(cx.listener(
+                        move |this, _, _, cx| {
+                            if let Some(Dialog::ImportReview(draft)) = &mut this.app.dialog {
+                                let options = draft.options.entry(row_index).or_default();
+                                options.remove_gaps = !options.remove_gaps;
+                                if let Err(error) = draft.refresh() {
+                                    draft.error = Some(error);
+                                }
+                            }
+                            cx.notify();
+                        },
+                    )),
+                )
+                .child(widgets::label(
+                    "Remove gap characters (annotated GenBank requires source correction)",
+                    theme::T_BASE,
+                    theme::TEXT,
+                )),
+        );
+    }
+    for change in changes {
+        body = body.child(widgets::label(&change, theme::T_BASE, theme::MUTED));
+    }
+    for issue in errors {
+        body = body.child(error_label(&issue));
+    }
+    body = body.child(section_heading("Original input · first 600 characters"));
+    body = body.child(
+        widgets::label(&original_excerpt, theme::T_SM, theme::MUTED).font_family(theme::MONO_FONT),
+    );
+    body = body.child(
+        widgets::button(
+            "import-copy-original",
+            "Copy complete original record",
+            Btn::Subtle,
+        )
+        .on_click(cx.listener(|this, _, _, cx| {
+            if let Some(Dialog::ImportReview(draft)) = &this.app.dialog {
+                if let Some(record) = draft.preview.records.get(draft.active) {
+                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(
+                        record.original_record.clone(),
+                    ));
+                }
+            }
+        })),
+    );
+    body = body.child(widgets::label("Protein: use Biologics. RNA: use RNA / Oligos, or explicitly review a DNA conversion here. Unsupported residues are never removed to manufacture DNA.", theme::T_BASE, theme::MUTED));
+    for (id, label, checked, changes_ack) in [
+        ("import-ack-changes", "I reviewed the listed interpretation/conversion and metadata changes for all checked records", ack_changes, true),
+        ("import-ack-skipped", "Import only checked records; I acknowledge that all unchecked records will be skipped", ack_skipped, false),
+    ] {
+        body = body.child(div().flex().items_center().gap(px(8.0)).child(check_box(id, checked).on_click(cx.listener(move |this, _, _, cx| {
+            if let Some(Dialog::ImportReview(draft)) = &mut this.app.dialog {
+                if changes_ack { draft.acknowledge_changes = !draft.acknowledge_changes; } else { draft.acknowledge_skipped = !draft.acknowledge_skipped; }
+                draft.invalidate();
+            }
+            cx.notify();
+        }))).child(widgets::label(label, theme::T_BASE, theme::TEXT)));
+    }
+    if let Some(error) = error {
+        body = body.child(error_label(&error));
+    }
+    let footer = footer_row(vec![
+        widgets::button("import-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|this, _, _, cx| close_dialog(this, cx)))
+            .into_any_element(),
+        widgets::button(
+            "import-commit",
+            &format!("Import {selected_count} checked"),
+            Btn::Primary,
+        )
+        .on_click(cx.listener(|this, _, _, cx| {
+            if let Err(error) = appcore::import::confirm_import(&mut this.app) {
+                if let Some(Dialog::ImportReview(draft)) = &mut this.app.dialog {
+                    draft.error = Some(error);
+                }
+            }
+            cx.notify();
+        }))
+        .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Review import",
+        820.0,
+        max_h,
+        false,
         body.into_any_element(),
         Some(footer.into_any_element()),
     )

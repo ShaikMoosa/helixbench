@@ -8,12 +8,12 @@ pub fn pick_open(last_dir: Option<&PathBuf>) -> Option<PathBuf> {
         .add_filter(
             "All supported",
             &[
-                "hbx", "gb", "gbk", "genbank", "gp", "fa", "fasta", "fna", "txt", "seq",
+                "hbx", "gb", "gbk", "genbank", "gp", "fa", "fasta", "fna", "faa", "txt", "seq",
             ],
         )
         .add_filter("HelixBench", &["hbx"])
         .add_filter("GenBank", &["gb", "gbk", "genbank", "gp"])
-        .add_filter("FASTA", &["fa", "fasta", "fna"]);
+        .add_filter("FASTA", &["fa", "fasta", "fna", "faa"]);
     if let Some(dir) = last_dir {
         d = d.set_directory(dir);
     }

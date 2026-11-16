@@ -12,6 +12,7 @@ pub mod config;
 pub mod fasta;
 pub mod feature_lib;
 pub mod genbank;
+pub mod imports;
 pub mod inventory;
 pub mod invivo;
 pub mod migrations;
@@ -30,7 +31,8 @@ use domain::Document;
 use serde::{Deserialize, Serialize};
 
 pub const FORMAT_NAME: &str = "helixbench";
-pub const FORMAT_VERSION: u32 = 2;
+// v3 adds retained import/paste provenance. Older v2 writers must not drop it.
+pub const FORMAT_VERSION: u32 = 3;
 pub const NATIVE_EXT: &str = "hbx";
 
 #[derive(Debug, thiserror::Error)]
@@ -89,8 +91,8 @@ pub fn save_document(doc: &Document, path: &Path) -> Result<()> {
     match fs::read(path) {
         Ok(bytes) => {
             let version = native_version(&bytes)?;
-            if version == 1 {
-                migrations::preserve_v1(path, &bytes)?;
+            if version < FORMAT_VERSION {
+                migrations::preserve_original(path, &bytes, version)?;
             }
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -163,6 +165,11 @@ fn parse_document_scoped(bytes: &[u8], path: Option<&Path>) -> Result<Document> 
 /// The format is chosen by extension first, then by content sniffing.
 pub fn load_any(path: &Path) -> Result<Document> {
     let bytes = fs::read(path)?;
+    load_captured(path, &bytes)
+}
+
+/// Parse exactly the bytes captured by the caller, avoiding a second file read.
+pub fn load_captured(path: &Path, bytes: &[u8]) -> Result<Document> {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -174,15 +181,20 @@ pub fn load_any(path: &Path) -> Result<Document> {
         .unwrap_or("sequence")
         .to_string();
     match ext.as_str() {
-        "hbx" => return parse_document_scoped(&bytes, Some(path)),
-        "gb" | "gbk" | "genbank" | "gp" => return genbank::parse(&bytes, &stem),
-        "fa" | "fasta" | "fna" | "faa" => return fasta::parse_first(&bytes, &stem),
+        "hbx" => return parse_document_scoped(bytes, Some(path)),
+        "gb" | "gbk" | "genbank" | "gp" => return genbank::parse(bytes, &stem),
+        "faa" => {
+            return Err(StorageError::Format(
+                "Protein FASTA requires molecule-aware import review".into(),
+            ))
+        }
+        "fa" | "fasta" | "fna" => return fasta::parse_first(bytes, &stem),
         _ => {}
     }
     if bytes.iter().find(|b| !b.is_ascii_whitespace()) == Some(&b'{') {
-        return parse_document_scoped(&bytes, Some(path));
+        return parse_document_scoped(bytes, Some(path));
     }
-    sniff_and_parse(&bytes, &stem)
+    sniff_and_parse(bytes, &stem)
 }
 
 fn sniff_and_parse(bytes: &[u8], stem: &str) -> Result<Document> {
@@ -198,7 +210,11 @@ fn sniff_and_parse(bytes: &[u8], stem: &str) -> Result<Document> {
     if head.starts_with('>') {
         return fasta::parse_first(bytes, stem);
     }
-    let doc = Document::from_sequence_text(stem.to_string(), text, domain::Topology::Linear);
+    let doc = Document::new(
+        stem.to_string(),
+        imports::strict_dna(text)?,
+        domain::Topology::Linear,
+    );
     if doc.sequence.is_empty() {
         return Err(StorageError::Format("no DNA sequence found in file".into()));
     }

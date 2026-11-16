@@ -252,6 +252,7 @@ pub enum PendingAction {
 }
 
 pub enum Dialog {
+    ImportReview(Box<crate::import::ImportReviewDraft>),
     NewSequence(NewSeqState),
     FeatureEditor(FeatureDraft),
     PrimerEditor(PrimerDraft),
@@ -647,6 +648,7 @@ pub enum MapMode {
 }
 
 pub struct AppState {
+    pub imported_operations: HashMap<domain::OperationId, Vec<domain::DocumentId>>,
     pub navigation: crate::navigation::NavigationState,
     pub doc: Document,
     /// Other open documents (e.g. PCR products); `doc` is the active one.
@@ -750,6 +752,7 @@ impl AppState {
         let prefs = config.ui.clone();
         let zoom_width = doc.sequence.len().max(1);
         let mut s = Self {
+            imported_operations: HashMap::new(),
             navigation: crate::navigation::NavigationState::new(&doc),
             doc,
             library: Vec::new(),

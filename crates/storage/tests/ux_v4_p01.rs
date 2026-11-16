@@ -58,7 +58,7 @@ fn migration_v1_assigns_ids_once_and_preserves_original_until_save() {
     );
     storage::save_document(&first, &path).unwrap();
     let saved: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-    assert_eq!(saved["version"], 2);
+    assert_eq!(saved["version"], storage::FORMAT_VERSION);
     assert_eq!(fs::read(dir.0.join("legacy.hbx.v1.bak")).unwrap(), original);
     assert_eq!(storage::load_document(&path).unwrap(), first);
 }
