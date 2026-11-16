@@ -132,6 +132,12 @@ pub fn save_feature_draft(app: &mut AppState, draft: &FeatureDraft) -> Result<()
 }
 
 pub fn save_primer_draft(app: &mut AppState, draft: &PrimerDraft) -> Result<(), String> {
+    if draft.source != app.doc.source_ref() {
+        return Err("The source sequence changed; reopen this primer before saving".into());
+    }
+    if draft.id.is_some_and(|id| app.doc.primer(id).is_none()) {
+        return Err("The primer was deleted; this draft cannot replace it".into());
+    }
     let raw = draft.sequence.trim();
     if raw.is_empty() {
         return Err("Enter the primer sequence (5′→3′)".into());
@@ -194,6 +200,7 @@ pub fn primer_from_selection(app: &mut AppState) {
     };
     let bases = app.doc.sequence.region(sel);
     let draft = PrimerDraft {
+        source: app.doc.source_ref(),
         id: None,
         name: format!("Primer {}", app.doc.primers.len() + 1),
         sequence: String::from_utf8_lossy(&bases).into_owned(),
@@ -635,94 +642,50 @@ pub fn recent_open(app: &mut AppState, path: PathBuf) {
 // --- In-silico PCR / primer design / virtual digest -------------------------
 
 pub fn open_pcr(app: &mut AppState) {
-    app.dialog = Some(Dialog::Pcr(PcrDraft {
+    let mut draft = PcrDraft {
+        source: Some(app.doc.source_ref()),
         copy_features: true,
         ..Default::default()
-    }));
-}
-
-fn primer_seq(app: &AppState, text: &str) -> Vec<u8> {
-    let t = text.trim();
-    if let Some(p) = app
-        .doc
-        .primers
-        .iter()
-        .find(|p| p.name.eq_ignore_ascii_case(t))
-    {
-        return p.sequence.clone();
-    }
-    clean_sequence(t)
-}
-
-pub fn pcr_preview(app: &AppState, draft: &PcrDraft) -> Option<domain::pcr::PcrProduct> {
-    let f = primer_seq(app, &draft.fwd);
-    let r = primer_seq(app, &draft.rev);
-    if f.is_empty() || r.is_empty() {
-        return None;
-    }
-    let fp = Primer::new(0, "F".into(), &String::from_utf8_lossy(&f));
-    let rp = Primer::new(0, "R".into(), &String::from_utf8_lossy(&r));
-    domain::pcr::simulate(
-        &app.doc.sequence,
-        &fp,
-        &rp,
-        &domain::primer::HybridizationParams::default(),
-    )
-}
-
-fn reset_doc_view(app: &mut AppState) {
-    app.history.clear();
-    app.future.clear();
-    app.selection = None;
-    app.selected_feature = None;
-    app.selected_primer = None;
-    app.zoom_start = 0;
-    app.zoom_width = app.doc.sequence.len().max(1);
-    app.analysis_dirty = true;
-}
-
-pub fn create_pcr_product(app: &mut AppState, draft: &PcrDraft) -> Result<(), String> {
-    let Some(prod) = pcr_preview(app, draft) else {
-        return Err("No amplicon: primers must bind in opposite orientations".into());
     };
-    let l = app.doc.sequence.len();
-    let name = format!(
-        "PCR_{}",
-        sanitize_filename(&format!("{}-{}", draft.fwd.trim(), draft.rev.trim()))
-    );
-    let mut doc = Document::new(name, prod.bases.clone(), Topology::Linear);
-    if draft.copy_features {
-        for f in &app.doc.features {
-            if !f.visible {
-                continue;
-            }
-            let span = f.span(l);
-            let rel = (span.start + l - prod.start) % l;
-            let relend = (span.end() + l - prod.start) % l;
-            if rel < relend && relend <= prod.len {
-                let mut nf = f.clone();
-                nf.id = 0;
-                nf.segments = vec![Range::new(rel, relend - rel)];
-                doc.features.push(nf);
+    if let Some(id) = app.selected_primer {
+        if let Some(pair) = app
+            .doc
+            .primer_pairs
+            .iter()
+            .rev()
+            .find(|p| p.forward.id == Some(id) || p.reverse.id == Some(id))
+            .cloned()
+        {
+            for (forward, input) in [(true, pair.forward), (false, pair.reverse)] {
+                if let Some(id) = input.id {
+                    if app
+                        .doc
+                        .primer(id)
+                        .is_some_and(|p| p.sequence == input.sequence)
+                    {
+                        let _ = crate::primer_workflow::choose_primer(app, &mut draft, forward, id);
+                    } else {
+                        draft.error =
+                            Some("The saved pair changed; choose its primers again".into());
+                    }
+                }
             }
         }
     }
-    crate::navigation::suspend_session(app);
-    let cur = OpenDoc {
-        doc: std::mem::replace(&mut app.doc, doc),
-        path: app.path.take(),
-        dirty: app.dirty,
-    };
-    app.library.push(cur);
-    app.dirty = true;
-    app.saved_depth = None;
-    app.navigation.saved_document = None;
-    app.search = crate::state::SearchState::default();
-    reset_doc_view(app);
-    app.toast(format!("PCR product created ({} bp)", prod.len));
-    Ok(())
+    app.dialog = Some(Dialog::Pcr(draft));
 }
-
+pub fn pcr_preview(app: &AppState, draft: &PcrDraft) -> Option<domain::pcr::PcrProduct> {
+    crate::primer_workflow::validate_pcr(app, draft).ok()?;
+    draft
+        .result
+        .as_ref()?
+        .products
+        .get(draft.product_pick?)
+        .cloned()
+}
+pub fn create_pcr_product(app: &mut AppState, draft: &PcrDraft) -> Result<(), String> {
+    crate::primer_workflow::create_product(app, draft)
+}
 pub fn switch_doc(app: &mut AppState, idx: usize) {
     if let Some(id) = app.library.get(idx).map(|doc| doc.doc.id) {
         switch_document(app, id);
@@ -744,69 +707,29 @@ pub fn open_primer_design(app: &mut AppState) {
         .map(|s| (s.start, s.len))
         .unwrap_or((0, app.doc.sequence.len().min(500)));
     app.dialog = Some(Dialog::PrimerDesign(PrimerDesignDraft {
+        source: Some(app.doc.source_ref()),
+        anchor: app.selection,
+        anchor_strand: app.selection_strand,
+        capture: None,
         start: (start + 1).to_string(),
         len: len.to_string(),
         target_tm: "60".into(),
         overhang: String::new(),
         fwd: Vec::new(),
         rev: Vec::new(),
-        fwd_pick: 0,
-        rev_pick: 0,
+        fwd_pick: None,
+        rev_pick: None,
         error: None,
     }));
 }
-
 pub fn run_primer_design(app: &mut AppState, draft: &mut PrimerDesignDraft) {
-    let start = draft
-        .start
-        .trim()
-        .parse::<usize>()
-        .unwrap_or(1)
-        .saturating_sub(1);
-    let len = draft.len.trim().parse::<usize>().unwrap_or(0);
-    let tm = draft.target_tm.trim().parse::<f32>().unwrap_or(60.0);
-    if len == 0 {
-        draft.error = Some("Enter a target length".into());
-        return;
+    if let Err(error) = crate::primer_workflow::run_design(app, draft) {
+        draft.error = Some(error);
     }
-    let p = domain::primer_design::DesignParams {
-        target_tm: tm,
-        overhang: draft.overhang.clone(),
-        ..Default::default()
-    };
-    let (f, r) = domain::primer_design::design(&app.doc.sequence, start, len, &p);
-    draft.error = if f.is_empty() || r.is_empty() {
-        Some("No primers meet the Tm/GC window; adjust target Tm".into())
-    } else {
-        None
-    };
-    draft.fwd = f;
-    draft.rev = r;
-    draft.fwd_pick = 0;
-    draft.rev_pick = 0;
 }
-
 pub fn add_designed_primers(app: &mut AppState, draft: &PrimerDesignDraft) -> Result<(), String> {
-    let f = draft
-        .fwd
-        .get(draft.fwd_pick)
-        .ok_or("Pick a forward primer")?;
-    let r = draft
-        .rev
-        .get(draft.rev_pick)
-        .ok_or("Pick a reverse primer")?;
-    let fs = String::from_utf8_lossy(&f.sequence).into_owned();
-    let rs = String::from_utf8_lossy(&r.sequence).into_owned();
-    app.mutate("Add designed primer pair", Vec::new(), |doc| {
-        let mut fp = Primer::new(0, format!("Design-F{}", doc.primers.len() + 1), &fs);
-        fp.color = [0x79, 0xc0, 0xff];
-        let mut rp = Primer::new(0, format!("Design-R{}", doc.primers.len() + 2), &rs);
-        rp.color = [0xf8, 0x51, 0x49];
-        doc.add_primer(fp);
-        doc.add_primer(rp);
-    });
+    crate::primer_workflow::add_pair(app, draft)?;
     app.dialog = None;
-    app.toast("Designed primer pair added");
     Ok(())
 }
 

@@ -86,3 +86,23 @@ pub fn reconcile_operation(id: OperationId, stores: &mut WorkspaceStores) -> Res
 ## Proposed dependency policy
 
 UUID v4/serde support is documented by the [uuid crate](https://docs.rs/uuid/1.29.2/uuid/). SHA-256 is documented by [RustCrypto sha2](https://docs.rs/sha2/0.11.1/sha2/). Proposed versions are uuid 1.29.2 with v4/serde and sha2 0.11.1; verify installed-toolchain/MSRV compatibility before adding them and commit the lockfile. Keep UI aliases separate from opaque IDs. A canonical versioned input digest includes algorithm-relevant sequence/type/topology, scope/strand, primer or chain data and ordered parameters; it never replaces the durable source revision reference.
+
+
+## P08C native-format v4 extension
+
+Document adds optional `pcr_source: PcrProvenance` and default-empty
+`primer_pairs: Vec<PrimerPairProvenance>`. Pair records retain operation/source identity,
+anchor/target/strand, actual primer IDs/sequences, body lengths, overhang, Tm and method.
+PCR records retain operation/parent/pair identity, template length/topology/SHA-256,
+resolved primer sequences/IDs, binding sites and Tm, body range, both tails, binding/Tm
+parameters and copy policy. They are immutable historical input snapshots, not live
+references whose sequences change when a primer is edited. Inspector marks edited pair
+members as needing review. Floating conditions are serialized as readable strings so
+Document retains exact equality; the scientific engines still use numeric parameters.
+
+FORMAT_VERSION=4 prevents older version3 writers from silently deleting this metadata.
+Version1–3 reads use defaults; normal upgrade makes an exact old-version backup before
+atomic replacement. SourceRef is retained even when the parent is no longer open; the
+UI never substitutes a similarly named/current revision. Product creation is an unsaved
+new document. P04 owns actual disk save, errors and journal reconciliation; P09 owns the
+future saved-result catalog. See screens/primers.md for copy policy and verified cases.

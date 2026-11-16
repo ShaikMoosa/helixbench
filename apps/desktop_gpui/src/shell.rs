@@ -634,6 +634,58 @@ fn context_properties(
                 }
                 .into(),
             ));
+        if let Some(provenance) = &app.app.doc.pcr_source {
+            let parent = provenance.parent;
+            body=body.child(property("Derived by","PCR · independent product".into()))
+                .child(property("Parent version",format!("{} @ {}",parent.document,parent.revision)))
+                .child(property("Captured primers",format!("F: {} · ID {:?}; R: {} · ID {:?}",provenance.forward.name,provenance.forward.id,provenance.reverse.name,provenance.reverse.id)))
+                .child(property("Copied features",if provenance.copy_features{"Contained visible spans; joined order retained"}else{"None"}.into()))
+                .child(widgets::button("pcr-parent-open","Open parent template",Btn::Outline).w_full().on_click(cx.listener(move|t,_,_,cx|{
+                    let available=t.app.library.iter().any(|doc|doc.doc.source_ref()==parent);
+                    if let Err(error)=shell::validate_context(&t.app,&context){t.app.toast(error);}else if available{if let Err(error)=appcore::navigation::request_navigation(&mut t.app,appcore::navigation::NavigationIntent::SwitchDocument(parent.document)){t.app.toast(error);}}else{t.app.toast("The recorded parent version is not currently open; its provenance remains recorded here");}cx.notify();
+                })));
+        }
+        if let PanelContext::Primer { primer, .. } = context {
+            if let Some(pair) = app
+                .app
+                .doc
+                .primer_pairs
+                .iter()
+                .rev()
+                .find(|pair| pair.forward.id == Some(primer) || pair.reverse.id == Some(primer))
+            {
+                let intact = [&pair.forward, &pair.reverse].iter().all(|input| {
+                    input
+                        .id
+                        .and_then(|id| app.app.doc.primer(id))
+                        .is_some_and(|primer| primer.sequence == input.sequence)
+                });
+                body = body
+                    .child(property(
+                        "Recorded design pair",
+                        format!("{} / {}", pair.forward.name, pair.reverse.name),
+                    ))
+                    .child(property(
+                        "Pair status",
+                        if intact {
+                            "Members match captured sequences"
+                        } else {
+                            "Review needed: a member changed or was removed"
+                        }
+                        .into(),
+                    ))
+                    .child(property(
+                        "Design target (captured)",
+                        format!(
+                            "{}–{} · {} nt",
+                            pair.target.start + 1,
+                            (pair.target.start + pair.target.len - 1) % pair.template_length.max(1)
+                                + 1,
+                            pair.target.len
+                        ),
+                    ));
+            }
+        }
         body = body.child(property(
             "Selected range",
             appcore::selection::summary(&app.app),

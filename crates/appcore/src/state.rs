@@ -214,6 +214,7 @@ pub struct FeatureDraft {
 
 #[derive(Clone)]
 pub struct PrimerDraft {
+    pub source: domain::SourceRef,
     pub id: Option<u64>,
     pub name: String,
     pub sequence: String,
@@ -326,6 +327,12 @@ pub struct OpenDoc {
 
 #[derive(Clone, Default)]
 pub struct PcrDraft {
+    pub input_epoch: u64,
+    pub source: Option<domain::SourceRef>,
+    pub fwd_id: Option<u64>,
+    pub rev_id: Option<u64>,
+    pub result: Option<crate::primer_workflow::PcrRun>,
+    pub product_pick: Option<usize>,
     pub fwd: String,
     pub rev: String,
     pub copy_features: bool,
@@ -334,14 +341,18 @@ pub struct PcrDraft {
 
 #[derive(Clone)]
 pub struct PrimerDesignDraft {
+    pub source: Option<domain::SourceRef>,
+    pub anchor: Option<Range>,
+    pub anchor_strand: domain::Strand,
+    pub capture: Option<crate::primer_workflow::DesignCapture>,
     pub start: String,
     pub len: String,
     pub target_tm: String,
     pub overhang: String,
     pub fwd: Vec<domain::primer_design::Candidate>,
     pub rev: Vec<domain::primer_design::Candidate>,
-    pub fwd_pick: usize,
-    pub rev_pick: usize,
+    pub fwd_pick: Option<usize>,
+    pub rev_pick: Option<usize>,
     pub error: Option<String>,
 }
 

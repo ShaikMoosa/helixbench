@@ -7996,7 +7996,7 @@
       "intendedOutcome": "Name, sequence, description, color and phosphorylation",
       "baselineNote": "Visible toolbar/menu action",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08C source-bound primer validation wired; existing metadata retained",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -8108,7 +8108,7 @@
       "intendedOutcome": "Copy bases and direction into editor",
       "baselineNote": "Primers menu only",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08C selection-derived primer captures source and orientation; stale source rejected",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -8221,7 +8221,7 @@
       "intendedOutcome": "Keep full sequence visible in editor",
       "baselineNote": "Double-click or selected Edit",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08C stable primer ID and source revision checked before save; missing target rejected",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -8334,7 +8334,7 @@
       "intendedOutcome": "Confirm deletion and preserve undo",
       "baselineNote": "Selected Delete",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08C rendered source and stable primer ID guard existing undoable delete",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -8446,7 +8446,7 @@
       "intendedOutcome": "Edit length, Tm and overhang; ranked candidates",
       "baselineNote": "Tools > Primer Design",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08C independent anchor and target, immutable candidate capture and explicit pair choices verified",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -8559,7 +8559,7 @@
       "intendedOutcome": "Show structure detail and meaningful risk labels",
       "baselineNote": "Editor preview and badges",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08C existing hairpin and self-dimer heuristics disclosed per candidate; algorithm unchanged",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -8623,7 +8623,7 @@
       "intendedOutcome": "Show calculation context and binding-site locations",
       "baselineNote": "Table values exist",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08C candidate body length, tail, GC, Tm and conditions shown; existing binding engine retained",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -8736,7 +8736,7 @@
       "intendedOutcome": "Open PCR form with both primers preselected",
       "baselineNote": "PCR separate Tools item",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08C explicit pair-to-PCR handoff and captured prediction; independent product provenance verified",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -8924,7 +8924,7 @@
       "intendedOutcome": "Synchronize Map and Sequence",
       "baselineNote": "Source visibility checkbox",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08C rendered source and stable primer ID guard visibility actions",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -9263,7 +9263,7 @@
       "intendedOutcome": "Expose sequence decorations without hiding sequence",
       "baselineNote": "Primer editor",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08C existing phosphorylation, color and description preserved; design overhang separated from annealing body",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",

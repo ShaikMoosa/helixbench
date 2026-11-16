@@ -156,6 +156,9 @@ pub fn binding_sites(
         let mut matched = 0usize;
         for i in (0..n).rev() {
             let back = n - 1 - i;
+            if back >= l {
+                break;
+            }
             if !seq.is_circular() && p < back {
                 break;
             }
@@ -194,6 +197,9 @@ pub fn binding_sites(
     for p in 0..l {
         let mut matched = 0usize;
         for (i, &rc_base) in rc.iter().enumerate() {
+            if i >= l {
+                break;
+            }
             let top_pos = p + i;
             if !seq.is_circular() && top_pos >= l {
                 break;

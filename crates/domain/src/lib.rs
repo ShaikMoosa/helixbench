@@ -32,6 +32,7 @@ pub mod operation;
 pub mod pcr;
 pub mod primer;
 pub mod primer_design;
+pub mod primer_provenance;
 pub mod primer_struct;
 pub mod project;
 pub mod protein;

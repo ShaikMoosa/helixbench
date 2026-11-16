@@ -174,7 +174,8 @@ fn provenance_uses_a_new_native_version_and_preserves_v2_original() {
     storage::save_document(doc, &path).unwrap();
     let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
     assert_eq!(
-        saved["version"], 3,
+        saved["version"],
+        storage::FORMAT_VERSION,
         "older v2 apps must refuse a file whose provenance they cannot preserve"
     );
     let backup = path.with_file_name(format!(

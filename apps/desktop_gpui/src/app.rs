@@ -296,8 +296,8 @@ impl HelixBench {
             Some(Dialog::SampleCopy(d)) => {
                 format!("sample-copy:{}:{}", d.document.id, d.document.revision_id)
             }
-            Some(Dialog::Pcr(_)) => "pcr".into(),
-            Some(Dialog::PrimerDesign(_)) => "pdesign".into(),
+            Some(Dialog::Pcr(d)) => format!("pcr:{:?}:{}", d.source, d.input_epoch),
+            Some(Dialog::PrimerDesign(d)) => format!("pdesign:{:?}", d.source),
             Some(Dialog::Digest) => "digest".into(),
             Some(Dialog::Alignment(_)) => "alignment".into(),
             Some(Dialog::Assembly(_)) => "assembly".into(),

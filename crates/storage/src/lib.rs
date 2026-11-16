@@ -32,8 +32,8 @@ use domain::Document;
 use serde::{Deserialize, Serialize};
 
 pub const FORMAT_NAME: &str = "helixbench";
-// v3 adds retained import/paste provenance. Older v2 writers must not drop it.
-pub const FORMAT_VERSION: u32 = 3;
+// v4 retains primer-pair and PCR provenance; older writers must not silently drop it.
+pub const FORMAT_VERSION: u32 = 4;
 pub const NATIVE_EXT: &str = "hbx";
 
 #[derive(Debug, thiserror::Error)]

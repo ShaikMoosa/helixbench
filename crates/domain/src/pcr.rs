@@ -10,6 +10,8 @@ pub struct PcrProduct {
     /// Top-strand end of the amplicon (exclusive, mod len).
     pub end: usize,
     pub len: usize,
+    /// Template-derived body length, excluding 5-prime primer tails.
+    pub template_len: usize,
     pub bases: Vec<u8>,
     pub fwd_site: BindingSite,
     pub rev_site: BindingSite,
@@ -24,37 +26,85 @@ pub fn simulate(
     rev: &Primer,
     params: &HybridizationParams,
 ) -> Option<PcrProduct> {
+    products_limited(seq, fwd, rev, params, 1)
+        .into_iter()
+        .next()
+}
+
+/// Enumerate explicit compatible binding-site pairs; callers choose rather than silently taking first.
+pub fn products(
+    seq: &DnaSequence,
+    fwd: &Primer,
+    rev: &Primer,
+    params: &HybridizationParams,
+) -> Vec<PcrProduct> {
+    products_limited(seq, fwd, rev, params, usize::MAX)
+}
+fn products_limited(
+    seq: &DnaSequence,
+    fwd: &Primer,
+    rev: &Primer,
+    params: &HybridizationParams,
+    limit: usize,
+) -> Vec<PcrProduct> {
     let l = seq.len();
     if l == 0 {
-        return None;
+        return Vec::new();
     }
-    let f = binding_sites(fwd, seq, params)
+    let forwards: Vec<_> = binding_sites(fwd, seq, params)
         .into_iter()
-        .find(|s| s.strand == Strand::Top)?;
-    let r = binding_sites(rev, seq, params)
+        .filter(|s| s.strand == Strand::Top)
+        .collect();
+    let reverses: Vec<_> = binding_sites(rev, seq, params)
         .into_iter()
-        .find(|s| s.strand == Strand::Bottom)?;
-    let start = f.start;
-    let end = (r.start + r.len) % l;
-    let len = if seq.is_circular() {
-        (end + l - start) % l
-    } else {
-        if end <= start {
-            return None;
+        .filter(|s| s.strand == Strand::Bottom)
+        .collect();
+    let mut out = Vec::new();
+    for f in &forwards {
+        for r in &reverses {
+            let end_raw = r.start + r.len;
+            let body = if seq.is_circular() {
+                let n = (end_raw % l + l - f.start) % l;
+                if n == 0 {
+                    l
+                } else {
+                    n
+                }
+            } else {
+                if end_raw <= f.start {
+                    continue;
+                }
+                end_raw - f.start
+            };
+            if body > l || body < f.len.max(r.len) {
+                continue;
+            }
+            let f_tail = fwd.sequence.len().saturating_sub(f.len);
+            let r_tail = rev.sequence.len().saturating_sub(r.len);
+            let mut bases = fwd.sequence[..f_tail].to_vec();
+            bases.extend_from_slice(&seq.subseq(f.start, body));
+            bases.extend_from_slice(&crate::sequence::reverse_complement(
+                &rev.sequence[..r_tail],
+            ));
+            out.push(PcrProduct {
+                start: f.start,
+                end: if seq.is_circular() {
+                    end_raw % l
+                } else {
+                    end_raw
+                },
+                len: bases.len(),
+                template_len: body,
+                bases,
+                fwd_site: f.clone(),
+                rev_site: r.clone(),
+            });
+            if out.len() >= limit {
+                return out;
+            }
         }
-        end - start
-    };
-    if len == 0 || len > l {
-        return None;
     }
-    Some(PcrProduct {
-        start,
-        end,
-        len,
-        bases: seq.subseq(start, len),
-        fwd_site: f,
-        rev_site: r,
-    })
+    out
 }
 
 #[cfg(test)]

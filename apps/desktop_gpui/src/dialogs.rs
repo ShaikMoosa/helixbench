@@ -10,7 +10,7 @@ use gpui::{
 };
 
 use appcore::actions as act;
-use appcore::state::{AppState, ColorsMode, Dialog, FeatureDraft, PcrDraft, PrimerDraft};
+use appcore::state::{AppState, ColorsMode, Dialog, FeatureDraft, PrimerDraft};
 use domain::feature::{kind_color, Direction, Feature, FEATURE_KINDS};
 use domain::genetic_code::{code_by_id, CODES};
 use domain::primer::{binding_sites, melting_temperature, HybridizationParams, Primer};
@@ -87,8 +87,13 @@ pub fn open_feature_editor(app: &mut AppState, id: Option<u64>) {
 }
 
 pub fn open_primer_editor(app: &mut AppState, id: Option<u64>) {
+    if id.is_some_and(|id| app.doc.primer(id).is_none()) {
+        app.toast("The primer is no longer available");
+        return;
+    }
     let draft = if let Some(p) = id.and_then(|i| app.doc.primer(i)) {
         PrimerDraft {
+            source: app.doc.source_ref(),
             id: Some(p.id),
             name: p.name.clone(),
             sequence: String::from_utf8_lossy(&p.sequence).into_owned(),
@@ -99,6 +104,7 @@ pub fn open_primer_editor(app: &mut AppState, id: Option<u64>) {
         }
     } else {
         PrimerDraft {
+            source: app.doc.source_ref(),
             id: None,
             name: format!("Primer {}", app.doc.primers.len() + 1),
             sequence: String::new(),
@@ -1404,7 +1410,15 @@ fn primer_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
     body = body.child(section_heading("Properties & binding"));
     let cleaned = clean_sequence(&d.sequence);
     let params = HybridizationParams::default();
-    if cleaned.is_empty() {
+    if d.sequence
+        .trim()
+        .bytes()
+        .any(|b| domain::iupac::dna_mask(b.to_ascii_uppercase()) == 0)
+    {
+        body = body.child(error_label(
+            "Correct unsupported DNA symbols before interpreting Tm or binding properties.",
+        ));
+    } else if cleaned.is_empty() {
         body = body.child(widgets::label(
             "Enter a sequence to see Tm and binding sites.",
             theme::T_SM,
@@ -2569,144 +2583,177 @@ fn render_dlg_combo(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> Optio
 // ---------------------------------------------------------------------------
 
 fn pcr(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
-    let (fseed, rseed, copy, error) = match &app.app.dialog {
-        Some(Dialog::Pcr(d)) => (
-            d.fwd.clone(),
-            d.rev.clone(),
-            d.copy_features,
-            d.error.clone(),
-        ),
-        _ => (String::new(), String::new(), true, None),
+    let seed = match &app.app.dialog {
+        Some(Dialog::Pcr(d)) => d.clone(),
+        _ => return div().into_any_element(),
     };
     let fi = app.input_entity(
         cx,
         "dlg:pcr:fwd",
-        &fseed,
-        "Forward primer: name or 5'-3'",
+        &seed.fwd,
+        "5′→3′ sequence or exact saved name",
         true,
     );
     let ri = app.input_entity(
         cx,
         "dlg:pcr:rev",
-        &rseed,
-        "Reverse primer: name or 5'-3'",
+        &seed.rev,
+        "5′→3′ sequence or exact saved name",
         true,
     );
     let f = fi.read(cx).text();
     let r = ri.read(cx).text();
     if let Some(Dialog::Pcr(d)) = &mut app.app.dialog {
-        d.fwd = f.clone();
-        d.rev = r.clone();
+        if d.fwd != f {
+            d.fwd_id = None;
+        }
+        if d.rev != r {
+            d.rev_id = None;
+        }
+        d.fwd = f;
+        d.rev = r;
     }
     let draft = match &app.app.dialog {
         Some(Dialog::Pcr(d)) => d.clone(),
-        _ => PcrDraft::default(),
+        _ => return div().into_any_element(),
     };
-    let preview = act::pcr_preview(&app.app, &draft);
-
-    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
-    body = body.child(widgets::label(
-        "Amplify the current template between a forward and reverse primer. Primers may be given by name or sequence.",
-        theme::T_SM,
-        theme::MUTED,
-    ));
-    body = body.child(
-        div()
+    let mut body=div().flex().flex_col().gap(px(12.0))
+ .child(widgets::label(&format!("Template: {} · {} bp · captured version {}",app.app.doc.name,app.app.doc.sequence.len(),draft.source.map(|s|s.revision.to_string()).unwrap_or_else(||"not captured".into())),theme::T_BASE,theme::TEXT))
+ .child(widgets::label("Run a prediction, review the exact binding sites, then choose a product. The template stays open; the product gets its own identity and retained parent provenance.",theme::T_BASE,theme::MUTED))
+ .child(field_row("Forward 5′→3′",input_field(fi,470.0).into_any_element()))
+ .child(field_row("Reverse 5′→3′",input_field(ri,470.0).into_any_element()));
+    let mut saved = div().flex().flex_col().gap(px(6.0));
+    if app.app.doc.primers.is_empty() {
+        saved = saved.child(widgets::label(
+            "No saved primers. Enter sequences directly or design a pair from Primers.",
+            theme::T_SM,
+            theme::MUTED,
+        ));
+    }
+    for primer in &app.app.doc.primers {
+        let id = primer.id;
+        let mut row = div()
             .flex()
+            .flex_wrap()
             .items_center()
-            .gap(px(10.0))
-            .child(field_label("Forward"))
-            .child(input_field(fi, 260.0)),
-    );
-    body = body.child(
-        div()
-            .flex()
-            .items_center()
-            .gap(px(10.0))
-            .child(field_label("Reverse"))
-            .child(input_field(ri, 260.0)),
-    );
-    body = body.child(
-        div()
-            .flex()
-            .items_center()
-            .gap(px(8.0))
-            .child(
-                check_box("pcr-copy", copy).on_click(cx.listener(|t, _, _, cx| {
-                    if let Some(Dialog::Pcr(d)) = &mut t.app.dialog {
-                        d.copy_features = !d.copy_features;
+            .gap(px(6.0))
+            .child(widgets::label(
+                &format!("{} · ID {} · {} nt", primer.name, id, primer.len()),
+                theme::T_SM,
+                theme::TEXT,
+            ));
+        for (forward, label) in [(true, "Use forward"), (false, "Use reverse")] {
+            row = row.child(
+                widgets::button(
+                    SharedString::from(format!("pcr-primer-{id}-{forward}")),
+                    label,
+                    Btn::Outline,
+                )
+                .on_click(cx.listener(move |t, _, _, cx| {
+                    let mut d = match &t.app.dialog {
+                        Some(Dialog::Pcr(d)) => d.clone(),
+                        _ => return,
+                    };
+                    if let Err(error) =
+                        appcore::primer_workflow::choose_primer(&t.app, &mut d, forward, id)
+                    {
+                        d.error = Some(error);
                     }
+                    t.app.dialog = Some(Dialog::Pcr(d));
                     cx.notify();
                 })),
-            )
+            );
+        }
+        saved = saved.child(row);
+    }
+    body=body.child(section_heading("Choose saved primers by identity")).child(saved)
+ .child(check_row("pcr-copy","Copy contained visible features; preserve joined segments",draft.copy_features).on_click(cx.listener(|t,_,_,cx|{if let Some(Dialog::Pcr(d))=&mut t.app.dialog{d.copy_features=!d.copy_features;}cx.notify();})))
+ .child(widgets::label("SantaLucia nearest-neighbor Tm · 50 mM Na⁺ · 250 nM oligo · minimum 12 matching 3′ bases and 45°C binding Tm. Predictions include primer 5′ tails.",theme::T_SM,theme::MUTED))
+ .child(widgets::button("pcr-run","Run PCR prediction",Btn::Primary).on_click(cx.listener(|t,_,_,cx|{let mut d=match &t.app.dialog{Some(Dialog::Pcr(d))=>d.clone(),_=>return};if let Err(error)=appcore::primer_workflow::run_pcr(&t.app,&mut d){d.error=Some(error);}t.app.dialog=Some(Dialog::Pcr(d));cx.notify();})));
+    let current = appcore::primer_workflow::validate_pcr(&app.app, &draft);
+    if let Some(run) = &draft.result {
+        body = body
+            .child(section_heading("Captured prediction"))
             .child(widgets::label(
-                "Copy contained features into the product",
+                &format!(
+                    "Forward: {} · ID {} · {}\nReverse: {} · ID {} · {}",
+                    run.forward.name,
+                    run.forward
+                        .id
+                        .map(|id| id.to_string())
+                        .unwrap_or_else(|| "entered sequence".into()),
+                    String::from_utf8_lossy(&run.forward.sequence),
+                    run.reverse.name,
+                    run.reverse
+                        .id
+                        .map(|id| id.to_string())
+                        .unwrap_or_else(|| "entered sequence".into()),
+                    String::from_utf8_lossy(&run.reverse.sequence)
+                ),
                 theme::T_SM,
                 theme::MUTED,
-            )),
-    );
-    match &preview {
-        Some(p) => {
-            body = body.child(
-                div()
-                    .p(px(10.0))
-                    .rounded(px(6.0))
-                    .bg(theme::SURFACE)
-                    .border_1()
-                    .border_color(theme::BORDER)
-                    .child(widgets::label(
-                        &format!(
-                            "Amplicon {} bp · {}..{} · fwd Tm {:.1}°C · rev Tm {:.1}°C",
-                            p.len,
-                            p.start + 1,
-                            p.end,
-                            p.fwd_site.tm,
-                            p.rev_site.tm
-                        ),
-                        theme::T_SM,
-                        theme::TEXT,
-                    )),
-            )
+            ));
+        if let Err(error) = &current {
+            body = body.child(error_label(error));
         }
-        None => {
-            body = body.child(widgets::label(
-                "No amplicon yet — primers must bind in opposite orientations.",
-                theme::T_SM,
-                theme::FAINT,
-            ))
+        if let Some(diagnostic) = &run.diagnostic {
+            body = body.child(widgets::label(diagnostic, theme::T_BASE, theme::MUTED));
         }
+        for (index, product) in run.products.iter().enumerate() {
+            let l = app.app.doc.sequence.len().max(1);
+            let chosen = draft.product_pick == Some(index);
+            let f = &product.fwd_site;
+            let r = &product.rev_site;
+            body=body.child(div().p(px(14.0)).rounded(px(14.0)).bg(if chosen{theme::MINT}else{theme::BG})
+    .child(widgets::button(SharedString::from(format!("pcr-product-{index}")),&format!("{} product {} · {} bp",if chosen{"Selected"}else{"Select"},index+1,product.len),Btn::Outline).on_click(cx.listener(move|t,_,_,cx|{if let Some(Dialog::Pcr(d))=&mut t.app.dialog{d.product_pick=Some(index);}cx.notify();})))
+    .child(widgets::label(&format!("Template body {}–{} · {} bp; forward {}–{} (+), reverse {}–{} (−). Tm {:.1}/{:.1}°C. Full length includes {} nt of 5′ tails.",product.start+1,(product.start+product.template_len-1)%l+1,product.template_len,f.start+1,(f.start+f.len-1)%l+1,r.start+1,(r.start+r.len-1)%l+1,f.tm,r.tm,product.len-product.template_len),theme::T_BASE,theme::MUTED)));
+        }
+    } else {
+        body = body.child(widgets::label(
+            "No prediction yet. Run PCR after choosing both primers.",
+            theme::T_BASE,
+            theme::MUTED,
+        ));
     }
-    if let Some(e) = error {
-        body = body.child(error_label(&e));
+    if let Some(error) = &draft.error {
+        body = body.child(error_label(error));
     }
-
+    let ready = current.is_ok()
+        && draft
+            .result
+            .as_ref()
+            .is_some_and(|r| draft.product_pick.is_some_and(|i| i < r.products.len()));
+    let mut create = widgets::button("pcr-create", "Create independent product", Btn::Primary);
+    if ready {
+        create = create.on_click(cx.listener(|t, _, _, cx| {
+            let d = match &t.app.dialog {
+                Some(Dialog::Pcr(d)) => d.clone(),
+                _ => return,
+            };
+            match act::create_pcr_product(&mut t.app, &d) {
+                Ok(()) => close_dialog(t, cx),
+                Err(error) => {
+                    if let Some(Dialog::Pcr(d)) = &mut t.app.dialog {
+                        d.error = Some(error);
+                    }
+                    cx.notify();
+                }
+            }
+        }));
+    } else {
+        create = create.opacity(0.45);
+    }
     let footer = footer_row(vec![
         widgets::button("pcr-cancel", "Cancel", Btn::Ghost)
             .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
             .into_any_element(),
-        widgets::button("pcr-create", "Create product", Btn::Primary)
-            .on_click(cx.listener(|t, _, _, cx| {
-                let d = match &t.app.dialog {
-                    Some(Dialog::Pcr(d)) => d.clone(),
-                    _ => return,
-                };
-                match act::create_pcr_product(&mut t.app, &d) {
-                    Ok(()) => close_dialog(t, cx),
-                    Err(e) => {
-                        if let Some(Dialog::Pcr(dd)) = &mut t.app.dialog {
-                            dd.error = Some(e);
-                        }
-                        cx.notify();
-                    }
-                }
-            }))
-            .into_any_element(),
+        create.into_any_element(),
     ]);
     modal_shell(
         app,
         cx,
-        "In-silico PCR",
-        480.0,
+        "PCR setup and captured prediction",
+        760.0,
         max_h,
         true,
         body.into_any_element(),
@@ -2714,224 +2761,132 @@ fn pcr(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> Any
     )
 }
 
-// ---------------------------------------------------------------------------
-// Primer design
-// ---------------------------------------------------------------------------
-
 fn primer_design(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
-    let (sseed, lseed, tseed, oseed, error) = match &app.app.dialog {
-        Some(Dialog::PrimerDesign(d)) => (
-            d.start.clone(),
-            d.len.clone(),
-            d.target_tm.clone(),
-            d.overhang.clone(),
-            d.error.clone(),
-        ),
-        _ => (
-            String::new(),
-            String::new(),
-            "60".into(),
-            String::new(),
-            None,
-        ),
+    let seed = match &app.app.dialog {
+        Some(Dialog::PrimerDesign(d)) => d.clone(),
+        _ => return div().into_any_element(),
     };
-    let si = app.input_entity(cx, "dlg:pd:start", &sseed, "1", true);
-    let li = app.input_entity(cx, "dlg:pd:len", &lseed, "bp", true);
-    let ti = app.input_entity(cx, "dlg:pd:tm", &tseed, "60", true);
-    let oi = app.input_entity(cx, "dlg:pd:ov", &oseed, "optional 5' overhang", true);
-    let (s, l, tm, ov) = (
-        si.read(cx).text(),
-        li.read(cx).text(),
-        ti.read(cx).text(),
-        oi.read(cx).text(),
+    let si = app.input_entity(cx, "dlg:pd:start", &seed.start, "1-based start", true);
+    let li = app.input_entity(cx, "dlg:pd:len", &seed.len, "Target length", true);
+    let ti = app.input_entity(cx, "dlg:pd:tm", &seed.target_tm, "60", true);
+    let oi = app.input_entity(
+        cx,
+        "dlg:pd:ov",
+        &seed.overhang,
+        "Optional 5′ overhang",
+        true,
     );
     if let Some(Dialog::PrimerDesign(d)) = &mut app.app.dialog {
-        d.start = s;
-        d.len = l;
-        d.target_tm = tm;
-        d.overhang = ov;
+        d.start = si.read(cx).text();
+        d.len = li.read(cx).text();
+        d.target_tm = ti.read(cx).text();
+        d.overhang = oi.read(cx).text();
     }
     let draft = match &app.app.dialog {
         Some(Dialog::PrimerDesign(d)) => d.clone(),
-        _ => {
-            return modal_shell(
-                app,
-                cx,
-                "Primer Design",
-                560.0,
-                max_h,
-                true,
-                div().into_any_element(),
-                None,
-            )
-        }
+        _ => return div().into_any_element(),
     };
-
-    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
-    body = body.child(widgets::label(
-        "Design forward/reverse primers flanking a target region, scored by Tm, GC and 3' GC-clamp.",
-        theme::T_SM,
-        theme::MUTED,
-    ));
-    body = body.child(
-        div()
-            .flex()
-            .items_center()
-            .gap(px(8.0))
-            .child(field_label("Start"))
-            .child(input_field(si, 70.0))
-            .child(field_label("Length"))
-            .child(input_field(li, 70.0))
-            .child(field_label("Tm"))
-            .child(input_field(ti, 60.0))
-            .child(field_label("Overhang"))
-            .child(input_field(oi, 120.0)),
-    );
-    body = body.child(
-        widgets::button("pd-run", "Design primers", Btn::Outline).on_click(cx.listener(
-            |t, _, _, cx| {
-                let mut d = match &t.app.dialog {
-                    Some(Dialog::PrimerDesign(d)) => d.clone(),
-                    _ => return,
-                };
-                act::run_primer_design(&mut t.app, &mut d);
-                t.app.dialog = Some(Dialog::PrimerDesign(d));
-                cx.notify();
-            },
-        )),
-    );
-    if let Some(e) = &error {
-        body = body.child(error_label(e));
+    let anchor = draft
+        .anchor
+        .map(|r| {
+            format!(
+                "{}–{} · {} nt · {:?} strand",
+                r.start + 1,
+                (r.start + r.len - 1) % app.app.doc.sequence.len().max(1) + 1,
+                r.len,
+                draft.anchor_strand
+            )
+        })
+        .unwrap_or_else(|| "No selection anchor".into());
+    let mut body=div().flex().flex_col().gap(px(12.0))
+ .child(widgets::label(&format!("Template: {} · captured version {}",app.app.doc.name,draft.source.map(|s|s.revision.to_string()).unwrap_or_else(||"not captured".into())),theme::T_BASE,theme::TEXT))
+ .child(widgets::label(&format!("Selection anchor: {anchor}. The amplification target below is separate and editable; editing it does not move your selection."),theme::T_BASE,theme::MUTED))
+ .child(field_row("Target start",input_field(si,200.0).into_any_element())).child(field_row("Target length",input_field(li,200.0).into_any_element())).child(field_row("Target Tm °C",input_field(ti,200.0).into_any_element())).child(field_row("5′ overhang",input_field(oi,470.0).into_any_element()))
+ .child(widgets::label("Coordinates are 1-based inclusive. Tm is for the annealing body; 5′ overhangs are separate. SantaLucia nearest-neighbor: 50 mM Na⁺, 250 nM oligo; 18–25 nt bodies, GC 40–60%, Tm tolerance ±6°C. Hairpin/dimer indicators use the existing stem heuristics.",theme::T_SM,theme::MUTED))
+ .child(widgets::button("pd-run","Design primers",Btn::Primary).on_click(cx.listener(|t,_,_,cx|{let mut d=match &t.app.dialog{Some(Dialog::PrimerDesign(d))=>d.clone(),_=>return};act::run_primer_design(&mut t.app,&mut d);t.app.dialog=Some(Dialog::PrimerDesign(d));cx.notify();})));
+    if let Some(error) = &draft.error {
+        body = body.child(error_label(error));
     }
-    for (label, cands, pick, is_fwd) in [
+    let current = draft.capture.as_ref().is_some_and(|c| {
+        appcore::primer_workflow::design_request(&app.app, &draft).is_ok_and(|r| r == c.request)
+    });
+    if draft.capture.is_some() && !current {
+        body = body.child(error_label(
+            "Inputs changed. Run design again before adding candidates.",
+        ));
+    }
+    for (name, candidates, pick, forward) in [
         ("Forward candidates", &draft.fwd, draft.fwd_pick, true),
         ("Reverse candidates", &draft.rev, draft.rev_pick, false),
     ] {
-        body = body.child(widgets::label(label, theme::T_SM, theme::FAINT));
-        let mut list = div().flex().flex_col().gap(px(4.0));
-        if cands.is_empty() {
-            list = list.child(widgets::label(
-                "Run design to list candidates.",
-                theme::T_SM,
-                theme::FAINT,
-            ));
+        body = body.child(section_heading(name));
+        if candidates.is_empty() {
+            body=body.child(widgets::label(if draft.capture.is_some(){"Run completed: no candidates meet the current Tm/GC constraints. Adjust the target or Tm and run again."}else{"Run design to list candidates, then select one forward and one reverse."},theme::T_BASE,theme::MUTED));
         }
-        for (i, c) in cands.iter().enumerate() {
-            let seq = String::from_utf8_lossy(&c.sequence).into_owned();
-            let selected = i == pick;
-            list = list.child(
-                div()
-                    .id(SharedString::from(format!(
-                        "pd-{}-{}",
-                        if is_fwd { "f" } else { "r" },
-                        i
-                    )))
-                    .flex()
-                    .items_center()
-                    .gap(px(8.0))
-                    .p(px(6.0))
-                    .rounded(px(5.0))
-                    .cursor_pointer()
-                    .bg(if selected {
-                        theme::SURFACE_2
-                    } else {
-                        theme::SURFACE
-                    })
-                    .border_1()
-                    .border_color(if selected {
-                        theme::ACCENT
-                    } else {
-                        theme::BORDER
-                    })
-                    .child(
-                        div()
-                            .flex_grow()
-                            .text_size(px(theme::T_SM))
-                            .font_family(theme::mono_family())
-                            .text_color(theme::TEXT)
-                            .child(seq),
-                    )
-                    .child(widgets::label(
-                        &format!(
-                            "{}bp · Tm {:.1} · GC {:.0}%{}{}",
-                            c.len,
-                            c.tm,
-                            c.gc,
-                            if c.clamp { " · clamp" } else { "" },
-                            {
-                                let ss = domain::primer_struct::analyze(&c.sequence);
-                                let mut s = String::new();
-                                if let Some((stem, _)) = ss.hairpin {
-                                    s.push_str(&format!(" · hp{stem}"));
-                                }
-                                if ss.dimer >= 3 {
-                                    s.push_str(&format!(" · dim{}", ss.dimer));
-                                }
-                                s
-                            }
-                        ),
-                        theme::T_XS,
-                        {
-                            let ss = domain::primer_struct::analyze(&c.sequence);
-                            if ss.hairpin_warn() || ss.dimer_warn() {
-                                theme::WARN
-                            } else {
-                                theme::MUTED
-                            }
-                        },
-                    ))
-                    .on_click(cx.listener(move |t, _, _, cx| {
-                        if let Some(Dialog::PrimerDesign(d)) = &mut t.app.dialog {
-                            if is_fwd {
-                                d.fwd_pick = i;
-                            } else {
-                                d.rev_pick = i;
-                            }
-                        }
-                        cx.notify();
-                    })),
-            );
+        for (index, c) in candidates.iter().enumerate() {
+            let selected = pick == Some(index);
+            let structure = domain::primer_struct::analyze(&c.sequence);
+            let tail = c.sequence.len() - c.len;
+            let l = app.app.doc.sequence.len().max(1);
+            body=body.child(div().flex().flex_col().gap(px(5.0)).p(px(14.0)).rounded(px(14.0)).bg(if selected{theme::MINT}else{theme::BG})
+    .child(widgets::button(SharedString::from(format!("pd-candidate-{forward}-{index}")),&format!("{} candidate {}",if selected{"Selected"}else{"Select"},index+1),Btn::Outline).on_click(cx.listener(move|t,_,_,cx|{if let Some(Dialog::PrimerDesign(d))=&mut t.app.dialog{if forward{d.fwd_pick=Some(index);}else{d.rev_pick=Some(index);}}cx.notify();})))
+    .child(widgets::label(&format!("5′ {} 3′",String::from_utf8_lossy(&c.sequence)),theme::T_BASE,theme::TEXT).font_family(theme::mono_family()))
+    .child(widgets::label(&format!("Body {} nt · 5′ tail {} nt · {}–{} · Tm {:.1}°C · GC {:.0}% · hairpin {:?} · self-dimer {}{}",c.len,tail,c.start+1,(c.start+c.len-1)%l+1,c.tm,c.gc,structure.hairpin.map(|h|h.0),structure.dimer,if structure.dimer_3prime{" (3′)"}else{""}),theme::T_SM,if structure.hairpin_warn()||structure.dimer_warn(){theme::WARN}else{theme::MUTED})));
         }
-        body = body.child(list);
     }
-
-    let footer = footer_row(vec![
-        widgets::button("pd-cancel", "Cancel", Btn::Ghost)
-            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
-            .into_any_element(),
-        widgets::button("pd-add", "Add primer pair", Btn::Primary)
-            .on_click(cx.listener(|t, _, _, cx| {
+    let ready = current
+        && draft.fwd_pick.is_some_and(|i| i < draft.fwd.len())
+        && draft.rev_pick.is_some_and(|i| i < draft.rev.len());
+    let mut footer = vec![widgets::button("pd-cancel", "Cancel", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+        .into_any_element()];
+    for (go_pcr, label) in [
+        (false, "Add selected pair"),
+        (true, "Add pair and open PCR"),
+    ] {
+        let mut button = widgets::button(
+            SharedString::from(format!("pd-add-{go_pcr}")),
+            label,
+            if go_pcr { Btn::Primary } else { Btn::Outline },
+        );
+        if ready {
+            button = button.on_click(cx.listener(move |t, _, _, cx| {
                 let d = match &t.app.dialog {
                     Some(Dialog::PrimerDesign(d)) => d.clone(),
                     _ => return,
                 };
                 match act::add_designed_primers(&mut t.app, &d) {
-                    Ok(()) => close_dialog(t, cx),
-                    Err(e) => {
-                        if let Some(Dialog::PrimerDesign(dd)) = &mut t.app.dialog {
-                            dd.error = Some(e);
+                    Ok(()) => {
+                        close_dialog(t, cx);
+                        if go_pcr {
+                            act::open_pcr(&mut t.app);
+                        }
+                        cx.notify();
+                    }
+                    Err(error) => {
+                        if let Some(Dialog::PrimerDesign(d)) = &mut t.app.dialog {
+                            d.error = Some(error);
                         }
                         cx.notify();
                     }
                 }
-            }))
-            .into_any_element(),
-    ]);
+            }));
+        } else {
+            button = button.opacity(0.45);
+        }
+        footer.push(button.into_any_element());
+    }
     modal_shell(
         app,
         cx,
-        "Primer Design",
-        620.0,
+        "Primer design: anchor, target and candidates",
+        760.0,
         max_h,
         true,
         body.into_any_element(),
-        Some(footer.into_any_element()),
+        Some(footer_row(footer).into_any_element()),
     )
 }
-
-// ---------------------------------------------------------------------------
-// Virtual digest + gel
-// ---------------------------------------------------------------------------
 
 fn digest(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
     let frags = act::digest_fragments(&app.app);

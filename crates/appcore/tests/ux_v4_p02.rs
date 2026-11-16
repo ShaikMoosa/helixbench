@@ -293,12 +293,15 @@ fn source_session_survives_creating_a_pcr_product() {
     let reverse = domain::sequence::reverse_complement(
         &template.as_bytes()[template.len() - 23..template.len() - 3],
     );
-    let draft = appcore::state::PcrDraft {
-        fwd: template[..20].into(),
-        rev: String::from_utf8(reverse).unwrap(),
-        copy_features: true,
-        error: None,
+    actions::open_pcr(&mut app);
+    let mut draft = match app.dialog.take().unwrap() {
+        appcore::state::Dialog::Pcr(d) => d,
+        _ => unreachable!(),
     };
+    draft.fwd = template[..20].into();
+    draft.rev = String::from_utf8(reverse).unwrap();
+    appcore::primer_workflow::run_pcr(&app, &mut draft).unwrap();
+    draft.product_pick = Some(0);
     actions::create_pcr_product(&mut app, &draft).unwrap();
     assert_ne!(app.doc.id, original);
     navigation::request_navigation(&mut app, NavigationIntent::SwitchDocument(original)).unwrap();

@@ -93,8 +93,8 @@ Native presentation entry points:
 - `overhang: String` — Use the owning feature/module requirements and the current typed source definition. Optional values remain distinguishable from empty/default values; validate before commit.
 - `fwd: Vec<domain::primer_design::Candidate>` — Computed preview/output state. Clear or mark stale when relevant input changes; never commit an unrelated result.
 - `rev: Vec<domain::primer_design::Candidate>` — Computed preview/output state. Clear or mark stale when relevant input changes; never commit an unrelated result.
-- `fwd_pick: usize` — Use the owning feature/module requirements and the current typed source definition. Optional values remain distinguishable from empty/default values; validate before commit.
-- `rev_pick: usize` — Use the owning feature/module requirements and the current typed source definition. Optional values remain distinguishable from empty/default values; validate before commit.
+- `fwd_pick: Option<usize>` — Use the owning feature/module requirements and the current typed source definition. Optional values remain distinguishable from empty/default values; validate before commit.
+- `rev_pick: Option<usize>` — Use the owning feature/module requirements and the current typed source definition. Optional values remain distinguishable from empty/default values; validate before commit.
 - `error: Option<String>` — System-owned validation/error state; never an editable user field.
 
 ### PcrDraft
@@ -111,7 +111,7 @@ Native presentation entry points:
 
 ### F-065 · Add primer manually
 
-**Status:** Specified; not verified implemented.
+**Status:** P08C source-bound primer validation wired; existing metadata retained.
 
 **Entry:** Add primer (1 navigation click(s)).
 
@@ -140,7 +140,7 @@ Native presentation entry points:
 
 ### F-066 · Primer from sequence selection
 
-**Status:** Specified; not verified implemented.
+**Status:** P08C selection-derived primer captures source and orientation; stale source rejected.
 
 **Entry:** From selection (1 navigation click(s)).
 
@@ -169,7 +169,7 @@ Native presentation entry points:
 
 ### F-067 · Edit primer
 
-**Status:** Specified; not verified implemented.
+**Status:** P08C stable primer ID and source revision checked before save; missing target rejected.
 
 **Entry:** Primer row → Edit (2 navigation click(s)).
 
@@ -198,7 +198,7 @@ Native presentation entry points:
 
 ### F-068 · Delete primer
 
-**Status:** Specified; not verified implemented.
+**Status:** P08C rendered source and stable primer ID guard existing undoable delete.
 
 **Entry:** Primer row → Delete (2 navigation click(s)).
 
@@ -227,7 +227,7 @@ Native presentation entry points:
 
 ### F-069 · Design forward/reverse pair
 
-**Status:** Specified; not verified implemented.
+**Status:** P08C independent anchor and target, immutable candidate capture and explicit pair choices verified.
 
 **Entry:** Design pair (1 navigation click(s)).
 
@@ -256,7 +256,7 @@ Native presentation entry points:
 
 ### F-070 · Review hairpin / self-dimer
 
-**Status:** Specified; not verified implemented.
+**Status:** P08C existing hairpin and self-dimer heuristics disclosed per candidate; algorithm unchanged.
 
 **Entry:** Primer row → Structure tab (2 navigation click(s)).
 
@@ -285,7 +285,7 @@ Native presentation entry points:
 
 ### F-071 · Inspect Tm / GC / binding sites
 
-**Status:** Specified; not verified implemented.
+**Status:** P08C candidate body length, tail, GC, Tm and conditions shown; existing binding engine retained.
 
 **Entry:** Primer row (1 navigation click(s)).
 
@@ -314,7 +314,7 @@ Native presentation entry points:
 
 ### F-072 · Use selected pair in PCR
 
-**Status:** Specified; not verified implemented.
+**Status:** P08C explicit pair-to-PCR handoff and captured prediction; independent product provenance verified.
 
 **Entry:** Select pair → Simulate PCR (2 navigation click(s)).
 
@@ -372,7 +372,7 @@ Native presentation entry points:
 
 ### F-074 · Show / hide primer
 
-**Status:** Specified; not verified implemented.
+**Status:** P08C rendered source and stable primer ID guard visibility actions.
 
 **Entry:** Row visibility toggle (1 navigation click(s)).
 
@@ -459,7 +459,7 @@ Native presentation entry points:
 
 ### F-077 · Overhang / phosphorylation / description
 
-**Status:** Specified; not verified implemented.
+**Status:** P08C existing phosphorylation, color and description preserved; design overhang separated from annealing body.
 
 **Entry:** Primer row → Edit details (2 navigation click(s)).
 
@@ -486,3 +486,67 @@ Native presentation entry points:
 - Selection changes after setup; a linked primer is edited or deleted before Run.
 - Overhang is valid but changes the product length; primer body and overhang must be distinguished.
 
+
+
+## P08C implemented flow and evidence — 16 November 2026
+
+From Primers, Design pair and Simulate PCR are direct labeled actions. Design captures
+the template document/revision and sequence digest. Its selection anchor and strand
+remain separate from the editable amplification target. Target start is 1-based; length
+must fit the linear molecule or one circular traversal. Invalid numeric input, unsupported
+DNA symbols, nonfinite/out-of-range Tm and invalid overhangs retain the draft with errors.
+No silent default or clipping is applied after invalid input.
+
+Run design uses the existing candidate engine. Results disclose the existing nearest-
+neighbor Tm conditions and structure heuristics; each shows body length, 5′ tail, GC,
+Tm, position and hairpin/self-dimer indicators. Both candidate choices start unselected.
+Adding requires current inputs, exact captured candidate vectors and explicit forward/
+reverse picks. One undoable mutation adds unique primer IDs and immutable pair provenance.
+Add pair and open PCR transfers those actual IDs, with no prototype fixture defaults.
+
+PCR accepts explicit saved-primer ID choices, unique names or validated entered DNA.
+Duplicate names require ID selection. Deleted IDs never fall back to another primer.
+Choosing a saved primer updates the native text field and clears the prior prediction.
+Run captures both resolved sequences/IDs, template version/digest, binding parameters,
+pair identity where applicable and copy policy. No binding or incompatible orientation
+is a successful diagnostic. A changed source, sequence, primer or copy policy requires
+rerunning before creation. Select an explicit product, then Create independent product.
+
+Product sequence includes unmatched forward 5′ tail, template body and reverse-complement
+of the reverse 5′ tail. Linear products may end at the final base; circular products may
+cross the origin but cannot anneal through repeated template laps. The product gets new
+document/revision IDs, linear topology, parent genetic code and immutable PCR provenance.
+The unsaved parent session and its Undo history remain open. Open parent template returns
+only to the exact captured open version; unavailable history is reported honestly.
+
+Copy policy retains only visible feature spans fully contained in the product body.
+Joined-segment order is preserved; joins that would require reordering across a circular
+origin are skipped. Segment and absolute cleavage-marker coordinates shift by the forward
+tail; out-of-body cleavage markers are omitted. Partial/hidden features are not copied.
+Repeated names remain distinct through document IDs. Creation is unsaved: normal P04 save
+and journal semantics apply, and a failed save retains product, provenance and parent.
+
+Native format is now v4 so older v3 writers reject rather than silently drop new metadata.
+Versions1–3 remain readable; upgrading a v3 file retains its exact .v3.bak backup. Pair and
+PCR provenance round-trip; older files default to no provenance. The change does not add
+a P09 saved-result catalog lifecycle or a durable historical-version restore service.
+
+Prediction is synchronous and bounded: more than512 binding-site pairs or an estimated
+pair-count × template-length above20,000,000 bytes produces an actionable error before
+product materialization. No partial result list is presented as complete. General async
+work and large-data performance/accessibility acceptance remain P19.
+
+Evidence:372 workspace tests passed, including14 appcore,2 domain and1 storage P08C tests;
+strict core Clippy and native executable build passed. Required regressions are
+primer_target_is_distinct_from_anchor, stale_candidate_cannot_be_added and
+pcr_product_keeps_parent_provenance. Additional coverage includes invalid inputs, stale
+copy policy/source, missing/duplicate primers, no-product diagnostics, undoable pairs,
+tails, last-base products, joined features, cleavage markers, repetitive inputs and save
+failure. Fresh review identified stale rendered-row source and circular join ordering;
+both regressions were observed failing and then passing with the fixes.
+
+Native1280px verification observed direct entries, disabled unselected-pair actions,
+candidate metrics, explicit choices, pair-to-PCR handoff, saved-ID text-field reseeding,
+prediction invalidation, selected502bp product, independent dirty product/parent tabs,
+parent provenance and return to the original dirty parent session. This is bounded sample
+verification, not comprehensive keyboard/accessibility or large-data acceptance.

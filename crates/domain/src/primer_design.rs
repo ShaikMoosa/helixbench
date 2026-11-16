@@ -29,7 +29,7 @@ impl Default for DesignParams {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Candidate {
     /// Full primer including any 5' overhang.
     pub sequence: Vec<u8>,

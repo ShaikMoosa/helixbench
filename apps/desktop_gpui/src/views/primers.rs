@@ -56,6 +56,7 @@ impl HelixBench {
         let filter = self.app.primer_filter.to_ascii_lowercase();
 
         let selected = self.app.selected_primer;
+        let source = self.app.doc.source_ref();
         let mut items: Vec<u64> = self
             .app
             .doc
@@ -134,6 +135,7 @@ impl HelixBench {
         let count = self.app.doc.primers.len();
         let mut toolbar = div()
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(px(8.0))
             .px(px(12.0))
@@ -158,10 +160,32 @@ impl HelixBench {
                     }),
                 ),
             );
+        toolbar = toolbar
+            .child(
+                widgets::button("primer-design-visible", "Design pair", Btn::Primary).on_click(
+                    cx.listener(|t, _, _, cx| {
+                        act::open_primer_design(&mut t.app);
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                widgets::button("primer-pcr-visible", "Simulate PCR", Btn::Outline).on_click(
+                    cx.listener(|t, _, _, cx| {
+                        act::open_pcr(&mut t.app);
+                        cx.notify();
+                    }),
+                ),
+            );
         let mut edit = widgets::icon_button("pr-edit", "pencil", "Edit", Btn::Subtle)
             .opacity(if sel.is_some() { 1.0 } else { 0.4 });
         if sel.is_some() {
             edit = edit.on_click(cx.listener(move |t, _, _, cx| {
+                if t.app.doc.source_ref() != source {
+                    t.app.toast("The template changed; select the primer again");
+                    cx.notify();
+                    return;
+                }
                 crate::dialogs::open_primer_editor(&mut t.app, sel);
                 cx.notify();
             }));
@@ -172,6 +196,11 @@ impl HelixBench {
         if sel.is_some() {
             del = del.on_click(cx.listener(move |t, _, _, cx| {
                 if let Some(id) = sel {
+                    if t.app.doc.source_ref() != source {
+                        t.app.toast("The template changed; select the primer again");
+                        cx.notify();
+                        return;
+                    }
                     act::delete_primer(&mut t.app, id);
                 }
                 cx.notify();
@@ -200,7 +229,7 @@ impl HelixBench {
         )));
 
         let hid = self.app.hidden_cols("primers");
-        let content_w = self.viewport.width.v() - 184.0;
+        let content_w = self.app.shell.layout(self.viewport.width.v()).content_width;
         let seq_w = (content_w - 596.0).max(140.0);
         let mut header = div()
             .flex()
@@ -265,6 +294,7 @@ impl HelixBench {
                     .map(|idx| {
                         let r = &rows[idx];
                         let id = r.id;
+                        let target=appcore::primer_workflow::PrimerRowTarget{source,id};
                         let e_sel = entity.clone();
                         let e_dbl = entity.clone();
                         let e_tog = entity.clone();
@@ -298,14 +328,14 @@ impl HelixBench {
                             .hover(|s| s.bg(theme::FILL_HOVER_STRONG))
                             .on_click(move |_, _, cx| {
                                 e_sel.update(cx, |t, cx| {
-                                    let source=t.app.doc.source_ref();
-                                    if let Err(error)=appcore::selection::primer_from_list(&mut t.app,source,id){t.app.toast(error);}else if t.app.selection.is_some(){t.app.toast("Selected the first binding site; click a map site to choose another");}
+                                    if let Err(error)=target.select(&mut t.app){t.app.toast(error);}else if t.app.selection.is_some(){t.app.toast("Selected the first binding site; click a map site to choose another");}
                                     cx.notify();
                                 });
                             })
                             .on_mouse_down(MouseButton::Left, move |ev, _, cx| {
                                 if ev.click_count >= 2 {
                                     e_dbl.update(cx, |t, cx| {
+                                        if t.app.doc.source_ref()!=source{t.app.toast("The template changed; select the primer again");cx.notify();return;}
                                         crate::dialogs::open_primer_editor(&mut t.app, Some(id));
                                         cx.notify();
                                     });
@@ -323,6 +353,7 @@ impl HelixBench {
                                             .on_click(move |_, _, cx| {
                                                 cx.stop_propagation();
                                                 e_tog.update(cx, |t, cx| {
+                                                    if t.app.doc.source_ref()!=source||t.app.doc.primer(id).is_none(){t.app.toast("The primer changed; refresh the list");cx.notify();return;}
                                                     let name = t
                                                         .app
                                                         .doc
