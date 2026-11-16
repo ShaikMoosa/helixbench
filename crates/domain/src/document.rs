@@ -148,7 +148,7 @@ impl Document {
         copy
     }
 
-    /// Snapshot the current state as a named version (newest last, capped at 20).
+    /// Snapshot the current state as a named version (newest last; retained until an explicit deletion policy exists).
     pub fn save_version(&mut self, label: String, created: u64) {
         let mut doc = self.clone();
         doc.versions = Vec::new();
@@ -157,9 +157,6 @@ impl Document {
             created,
             doc,
         });
-        if self.versions.len() > 20 {
-            self.versions.remove(0);
-        }
     }
 
     /// Restore a snapshot by index, preserving the version list and id counter.
@@ -168,15 +165,20 @@ impl Document {
             return false;
         };
         let snap = v.doc.clone();
+        self.restore_snapshot(&snap);
+        true
+    }
+
+    /// Restore content while preserving this record's identity, checkpoints and ID allocator.
+    pub fn restore_snapshot(&mut self, snapshot: &Document) {
         let versions = std::mem::take(&mut self.versions);
         let next = self.next_id;
         let identity = self.id;
-        *self = snap;
+        *self = snapshot.clone();
         self.id = identity;
         self.advance_revision();
         self.versions = versions;
         self.next_id = next.max(self.next_id);
-        true
     }
 
     pub fn add_feature(&mut self, mut feature: Feature) -> u64 {

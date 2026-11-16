@@ -29,7 +29,8 @@ pub fn fragments(cuts: &[usize], len: usize, circular: bool) -> Vec<Fragment> {
         for i in 0..c.len() {
             let s = c[i];
             let e = c[(i + 1) % c.len()];
-            let size = (e + len - s) % len;
+            let distance = (e + len - s) % len;
+            let size = if distance == 0 { len } else { distance };
             out.push(Fragment {
                 start: s,
                 end: e,
@@ -52,6 +53,7 @@ pub fn fragments(cuts: &[usize], len: usize, circular: bool) -> Vec<Fragment> {
             size: len - prev,
         });
     }
+    out.retain(|f| f.size > 0);
     out
 }
 

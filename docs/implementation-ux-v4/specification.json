@@ -9376,7 +9376,7 @@
       "intendedOutcome": "Apply selected set and show active-set name",
       "baselineNote": "Existing combo and Enzymes menu",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D predefined set application checks rendered source and uses an explicit undoable mutation",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -9446,7 +9446,7 @@
       "intendedOutcome": "Update chosen enzymes and map cuts",
       "baselineNote": "Existing source checkbox",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D stable enzyme name plus captured document revision guards membership edits",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -9516,7 +9516,7 @@
       "intendedOutcome": "Filter current table",
       "baselineNote": "Existing source control",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D name composes with count, overhang, length and region filters; reset and saved-view input reseeding verified",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -9587,7 +9587,7 @@
       "intendedOutcome": "Show unique/noncutting/multiple-cut enzymes",
       "baselineNote": "Source combo omitted in design",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D full-template cut counts compose with independent region constraint; saved preset round-trip verified",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -9658,7 +9658,7 @@
       "intendedOutcome": "Blunt or sticky-end filtering",
       "baselineNote": "Source combo omitted in design",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D existing overhang and Type IIS classification retained in composable persisted filters",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -9729,7 +9729,7 @@
       "intendedOutcome": "Constrain recognition sequence length",
       "baselineNote": "Source combo omitted in design",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D recognition length composes with other filters and persists in saved views",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -9799,7 +9799,7 @@
       "intendedOutcome": "Show region and exclusion semantics explicitly",
       "baselineNote": "Source start/end plus region mode",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D strict selection/custom region validation and circular origin wrapping; invalid scope cannot fall back",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -9869,7 +9869,7 @@
       "intendedOutcome": "Apply membership only to shown rows",
       "baselineNote": "Small icon actions in source",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D explicit check or uncheck filtered names uses source validation and Undo; filters alone do not edit set",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -9939,7 +9939,7 @@
       "intendedOutcome": "Confirm scope and provide undo",
       "baselineNote": "Existing action",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D explicit clear-set action validates rendered source and remains undoable",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10009,7 +10009,7 @@
       "intendedOutcome": "Open the exact cut rather than an unrelated selection",
       "baselineNote": "Row click currently recenters one cut",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D row opens captured exact cleavage choices; second site navigates to Map with Back context",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10079,7 +10079,7 @@
       "intendedOutcome": "Review fragments and simulated gel",
       "baselineNote": "Tools menu / design action",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D explicit whole-template captured digest, no-sites completion, cleavage accounting and labeled gel verified",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10150,7 +10150,7 @@
       "intendedOutcome": "Save/load columns, filters and sort",
       "baselineNote": "Existing popup omitted from design",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D complete enzyme presets persist and restore native fields; failed writes roll back memory and surface error",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10290,7 +10290,7 @@
       "intendedOutcome": "Name the operation being undone",
       "baselineNote": "Existing icon action / shortcut",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D edit Undo preserves named checkpoints and correct saved/dirty truth; target-name button copy deferred",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10360,7 +10360,7 @@
       "intendedOutcome": "Name the redo target",
       "baselineNote": "Existing icon action / shortcut",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D edit Redo preserves named checkpoints and saved baseline; target-name button copy deferred",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10430,7 +10430,7 @@
       "intendedOutcome": "Show ranges and source-view highlight",
       "baselineNote": "Click highlight exists",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D source-bound highlight action retained without changing scientific data",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10501,7 +10501,7 @@
       "intendedOutcome": "Preview scope, then confirm separately",
       "baselineNote": "Existing selected button and hidden double-click",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D before-edit snapshot review and explicit restore create a new undoable revision",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10571,7 +10571,7 @@
       "intendedOutcome": "Name / timestamp a recoverable snapshot",
       "baselineNote": "Existing action",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D named local checkpoints retain scientific source identity and survive Undo; disk save state is explicit",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10636,7 +10636,7 @@
       "intendedOutcome": "Review differences and preserve current work before restore",
       "baselineNote": "Source Restore per version",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D exact checkpoint capture, impact preview, Cancel and new-revision undoable restore verified",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -10706,7 +10706,7 @@
       "intendedOutcome": "Return to latest state and selection",
       "baselineNote": "Existing marker",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08D Show current state clears transient history highlighting with rendered source validation",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",

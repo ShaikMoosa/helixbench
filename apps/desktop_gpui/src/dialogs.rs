@@ -185,8 +185,14 @@ pub fn show(
         pcr(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::PrimerDesign(_))) {
         primer_design(app, cx, max_h)
-    } else if matches!(app.app.dialog, Some(Dialog::Digest)) {
+    } else if matches!(app.app.dialog, Some(Dialog::Digest(_))) {
         digest(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::EnzymeSites(_))) {
+        enzyme_sites(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::Checkpoint(_))) {
+        checkpoint(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::HistoryReview(_))) {
+        history_review(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Alignment(_))) {
         alignment(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Assembly(_))) {
@@ -2889,144 +2895,382 @@ fn primer_design(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
 }
 
 fn digest(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
-    let frags = act::digest_fragments(&app.app);
-    let circular = app.app.doc.sequence.is_circular();
-    let total: usize = frags.iter().map(|f| f.size).sum();
-    let max_bp = frags.iter().map(|f| f.size).max().unwrap_or(1000).max(1000) as f32;
-
-    let mut body = div().flex().flex_col().size_full().gap(px(10.0));
-    body = body.child(widgets::label(
-        &format!(
-            "{} fragment(s) · {} bp total · {} template · {} enzyme(s) selected",
-            frags.len(),
-            total,
-            if circular { "circular" } else { "linear" },
-            app.app.analysis.chosen.len()
-        ),
-        theme::T_SM,
-        theme::MUTED,
-    ));
-
-    // Agarose gel simulation: ladder lane + sample lane.
-    let gel_frags = frags.clone();
-    let gel = div().h(px(240.0)).w_full().flex_shrink_0().child(
-        canvas(
-            move |_, _, _| {},
-            move |bounds, _s, window, cx| {
-                crate::draw::rect(window, bounds, 6.0, theme::SURFACE);
-                let top = bounds.origin.y.v() + 16.0;
-                let h = bounds.size.height.v() - 32.0;
-                let ladder_x = bounds.origin.x.v() + 70.0;
-                let lane_x = bounds.origin.x.v() + 180.0;
-                let band_w = 60.0;
-                for &m in &domain::digest::LADDER {
-                    let y = top + domain::digest::gel_fraction(m, 100.0, max_bp) * h;
-                    crate::draw::rect(
-                        window,
-                        Bounds::new(point(px(ladder_x), px(y)), size(px(band_w), px(3.0))),
-                        1.0,
-                        theme::FAINT,
-                    );
-                    crate::draw::text(
-                        window,
-                        cx,
-                        point(px(ladder_x - 8.0), px(y + 1.5)),
-                        &m.to_string(),
-                        9.0,
-                        theme::FAINT,
-                        theme::mono_font(),
-                        crate::draw::Align::Right,
-                    );
-                }
-                for f in &gel_frags {
-                    let y = top + domain::digest::gel_fraction(f.size, 100.0, max_bp) * h;
-                    crate::draw::rect(
-                        window,
-                        Bounds::new(point(px(lane_x), px(y)), size(px(band_w), px(4.0))),
-                        1.0,
-                        theme::ACCENT,
-                    );
-                    crate::draw::text(
-                        window,
-                        cx,
-                        point(px(lane_x + band_w + 8.0), px(y + 2.0)),
-                        &format!("{} bp", f.size),
-                        9.0,
-                        theme::MUTED,
-                        theme::mono_font(),
-                        crate::draw::Align::Left,
-                    );
-                }
-                crate::draw::text(
-                    window,
-                    cx,
-                    point(px(ladder_x + band_w / 2.0), px(top - 8.0)),
-                    "Ladder",
-                    9.0,
-                    theme::FAINT,
-                    theme::ui_font(),
-                    crate::draw::Align::Center,
-                );
-                crate::draw::text(
-                    window,
-                    cx,
-                    point(px(lane_x + band_w / 2.0), px(top - 8.0)),
-                    "Digest",
-                    9.0,
-                    theme::FAINT,
-                    theme::ui_font(),
-                    crate::draw::Align::Center,
-                );
-            },
-        )
-        .size_full(),
-    );
-    body = body.child(gel);
-
-    let mut list = div().flex().flex_col().gap(px(2.0));
-    for (i, f) in frags.iter().enumerate() {
-        list = list.child(
-            div()
-                .flex()
-                .items_center()
-                .gap(px(10.0))
-                .p(px(6.0))
-                .rounded(px(4.0))
-                .bg(if i % 2 == 0 {
-                    theme::SURFACE
-                } else {
-                    theme::PANEL
-                })
-                .child(widgets::label(
-                    &format!("#{}", i + 1),
-                    theme::T_XS,
-                    theme::FAINT,
-                ))
-                .child(
-                    div()
-                        .flex_grow()
-                        .text_size(px(theme::T_SM))
-                        .font_family(theme::mono_family())
-                        .text_color(theme::TEXT)
-                        .child(format!("{} bp", f.size)),
-                )
-                .child(widgets::label(
-                    &format!("{}..{}", f.start + 1, f.end),
-                    theme::T_XS,
-                    theme::MUTED,
-                )),
-        );
+    let draft = match &app.app.dialog {
+        Some(Dialog::Digest(d)) => d.clone(),
+        _ => unreachable!(),
+    };
+    let mut body = div().flex().flex_col().gap(px(12.0));
+    body=body.child(widgets::label(&format!("Template: {} · {} bp · {:?} · captured version {}",app.app.doc.name,app.app.doc.sequence.len(),app.app.doc.sequence.topology,draft.source.map(|s|s.revision.to_string()).unwrap_or_default()),theme::T_SM,theme::TEXT))
+        .child(widgets::label("Scope: entire template. Table name/cut/region filters and the current selection do not restrict this digest.",theme::T_SM,theme::MUTED))
+        .child(widgets::label(&format!("Chosen enzymes: {}",if draft.names.is_empty(){"None — choose enzymes before running".into()}else{draft.names.join(", ")}),theme::T_SM,theme::TEXT))
+        .child(widgets::label("Sequence-based cleavage prediction; methylation, reaction efficiency and uncut circular DNA migration are not modeled. Gel bands use a logarithmic 100–10,000 bp model with an illustrative 1 kb-plus ladder; outside-range bands clamp to the edge.",theme::T_SM,theme::MUTED))
+        .child(widgets::button("digest-run","Run whole-template digest",Btn::Primary).on_click(cx.listener(|t,_,_,cx|{if let Some(Dialog::Digest(mut d))=t.app.dialog.take(){d.error=appcore::enzyme_workflow::run(&t.app,&mut d).err();t.app.dialog=Some(Dialog::Digest(d));}cx.notify();})));
+    if let Some(e) = &draft.error {
+        body = body.child(widgets::label(e, theme::T_SM, theme::DANGER));
     }
-    body = body.child(list);
+    if let Some(result) = &draft.result {
+        let frags = result.fragments.clone();
+        let max_bp = 10000.0;
+        body = body.child(widgets::label(
+            &format!(
+                "Completed{} · {} fragment(s) · {} bp total",
+                if result.completed_no_sites {
+                    " — no cut sites"
+                } else {
+                    ""
+                },
+                frags.len(),
+                frags.iter().map(|f| f.size).sum::<usize>()
+            ),
+            theme::T_BASE,
+            theme::TEXT,
+        ));
+        if result.input.source() != app.app.doc.source_ref() {
+            body=body.child(widgets::label("Older-input result: the document changed after this prediction. Reopen setup to run against the new version.",theme::T_SM,theme::WARN));
+        }
+        body = body.child(widgets::label(
+            &format!(
+                "Result input revision {} · whole template · {} selected enzymes",
+                result.input.source().revision,
+                result.enzymes.len()
+            ),
+            theme::T_XS,
+            theme::MUTED,
+        ));
+        for site in &result.sites {
+            body = body.child(widgets::label(
+                &format!(
+                    "{} · recognition start {} · top-strand cleavage boundary {} · {:?}",
+                    site.enzyme,
+                    site.position + 1,
+                    site.cut_top,
+                    site.strand
+                ),
+                theme::T_SM,
+                theme::TEXT,
+            ));
+        }
+        if result.completed_no_sites && result.input.document().sequence.is_circular() {
+            body=body.child(widgets::label("The molecule remains circular. Its whole-length row is an accounting result; no linearized sample band is predicted.",theme::T_SM,theme::MUTED));
+        }
+        // Agarose gel simulation: ladder lane + sample lane.
+        let gel_frags = frags.clone();
+        let gel = div().h(px(240.0)).w_full().flex_shrink_0().child(
+            canvas(
+                move |_, _, _| {},
+                move |bounds, _s, window, cx| {
+                    crate::draw::rect(window, bounds, 6.0, theme::SURFACE);
+                    let top = bounds.origin.y.v() + 16.0;
+                    let h = bounds.size.height.v() - 32.0;
+                    let ladder_x = bounds.origin.x.v() + 70.0;
+                    let lane_x = bounds.origin.x.v() + 180.0;
+                    let band_w = 60.0;
+                    for &m in &domain::digest::LADDER {
+                        let y = top + domain::digest::gel_fraction(m, 100.0, max_bp) * h;
+                        crate::draw::rect(
+                            window,
+                            Bounds::new(point(px(ladder_x), px(y)), size(px(band_w), px(3.0))),
+                            1.0,
+                            theme::FAINT,
+                        );
+                        crate::draw::text(
+                            window,
+                            cx,
+                            point(px(ladder_x - 8.0), px(y + 1.5)),
+                            &m.to_string(),
+                            9.0,
+                            theme::FAINT,
+                            theme::mono_font(),
+                            crate::draw::Align::Right,
+                        );
+                    }
+                    for f in &gel_frags {
+                        let y = top + domain::digest::gel_fraction(f.size, 100.0, max_bp) * h;
+                        crate::draw::rect(
+                            window,
+                            Bounds::new(point(px(lane_x), px(y)), size(px(band_w), px(4.0))),
+                            1.0,
+                            theme::ACCENT,
+                        );
+                        crate::draw::text(
+                            window,
+                            cx,
+                            point(px(lane_x + band_w + 8.0), px(y + 2.0)),
+                            &format!("{} bp", f.size),
+                            9.0,
+                            theme::MUTED,
+                            theme::mono_font(),
+                            crate::draw::Align::Left,
+                        );
+                    }
+                    crate::draw::text(
+                        window,
+                        cx,
+                        point(px(ladder_x + band_w / 2.0), px(top - 8.0)),
+                        "Ladder",
+                        9.0,
+                        theme::FAINT,
+                        theme::ui_font(),
+                        crate::draw::Align::Center,
+                    );
+                    crate::draw::text(
+                        window,
+                        cx,
+                        point(px(lane_x + band_w / 2.0), px(top - 8.0)),
+                        "Digest",
+                        9.0,
+                        theme::FAINT,
+                        theme::ui_font(),
+                        crate::draw::Align::Center,
+                    );
+                },
+            )
+            .size_full(),
+        );
+        if !(result.completed_no_sites && result.input.document().sequence.is_circular()) {
+            body = body.child(gel);
+        }
 
+        let mut list = div().flex().flex_col().gap(px(2.0));
+        for (i, f) in frags.iter().enumerate() {
+            list = list.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(10.0))
+                    .p(px(6.0))
+                    .rounded(px(4.0))
+                    .bg(if i % 2 == 0 {
+                        theme::SURFACE
+                    } else {
+                        theme::PANEL
+                    })
+                    .child(widgets::label(
+                        &format!("#{}", i + 1),
+                        theme::T_XS,
+                        theme::FAINT,
+                    ))
+                    .child(
+                        div()
+                            .flex_grow()
+                            .text_size(px(theme::T_SM))
+                            .font_family(theme::mono_family())
+                            .text_color(theme::TEXT)
+                            .child(format!("{} bp", f.size)),
+                    )
+                    .child(widgets::label(
+                        &if f.start >= f.end && result.input.document().sequence.is_circular() {
+                            format!(
+                                "{}…{}, 1…{} (wrap)",
+                                f.start + 1,
+                                result.input.document().sequence.len(),
+                                f.end
+                            )
+                        } else {
+                            format!("{}..{}", f.start + 1, f.end)
+                        },
+                        theme::T_XS,
+                        theme::MUTED,
+                    )),
+            );
+        }
+        body = body.child(list);
+    }
     let footer = footer_row(vec![widgets::button("dg-close", "Close", Btn::Ghost)
         .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
         .into_any_element()]);
     modal_shell(
         app,
         cx,
-        "Virtual Digest & Gel",
-        520.0,
+        "Whole-template digest and gel",
+        760.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn enzyme_sites(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::EnzymeSites(d)) => d.clone(),
+        _ => unreachable!(),
+    };
+    let mut body=div().flex().flex_col().gap(px(10.0)).child(widgets::label("Choose an exact cleavage site to open on Map. Boundary numbers count bases before the top-strand cut; zero is before the first base. Back returns to the enzyme page.",theme::T_SM,theme::MUTED));
+    for (i, site) in draft.sites.iter().enumerate() {
+        let captured = draft.clone();
+        let site = site.clone();
+        body = body.child(
+            widgets::button(
+                SharedString::from(format!("enzyme-cut-{i}")),
+                &format!(
+                    "{} · recognition {} · cleavage after {} · {:?}",
+                    draft.enzyme,
+                    site.position + 1,
+                    site.cut_top,
+                    site.strand
+                ),
+                Btn::Outline,
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Err(e) = appcore::enzyme_workflow::show_cut(&mut t.app, &captured, &site) {
+                    if let Some(Dialog::EnzymeSites(d)) = &mut t.app.dialog {
+                        d.error = Some(e);
+                    }
+                }
+                cx.notify();
+            })),
+        );
+    }
+    if let Some(e) = &draft.error {
+        body = body.child(widgets::label(e, theme::T_SM, theme::DANGER));
+    }
+    let footer = footer_row(vec![widgets::button(
+        "enzyme-cuts-close",
+        "Cancel",
+        Btn::Ghost,
+    )
+    .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+    .into_any_element()]);
+    modal_shell(
+        app,
+        cx,
+        "Choose cleavage site",
+        760.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+
+fn checkpoint(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let seed = match &app.app.dialog {
+        Some(Dialog::Checkpoint(d)) => d.clone(),
+        _ => unreachable!(),
+    };
+    let input = app.input_entity(
+        cx,
+        "dlg:checkpoint:name",
+        &seed.label,
+        "e.g. Before cloning",
+        false,
+    );
+    if let Some(Dialog::Checkpoint(d)) = &mut app.app.dialog {
+        d.label = input.read(cx).text();
+    }
+    let mut body=div().flex().flex_col().gap(px(12.0)).child(widgets::label("Name this complete document snapshot. It remains a local checkpoint until you save the document; Undo / Redo still operates on edits separately.",theme::T_SM,theme::MUTED)).child(input);
+    if let Some(Dialog::Checkpoint(d)) = &app.app.dialog {
+        if let Some(e) = &d.error {
+            body = body.child(widgets::label(e, theme::T_SM, theme::DANGER));
+        }
+    }
+    let footer = footer_row(vec![
+        widgets::button("checkpoint-cancel", "Cancel", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button("checkpoint-create", "Create checkpoint", Btn::Primary)
+            .on_click(cx.listener(|t, _, _, cx| {
+                if let Some(Dialog::Checkpoint(mut d)) = t.app.dialog.take() {
+                    match appcore::history_workflow::save(&mut t.app, d.source, &d.label) {
+                        Ok(()) => {}
+                        Err(e) => {
+                            d.error = Some(e);
+                            t.app.dialog = Some(Dialog::Checkpoint(d));
+                        }
+                    }
+                }
+                cx.notify();
+            }))
+            .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Name checkpoint",
+        600.0,
+        max_h,
+        true,
+        body.into_any_element(),
+        Some(footer.into_any_element()),
+    )
+}
+fn history_review(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let review = match &app.app.dialog {
+        Some(Dialog::HistoryReview(r)) => r.clone(),
+        _ => unreachable!(),
+    };
+    let mut body=div().flex().flex_col().gap(px(12.0)).child(widgets::label(&format!("{} · captured checkpoint revision {}",review.label,review.target.revision_id),theme::T_BASE,theme::TEXT))
+ .child(widgets::label("Preview only: your current document has not changed. Restore replaces snapshot content, preserves named checkpoints, and creates an undoable unsaved revision. Existing analysis input snapshots remain tied to their original versions.",theme::T_SM,theme::MUTED));
+    for line in review.summary() {
+        body = body.child(widgets::label(&line, theme::T_SM, theme::TEXT));
+    }
+    body = body.child(widgets::label(
+        &format!("Name: {} → {}", review.base.name, review.target.name),
+        theme::T_SM,
+        theme::TEXT,
+    ));
+    body = body
+        .child(widgets::label(
+            "Target sequence preview (5′→3′, first 80 bases)",
+            theme::T_SM,
+            theme::MUTED,
+        ))
+        .child(widgets::label(
+            &String::from_utf8_lossy(
+                &review.target.sequence.bases[..review.target.sequence.len().min(80)],
+            ),
+            theme::T_SM,
+            theme::TEXT,
+        ));
+    for f in review.target.features.iter().take(10) {
+        body = body.child(widgets::label(
+            &format!(
+                "Feature #{} · {} · {:?} · {} segment(s)",
+                f.id,
+                f.name,
+                f.direction,
+                f.segments.len()
+            ),
+            theme::T_SM,
+            theme::MUTED,
+        ));
+    }
+    for p in review.target.primers.iter().take(10) {
+        body = body.child(widgets::label(
+            &format!("Primer #{} · {} · {} nt", p.id, p.name, p.sequence.len()),
+            theme::T_SM,
+            theme::MUTED,
+        ));
+    }
+    if let Some(e) = &review.error {
+        body = body.child(widgets::label(e, theme::T_SM, theme::DANGER));
+    }
+    let footer = footer_row(vec![
+        widgets::button("history-review-cancel", "Cancel — keep current", Btn::Ghost)
+            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+            .into_any_element(),
+        widgets::button(
+            "history-review-restore",
+            "Restore as new revision",
+            Btn::Primary,
+        )
+        .on_click(cx.listener(|t, _, _, cx| {
+            if let Some(Dialog::HistoryReview(mut r)) = t.app.dialog.take() {
+                if let Err(e) = appcore::history_workflow::restore(&mut t.app, &r) {
+                    r.error = Some(e);
+                    t.app.dialog = Some(Dialog::HistoryReview(r));
+                }
+            }
+            cx.notify();
+        }))
+        .into_any_element(),
+    ]);
+    modal_shell(
+        app,
+        cx,
+        "Compare and review restore",
+        760.0,
         max_h,
         true,
         body.into_any_element(),

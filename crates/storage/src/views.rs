@@ -9,6 +9,18 @@ use serde::{Deserialize, Serialize};
 use crate::config::config_dir;
 use crate::{atomic_write, Result};
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EnzymeFilter {
+    pub name: String,
+    pub cut_count: usize,
+    pub overhang: usize,
+    pub site_len: usize,
+    pub region: usize,
+    pub region_start: String,
+    pub region_end: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SavedView {
     pub id: u64,
@@ -19,6 +31,8 @@ pub struct SavedView {
     /// None = unsorted, Some(true) = desc, Some(false) = asc.
     pub sort_desc: Option<bool>,
     pub filter: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enzyme_filter: Option<EnzymeFilter>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -47,6 +61,7 @@ impl Views {
             sort_column,
             sort_desc,
             filter,
+            enzyme_filter: None,
         });
         id
     }
@@ -95,7 +110,7 @@ pub fn save(v: &Views) -> Result<()> {
 
 pub fn save_to(v: &Views, p: &Path) -> Result<()> {
     let file = File {
-        version: 1,
+        version: 2,
         views: v.clone(),
     };
     let json = serde_json::to_vec_pretty(&file)?;

@@ -106,3 +106,19 @@ atomic replacement. SourceRef is retained even when the parent is no longer open
 UI never substitutes a similarly named/current revision. Product creation is an unsaved
 new document. P04 owns actual disk save, errors and journal reconciliation; P09 owns the
 future saved-result catalog. See screens/primers.md for copy policy and verified cases.
+
+
+## P08D checkpoint and view-preset clarification
+
+Named Version snapshots keep their scientific SourceRef. UI actions capture the exact
+Version including label/time/content so same-revision names cannot retarget to another row.
+Named lists survive transient Undo/Redo, and dirty calculation compares checkpoint metadata
+against the saved native baseline as well as edit depth. Silent20checkpoint eviction is
+removed; owned analysis InputSnapshot remains independent even if checkpoints are removed.
+Restore copies snapshot content into a new current revision with Undo, preserving record ID,
+named list and allocator. No new native-document fields or version bump are introduced.
+
+Profile views.json writes envelope2 and optional typed enzyme_filter with name, cut count,
+overhang, site length, scope and bounds. Legacy views without it reset non-name filters.
+Atomic save/delete updates live Views only after persistence succeeds; native fields reseed
+after Load. Source scientific documents and chosen enzymes do not change when presets load.

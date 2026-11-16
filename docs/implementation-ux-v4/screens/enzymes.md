@@ -79,7 +79,7 @@ Native presentation entry points:
 
 ### F-078 · Choose / apply enzyme set
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D predefined set application checks rendered source and uses an explicit undoable mutation.
 
 **Entry:** Enzyme set → Set name (2 navigation click(s)).
 
@@ -108,7 +108,7 @@ Native presentation entry points:
 
 ### F-079 · Toggle enzyme membership
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D stable enzyme name plus captured document revision guards membership edits.
 
 **Entry:** Row checkbox (1 navigation click(s)).
 
@@ -137,7 +137,7 @@ Native presentation entry points:
 
 ### F-080 · Filter by enzyme name
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D name composes with count, overhang, length and region filters; reset and saved-view input reseeding verified.
 
 **Entry:** Name field (1 navigation click(s)).
 
@@ -166,7 +166,7 @@ Native presentation entry points:
 
 ### F-081 · Filter cut count
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D full-template cut counts compose with independent region constraint; saved preset round-trip verified.
 
 **Entry:** Cuts → Count option (2 navigation click(s)).
 
@@ -195,7 +195,7 @@ Native presentation entry points:
 
 ### F-082 · Filter overhang type
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D existing overhang and Type IIS classification retained in composable persisted filters.
 
 **Entry:** Overhang → Type (2 navigation click(s)).
 
@@ -224,7 +224,7 @@ Native presentation entry points:
 
 ### F-083 · Filter recognition length
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D recognition length composes with other filters and persists in saved views.
 
 **Entry:** Site length → Length (2 navigation click(s)).
 
@@ -253,7 +253,7 @@ Native presentation entry points:
 
 ### F-084 · Filter a coordinate region
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D strict selection/custom region validation and circular origin wrapping; invalid scope cannot fall back.
 
 **Entry:** Region control (1 navigation click(s)).
 
@@ -282,7 +282,7 @@ Native presentation entry points:
 
 ### F-085 · Check / uncheck shown enzymes
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D explicit check or uncheck filtered names uses source validation and Undo; filters alone do not edit set.
 
 **Entry:** Check shown or Uncheck shown (1 navigation click(s)).
 
@@ -311,7 +311,7 @@ Native presentation entry points:
 
 ### F-086 · Clear chosen set
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D explicit clear-set action validates rendered source and remains undoable.
 
 **Entry:** Clear set (1 navigation click(s)).
 
@@ -340,7 +340,7 @@ Native presentation entry points:
 
 ### F-087 · Inspect cut position on map
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D row opens captured exact cleavage choices; second site navigates to Map with Back context.
 
 **Entry:** Cut-position link (1 navigation click(s)).
 
@@ -369,7 +369,7 @@ Native presentation entry points:
 
 ### F-088 · Virtual digest and gel
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D explicit whole-template captured digest, no-sites completion, cleavage accounting and labeled gel verified.
 
 **Entry:** Digest & gel (1 navigation click(s)).
 
@@ -398,7 +398,7 @@ Native presentation entry points:
 
 ### F-089 · Columns / saved views
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D complete enzyme presets persist and restore native fields; failed writes roll back memory and surface error.
 
 **Entry:** Columns / Views → Named option (2 navigation click(s)).
 
@@ -454,3 +454,59 @@ Native presentation entry points:
 - Custom interval is invalid, empty or wraps the origin.
 - A non-cutter filter combined with a region filter produces no rows.
 
+
+
+## P08D implemented flow and evidence — 16 November 2026
+
+Choose a predefined set or toggle membership explicitly. Name, count, overhang, recognition
+length and region filters compose without editing the chosen set or molecule topology.
+Counts describe the whole template; a region adds the independent requirement that a
+recognition start or top-strand cleavage boundary lies in it. Thus non-cutter plus region
+can legitimately match no rows. Anywhere, current selection and custom1-based inclusive
+range are supported. Blank/non-numeric/out-of-bounds custom ranges and missing selections
+show correction feedback and no rows, never a whole-template fallback. Circular end before
+start means wrap; linear end before start is invalid. Reset clears every filter and native
+text field, returning to Anywhere while keeping the chosen set, document and dirty state.
+
+Check shown/Uncheck shown/Clear set and predefined sets validate captured source revision
+before one undoable mutation. Unknown names in older chosen sets remain visible as a review
+warning; they are never silently removed or treated as a successful known-enzyme digest.
+
+Click an enzyme row, then choose the exact cleavage site. Each choice captures enzyme,
+source, recognition start, cleavage boundary and strand. A non-first site opens its exact
+Map context; Back restores the Enzymes task and prior selection. Boundary numbers count
+bases before the cut, rather than incorrectly showing the recognition start or boundary+1.
+No-site rows cannot invent a cut. Stale sources or unavailable site identities are rejected.
+
+Digest and gel opens captured setup. Scope is always the entire template and explicitly
+independent of selection/table filters. Review topology, chosen enzymes and input revision,
+then Run. Empty input/no chosen enzyme/unknown name and out-of-template linear cleavage
+boundaries produce actionable errors. The last case uses signed enzyme offsets, including
+mirrored reverse-strand offsets, rather than trusting already-clamped site coordinates.
+Predictions retain an owned InputSnapshot, actual enzymes, CutSites and computed fragments.
+Older-input output stays attached to its original version and is labeled if the source changes.
+
+No recognition sites is Completed — no cut sites, with a whole-length accounting row.
+A single circular cut linearizes the full molecule. Coincident cuts deduplicate, linear
+boundary cuts create no zero-size fragment, and fragment totals equal template length.
+The workflow now uses cleavage offsets, not recognition starts. The existing domain
+recognition engine and logarithmic gel equation remain. The ladder/model range is labeled
+100–10,000bp with edge clamping. Uncut circular DNA receives no misleading linear sample band.
+Methylation and reaction efficiency are not modeled; no sensitivity metadata exists in the
+current enzyme database, despite the original screen contract saying to preserve such a filter.
+
+Columns / Views now persists every composed enzyme filter, sort and hidden columns.
+Loading reseeds retained native name/start/end fields; an old visible field cannot overwrite
+the restored preset on the next render. Legacy name-only views load with other filters reset.
+Save/delete commit the in-memory view list only after a successful atomic write; failed
+writes preserve the prior list, keep the editable name/current filters and surface an error.
+The profile views envelope writes version2 with optional typed enzyme-filter data. Native
+document format remains v4. No biological document edit is implied by saving a table preset.
+
+Verification:18 appcore+2 domain P08D regressions and all392 workspace tests pass; strict core
+Clippy and native build pass. Fresh review's exact-site, composed-preset, cached-input and
+false-success findings were addressed in one fix pass. Native1280 confirmation showed
+AccI second cleavage after2820 opening Map at base2820, Back restoring Enzymes, and a saved
+Eco+Unique preset restored after Reset and changing the visible field to Bam. Earlier native
+checks covered invalid custom scope, direct digest setup, a single EcoRI cut producing one
+3021bp circular-template fragment, labeled gel and whole-template scope.

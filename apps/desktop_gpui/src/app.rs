@@ -179,7 +179,6 @@ pub struct HelixBench {
     pub feat_scroll: UniformListScrollHandle,
     pub primer_scroll: UniformListScrollHandle,
     pub enzyme_scroll: UniformListScrollHandle,
-    pub history_scroll: UniformListScrollHandle,
     pub detect_scroll: UniformListScrollHandle,
 }
 
@@ -231,7 +230,6 @@ impl HelixBench {
             feat_scroll: UniformListScrollHandle::new(),
             primer_scroll: UniformListScrollHandle::new(),
             enzyme_scroll: UniformListScrollHandle::new(),
-            history_scroll: UniformListScrollHandle::new(),
             detect_scroll: UniformListScrollHandle::new(),
         }
     }
@@ -298,7 +296,13 @@ impl HelixBench {
             }
             Some(Dialog::Pcr(d)) => format!("pcr:{:?}:{}", d.source, d.input_epoch),
             Some(Dialog::PrimerDesign(d)) => format!("pdesign:{:?}", d.source),
-            Some(Dialog::Digest) => "digest".into(),
+            Some(Dialog::Digest(d)) => format!("digest:{:?}", d.source),
+            Some(Dialog::EnzymeSites(d)) => format!("cuts:{}:{}", d.source.revision, d.enzyme),
+            Some(Dialog::Checkpoint(d)) => format!("checkpoint:{}", d.source.revision),
+            Some(Dialog::HistoryReview(d)) => format!(
+                "history-review:{}:{}",
+                d.source.revision, d.target.revision_id
+            ),
             Some(Dialog::Alignment(_)) => "alignment".into(),
             Some(Dialog::Assembly(_)) => "assembly".into(),
             Some(Dialog::Crispr(_)) => "crispr".into(),

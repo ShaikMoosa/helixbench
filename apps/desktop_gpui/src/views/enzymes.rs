@@ -6,11 +6,11 @@ use gpui::{
     ElementId, Entity, MouseButton, SharedString, Stateful, Window,
 };
 
+use appcore::enzyme_workflow as flow;
 use appcore::state::{
     AppState, SortDir, CUT_COUNT_OPTIONS, OVERHANG_OPTIONS, REGION_OPTIONS, SITE_LEN_OPTIONS,
 };
-use domain::enzyme::Overhang;
-use domain::{enzyme_db, Enzyme, EnzymeSet};
+use domain::{Enzyme, EnzymeSet};
 
 use crate::app::HelixBench;
 use crate::draw::PxVal;
@@ -46,7 +46,7 @@ struct Row {
     overhang: String,
     positions: String,
     in_set: bool,
-    first_site: Option<usize>,
+    has_sites: bool,
 }
 
 fn combo_btn(id: impl Into<ElementId>, label: &str, open: bool) -> Stateful<Div> {
@@ -76,6 +76,7 @@ fn combo_btn(id: impl Into<ElementId>, label: &str, open: bool) -> Stateful<Div>
 impl HelixBench {
     pub fn render_enzymes(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         self.app.ensure_analysis();
+        let source = self.app.doc.source_ref();
         let entity: Entity<Self> = cx.entity();
 
         let seed = self.app.enzyme_filter.name.clone();
@@ -89,6 +90,7 @@ impl HelixBench {
         // --- Toolbar (two rows) ---
         let row1 = div()
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(px(8.0))
             .child(widgets::label("Enzyme set", theme::T_SM, theme::MUTED))
@@ -113,108 +115,146 @@ impl HelixBench {
                 theme::FAINT,
             ));
 
+        let row1 = row1
+            .child(
+                widgets::button("enz-digest", "Digest and gel", Btn::Primary).on_click(
+                    cx.listener(move |t, _, _, cx| {
+                        if flow::validate_source(&t.app, source).is_ok() {
+                            appcore::actions::open_digest(&mut t.app);
+                        }
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                widgets::button("enz-reset", "Reset filters", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        flow::reset(&mut t.app);
+                        for key in ["filter:enzymes", "filter:enz-rstart", "filter:enz-rend"] {
+                            t.set_input(cx, key, String::new());
+                        }
+                        t.combo = None;
+                        cx.notify();
+                    },
+                )),
+            );
         let cc = self.app.enzyme_filter.cut_count;
         let oh = self.app.enzyme_filter.overhang;
         let sl = self.app.enzyme_filter.site_len;
-        let row2 =
-            div()
-                .flex()
-                .items_center()
-                .gap(px(8.0))
-                .child(div().w(px(150.0)).child(filter_input.clone()))
-                .child(
-                    combo_btn(
-                        "enz-cc",
-                        CUT_COUNT_OPTIONS[cc],
-                        self.combo == Some(ComboKind::CutCount),
-                    )
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(|t, ev: &gpui::MouseDownEvent, _, cx| {
-                            if t.combo == Some(ComboKind::CutCount) {
-                                t.combo = None;
-                            } else {
-                                t.combo = Some(ComboKind::CutCount);
-                                t.combo_anchor = ev.position;
+        let row2 = div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(px(8.0))
+            .child(div().w(px(150.0)).child(filter_input.clone()))
+            .child(
+                combo_btn(
+                    "enz-cc",
+                    CUT_COUNT_OPTIONS.get(cc).unwrap_or(&"Reset filters"),
+                    self.combo == Some(ComboKind::CutCount),
+                )
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|t, ev: &gpui::MouseDownEvent, _, cx| {
+                        if t.combo == Some(ComboKind::CutCount) {
+                            t.combo = None;
+                        } else {
+                            t.combo = Some(ComboKind::CutCount);
+                            t.combo_anchor = ev.position;
+                        }
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                combo_btn(
+                    "enz-oh",
+                    OVERHANG_OPTIONS.get(oh).unwrap_or(&"Reset filters"),
+                    self.combo == Some(ComboKind::Overhang),
+                )
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|t, ev: &gpui::MouseDownEvent, _, cx| {
+                        if t.combo == Some(ComboKind::Overhang) {
+                            t.combo = None;
+                        } else {
+                            t.combo = Some(ComboKind::Overhang);
+                            t.combo_anchor = ev.position;
+                        }
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                combo_btn(
+                    "enz-sl",
+                    SITE_LEN_OPTIONS.get(sl).unwrap_or(&"Reset filters"),
+                    self.combo == Some(ComboKind::SiteLen),
+                )
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|t, ev: &gpui::MouseDownEvent, _, cx| {
+                        if t.combo == Some(ComboKind::SiteLen) {
+                            t.combo = None;
+                        } else {
+                            t.combo = Some(ComboKind::SiteLen);
+                            t.combo_anchor = ev.position;
+                        }
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                widgets::icon_button("enz-check", "check", "Check shown", Btn::Subtle).on_click(
+                    cx.listener(move |t, _, _, cx| {
+                        match flow::filtered(&t.app) {
+                            Ok(rows) => {
+                                let names = rows.into_iter().map(|x| x.0.name).collect::<Vec<_>>();
+                                if let Err(e) =
+                                    flow::edit_set(&mut t.app, source, &names, flow::SetEdit::Add)
+                                {
+                                    t.app.toast(e);
+                                }
                             }
-                            cx.notify();
-                        }),
-                    ),
-                )
-                .child(
-                    combo_btn(
-                        "enz-oh",
-                        OVERHANG_OPTIONS[oh],
-                        self.combo == Some(ComboKind::Overhang),
-                    )
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(|t, ev: &gpui::MouseDownEvent, _, cx| {
-                            if t.combo == Some(ComboKind::Overhang) {
-                                t.combo = None;
-                            } else {
-                                t.combo = Some(ComboKind::Overhang);
-                                t.combo_anchor = ev.position;
+                            Err(e) => t.app.toast(e),
+                        }
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                widgets::icon_button("enz-uncheck", "x", "Uncheck shown", Btn::Subtle).on_click(
+                    cx.listener(move |t, _, _, cx| {
+                        match flow::filtered(&t.app) {
+                            Ok(rows) => {
+                                let names = rows.into_iter().map(|x| x.0.name).collect::<Vec<_>>();
+                                if let Err(e) = flow::edit_set(
+                                    &mut t.app,
+                                    source,
+                                    &names,
+                                    flow::SetEdit::Remove,
+                                ) {
+                                    t.app.toast(e);
+                                }
                             }
-                            cx.notify();
-                        }),
-                    ),
-                )
-                .child(
-                    combo_btn(
-                        "enz-sl",
-                        SITE_LEN_OPTIONS[sl],
-                        self.combo == Some(ComboKind::SiteLen),
-                    )
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(|t, ev: &gpui::MouseDownEvent, _, cx| {
-                            if t.combo == Some(ComboKind::SiteLen) {
-                                t.combo = None;
-                            } else {
-                                t.combo = Some(ComboKind::SiteLen);
-                                t.combo_anchor = ev.position;
-                            }
-                            cx.notify();
-                        }),
-                    ),
-                )
-                .child(
-                    widgets::icon_button("enz-check", "check", "Check shown", Btn::Subtle)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            let names = filtered_names(&t.app);
-                            t.app
-                                .mutate("Add filtered enzymes to set", Vec::new(), |doc| {
-                                    for n in names {
-                                        if !doc.chosen_enzymes.contains(&n) {
-                                            doc.chosen_enzymes.push(n);
-                                        }
-                                    }
-                                });
-                            cx.notify();
-                        })),
-                )
-                .child(
-                    widgets::icon_button("enz-uncheck", "x", "Uncheck shown", Btn::Subtle)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            let names = filtered_names(&t.app);
-                            t.app
-                                .mutate("Remove filtered enzymes from set", Vec::new(), |doc| {
-                                    doc.chosen_enzymes.retain(|n| !names.contains(n));
-                                });
-                            cx.notify();
-                        })),
-                )
-                .child(
-                    widgets::button("enz-clear", "Clear set", Btn::Ghost).on_click(cx.listener(
-                        |t, _, _, cx| {
-                            t.app.mutate("Clear enzyme set", Vec::new(), |doc| {
-                                doc.chosen_enzymes.clear()
-                            });
-                            cx.notify();
-                        },
-                    )),
-                );
+                            Err(e) => t.app.toast(e),
+                        }
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                widgets::button("enz-clear", "Clear set", Btn::Ghost).on_click(cx.listener(
+                    move |t, _, _, cx| {
+                        if let Err(e) =
+                            flow::edit_set(&mut t.app, source, &[], flow::SetEdit::Replace)
+                        {
+                            t.app.toast(e);
+                        }
+                        cx.notify();
+                    },
+                )),
+            );
 
         let region = self.app.enzyme_filter.region;
         let rs_seed = self.app.enzyme_filter.region_start.clone();
@@ -225,13 +265,14 @@ impl HelixBench {
         self.app.enzyme_filter.region_end = re_inp.read(cx).text();
         let mut row3 = div()
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(px(8.0))
             .child(widgets::label("Region", theme::T_SM, theme::MUTED))
             .child(
                 combo_btn(
                     "enz-region",
-                    REGION_OPTIONS[region],
+                    REGION_OPTIONS.get(region).unwrap_or(&"Reset filters"),
                     self.combo == Some(ComboKind::Region),
                 )
                 .on_mouse_down(
@@ -280,7 +321,7 @@ impl HelixBench {
             ),
         );
 
-        let toolbar = div()
+        let mut toolbar = div()
             .flex()
             .flex_col()
             .gap(px(8.0))
@@ -293,6 +334,21 @@ impl HelixBench {
             .child(row2)
             .child(row3);
 
+        toolbar=toolbar.child(widgets::label("Counts cover the entire template; the region filter adds a location constraint. Filters do not change the chosen enzyme set or digest scope.",theme::T_XS,theme::MUTED));
+        if let Err(e) = flow::region(&self.app) {
+            toolbar = toolbar.child(widgets::label(&e, theme::T_SM, theme::DANGER));
+        }
+        let unknown = self
+            .app
+            .doc
+            .chosen_enzymes
+            .iter()
+            .filter(|n| domain::enzyme_db::enzyme_by_name(n).is_none())
+            .cloned()
+            .collect::<Vec<_>>();
+        if !unknown.is_empty() {
+            toolbar=toolbar.child(widgets::label(&format!("Unknown chosen enzymes retained for review: {}. Clear set or apply a known set before digesting.",unknown.join(", ")),theme::T_SM,theme::WARN));
+        }
         // --- Filter + sort ---
         let mut items = filtered_enzymes(&self.app);
         let sort = self.app.enzyme_sort;
@@ -329,14 +385,14 @@ impl HelixBench {
                 let mut pos: Vec<String> = sites
                     .iter()
                     .take(8)
-                    .map(|s| format!("{}", s.cut_top + 1))
+                    .map(|s| format!("after {}", s.cut_top))
                     .collect();
                 if sites.len() > 8 {
                     pos.push(format!("+{} more", sites.len() - 8));
                 }
                 Row {
                     in_set: self.app.doc.chosen_enzymes.contains(&e.name),
-                    first_site: sites.first().map(|s| s.position),
+                    has_sites: !sites.is_empty(),
                     name: e.name,
                     site: e.site,
                     n,
@@ -348,7 +404,7 @@ impl HelixBench {
 
         // --- Header ---
         let hid = self.app.hidden_cols("enzymes");
-        let content_w = self.viewport.width.v() - 184.0;
+        let content_w = self.app.shell.layout(self.viewport.width.v()).content_width - 24.0;
         let pos_w = (content_w - 508.0).max(140.0);
         let mut header = div()
             .flex()
@@ -393,8 +449,8 @@ impl HelixBench {
         let scroll = self.enzyme_scroll.clone();
         let body = if n == 0 {
             empty_state(
-                "No enzymes match",
-                "Adjust the name, cut-count, overhang, length or region filters.",
+                if flow::region(&self.app).is_err(){"Complete the region filter"}else{"No enzymes match"},
+                "Correct the filter above or choose Reset filters. The chosen enzyme set is unchanged.",
             )
         } else {
             uniform_list("enzymes-list", n, move |range, window, _cx| {
@@ -406,7 +462,7 @@ impl HelixBench {
                         let name_fitted = ellipsize(window, &r.name, 100.0, theme::T_SM, false);
                         let n_cuts = r.n;
                         let in_set = r.in_set;
-                        let first_site = r.first_site;
+                        let has_sites = r.has_sites;
                         let e_tog = entity.clone();
                         let e_click = entity.clone();
                         let name_col = if n_cuts == 0 {
@@ -439,12 +495,16 @@ impl HelixBench {
                             .cursor_pointer()
                             .hover(|s| s.bg(theme::FILL_HOVER_STRONG))
                             .on_click(move |_, _, cx| {
-                                if let Some(pos) = first_site {
+                                if has_sites {
                                     let nm = name.clone();
                                     e_click.update(cx, |t, cx| {
-                                        t.app.select(Some(domain::Range::new(pos, 1)));
-                                        t.app.scroll_to = Some(pos);
-                                        t.app.toast(format!("{nm} cut at {}", pos + 1));
+                                        match flow::cut_sites(&t.app, source, &nm) {
+                                            Ok(d) => {
+                                                t.app.dialog =
+                                                    Some(appcore::state::Dialog::EnzymeSites(d))
+                                            }
+                                            Err(e) => t.app.toast(e),
+                                        }
                                         cx.notify();
                                     });
                                 }
@@ -462,21 +522,20 @@ impl HelixBench {
                                                 cx.stop_propagation();
                                                 let nm = name_tog.clone();
                                                 e_tog.update(cx, |t, cx| {
-                                                    t.app.mutate(
-                                                        "Change enzyme set",
-                                                        Vec::new(),
-                                                        |doc| {
-                                                            if let Some(p) = doc
-                                                                .chosen_enzymes
-                                                                .iter()
-                                                                .position(|n| *n == nm)
-                                                            {
-                                                                doc.chosen_enzymes.remove(p);
-                                                            } else {
-                                                                doc.chosen_enzymes.push(nm.clone());
-                                                            }
-                                                        },
-                                                    );
+                                                    let mode =
+                                                        if t.app.doc.chosen_enzymes.contains(&nm) {
+                                                            flow::SetEdit::Remove
+                                                        } else {
+                                                            flow::SetEdit::Add
+                                                        };
+                                                    if let Err(e) = flow::edit_set(
+                                                        &mut t.app,
+                                                        source,
+                                                        &[nm],
+                                                        mode,
+                                                    ) {
+                                                        t.app.toast(e);
+                                                    }
                                                     cx.notify();
                                                 });
                                             }),
@@ -562,6 +621,7 @@ impl HelixBench {
 
     fn render_enzyme_combo(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let kind = self.combo?;
+        let source = self.app.doc.source_ref();
         let mut rows: Vec<AnyElement> = Vec::new();
         match kind {
             ComboKind::Set => {
@@ -585,11 +645,13 @@ impl HelixBench {
                         )
                         .on_click(cx.listener(move |t, _, _, cx| {
                             t.combo = None;
-                            t.app
-                                .mutate(&format!("Use enzyme set \"{nm}\""), Vec::new(), |doc| {
-                                    doc.chosen_enzymes = names.clone()
-                                });
-                            t.app.toast(format!("Enzyme set: {nm}"));
+                            if let Err(e) =
+                                flow::edit_set(&mut t.app, source, &names, flow::SetEdit::Replace)
+                            {
+                                t.app.toast(e);
+                            } else {
+                                t.app.toast(format!("Enzyme set: {nm}"));
+                            }
                             cx.notify();
                         }))
                         .into_any_element(),
@@ -705,80 +767,6 @@ fn current_set_name(app: &AppState, sets: &[EnzymeSet]) -> String {
     "Custom".to_string()
 }
 
-fn passes_filter(app: &AppState, e: &Enzyme, n: usize) -> bool {
-    let f = &app.enzyme_filter;
-    if !f.name.is_empty()
-        && !e
-            .name
-            .to_ascii_lowercase()
-            .contains(&f.name.to_ascii_lowercase())
-    {
-        return false;
-    }
-    let ok = match f.cut_count {
-        0 => true,
-        1 => n == 0,
-        2 => n == 1,
-        3 => n == 2,
-        4 => n <= 2,
-        _ => n >= 3,
-    };
-    if !ok {
-        return false;
-    }
-    let outside = e.cut_top < 0 || e.cut_top > e.site_len() as i32;
-    let ok = match f.overhang {
-        0 => true,
-        1 => matches!(e.overhang(), Overhang::FivePrime(_)) && !outside,
-        2 => matches!(e.overhang(), Overhang::ThreePrime(_)) && !outside,
-        3 => matches!(e.overhang(), Overhang::Blunt) && !outside,
-        _ => outside,
-    };
-    if !ok {
-        return false;
-    }
-    let sl = e.site_len();
-    let len_ok = match f.site_len {
-        0 => true,
-        1 => sl == 4,
-        2 => sl == 5,
-        3 => sl == 6,
-        _ => sl >= 7,
-    };
-    if !len_ok {
-        return false;
-    }
-    if let Some(r) = app.enzyme_region() {
-        let empty = Vec::new();
-        let sites = app.analysis.all_sites.get(&e.name).unwrap_or(&empty);
-        let end = r.start + r.len;
-        let in_region = sites.iter().any(|s| {
-            (s.cut_top >= r.start && s.cut_top < end) || (s.position >= r.start && s.position < end)
-        });
-        if !in_region {
-            return false;
-        }
-    }
-    true
-}
-
 fn filtered_enzymes(app: &AppState) -> Vec<(Enzyme, usize)> {
-    enzyme_db::all_enzymes()
-        .into_iter()
-        .filter_map(|e| {
-            let n = app.analysis.counts.get(&e.name).copied().unwrap_or(0);
-            if passes_filter(app, &e, n) {
-                Some((e, n))
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-fn filtered_names(app: &AppState) -> Vec<String> {
-    filtered_enzymes(app)
-        .into_iter()
-        .map(|(e, _)| e.name)
-        .collect()
+    flow::filtered(app).unwrap_or_default()
 }

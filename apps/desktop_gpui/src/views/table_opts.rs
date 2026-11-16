@@ -168,6 +168,21 @@ pub fn render_table_opts(
                     )
                     .on_click(cx.listener(move |t, _, _, cx| {
                         act::view_load(&mut t.app, id);
+                        match table {
+                            "enzymes" => {
+                                let f = t.app.enzyme_filter.clone();
+                                t.set_input(cx, "filter:enzymes", f.name);
+                                t.set_input(cx, "filter:enz-rstart", f.region_start);
+                                t.set_input(cx, "filter:enz-rend", f.region_end);
+                            }
+                            "features" => {
+                                t.set_input(cx, "filter:features", t.app.feature_filter.clone())
+                            }
+                            "primers" => {
+                                t.set_input(cx, "filter:primers", t.app.primer_filter.clone())
+                            }
+                            _ => {}
+                        }
                         t.opts = None;
                         cx.notify();
                     })),

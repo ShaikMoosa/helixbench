@@ -26,7 +26,9 @@ fn result_snapshot_survives_history_retention() {
         doc.advance_revision();
         doc.save_version(format!("v{i}"), i);
     }
-    assert_eq!(doc.versions.len(), 20);
+    assert_eq!(doc.versions.len(), 25);
+    // Even explicit removal of checkpoints must not delete an owned result input.
+    doc.versions.clear();
     assert_eq!(captured.source(), source);
     assert_eq!(captured.document().sequence.bases, b"ATGC");
     assert!(captured.document().versions.is_empty());

@@ -734,21 +734,15 @@ pub fn add_designed_primers(app: &mut AppState, draft: &PrimerDesignDraft) -> Re
 }
 
 pub fn open_digest(app: &mut AppState) {
-    app.dialog = Some(Dialog::Digest);
+    app.dialog = Some(Dialog::Digest(crate::enzyme_workflow::draft(app)));
 }
 
 pub fn digest_fragments(app: &AppState) -> Vec<domain::digest::Fragment> {
-    let mut cuts = Vec::new();
-    for (_e, sites) in &app.analysis.chosen {
-        for s in sites {
-            cuts.push(s.position);
-        }
+    let mut draft = crate::enzyme_workflow::draft(app);
+    if crate::enzyme_workflow::run(app, &mut draft).is_err() {
+        return Vec::new();
     }
-    domain::digest::fragments(
-        &cuts,
-        app.doc.sequence.len(),
-        app.doc.sequence.is_circular(),
-    )
+    draft.result.map(|r| r.fragments).unwrap_or_default()
 }
 
 // --- Alignment + version history -------------------------------------------
@@ -856,7 +850,7 @@ pub fn alignment_delete_saved(app: &mut AppState, id: u64) {
     }
 }
 
-fn unix_now() -> u64 {
+pub(crate) fn unix_now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -869,22 +863,19 @@ pub fn save_version(app: &mut AppState, label: &str) {
     } else {
         label.trim().to_string()
     };
-    app.doc.save_version(label.clone(), unix_now());
-    app.dirty = true;
-    app.toast(format!("Saved version \"{label}\""));
+    if let Err(error) = crate::history_workflow::save(app, app.doc.source_ref(), &label) {
+        app.toast(error);
+    }
 }
 
 pub fn restore_version(app: &mut AppState, idx: usize) {
-    if app.doc.restore_version(idx) {
-        app.history.clear();
-        app.future.clear();
-        app.selection = None;
-        app.selected_feature = None;
-        app.zoom_start = 0;
-        app.zoom_width = app.doc.sequence.len().max(1);
-        app.analysis_dirty = true;
-        app.dirty = true;
-        app.toast("Version restored");
+    let Some(version) = app.doc.versions.get(idx).cloned() else {
+        app.toast("Checkpoint unavailable");
+        return;
+    };
+    match crate::history_workflow::preview_checkpoint(app, app.doc.source_ref(), &version) {
+        Ok(review) => app.dialog = Some(Dialog::HistoryReview(Box::new(review))),
+        Err(error) => app.toast(error),
     }
 }
 
@@ -1922,6 +1913,24 @@ fn table_sort_filter(app: &AppState, table: &str) -> (crate::state::TableSort, S
 
 /// Save the current column config + sort + filter of a table as a named view.
 pub fn view_save(app: &mut AppState, table: &str, name: &str) {
+    let path = app.profile_path(storage::views::path());
+    if let Err(error) = view_save_to(app, table, name, &path) {
+        app.operation_error = Some(error.clone());
+        app.toast(error);
+    }
+}
+pub fn view_save_to(
+    app: &mut AppState,
+    table: &str,
+    name: &str,
+    path: &std::path::Path,
+) -> Result<u64, String> {
+    if !["features", "primers", "enzymes"].contains(&table) {
+        return Err("Unsupported table view".into());
+    }
+    if table == "enzymes" {
+        crate::enzyme_workflow::region(app)?;
+    }
     let hidden = app.hidden_cols(table);
     let (sort, filter) = table_sort_filter(app, table);
     let name = if name.trim().is_empty() {
@@ -1929,7 +1938,8 @@ pub fn view_save(app: &mut AppState, table: &str, name: &str) {
     } else {
         name.trim().to_string()
     };
-    app.views.add(
+    let mut next = app.views.clone();
+    let id = next.add(
         table,
         &name,
         hidden,
@@ -1937,15 +1947,28 @@ pub fn view_save(app: &mut AppState, table: &str, name: &str) {
         sort.dir.map(|d| d == crate::state::SortDir::Desc),
         filter,
     );
-    let _ = storage::views::save_to(&app.views, &app.profile_path(storage::views::path()));
+    if table == "enzymes" {
+        next.items
+            .iter_mut()
+            .find(|v| v.id == id)
+            .unwrap()
+            .enzyme_filter = Some(app.enzyme_filter.clone());
+    }
+    storage::views::save_to(&next,path).map_err(|e|format!("Couldn't save view: {e}. Your view name and current filters are retained; retry after fixing the destination."))?;
+    app.views = next;
+    app.operation_error = None;
     app.toast(format!("Saved view \"{name}\""));
+    Ok(id)
 }
-
-/// Apply a saved view (column config + sort + filter) to its table.
 pub fn view_load(app: &mut AppState, id: u64) {
     let Some(v) = app.views.get(id).cloned() else {
+        app.toast("This saved view is no longer available");
         return;
     };
+    if !["features", "primers", "enzymes"].contains(&v.table.as_str()) {
+        app.toast("Unsupported saved view table");
+        return;
+    }
     app.table_hidden.insert(v.table.clone(), v.hidden.clone());
     let sort = crate::state::TableSort {
         column: v.sort_column,
@@ -1968,16 +1991,34 @@ pub fn view_load(app: &mut AppState, id: u64) {
         }
         _ => {
             app.enzyme_sort = sort;
-            app.enzyme_filter.name = v.filter.clone();
+            app.enzyme_filter =
+                v.enzyme_filter
+                    .unwrap_or_else(|| crate::state::EnzymeFilterState {
+                        name: v.filter.clone(),
+                        ..Default::default()
+                    });
         }
     }
     app.toast(format!("Loaded view \"{}\"", v.name));
 }
-
 pub fn view_delete(app: &mut AppState, id: u64) {
-    if app.views.remove(id) {
-        let _ = storage::views::save_to(&app.views, &app.profile_path(storage::views::path()));
-        app.toast("View deleted");
+    let mut next = app.views.clone();
+    if !next.remove(id) {
+        app.toast("This saved view is no longer available");
+        return;
+    }
+    match storage::views::save_to(&next, &app.profile_path(storage::views::path())) {
+        Ok(()) => {
+            app.views = next;
+            app.operation_error = None;
+            app.toast("View deleted");
+        }
+        Err(e) => {
+            let error =
+                format!("Couldn't delete saved view: {e}. The saved view remains available.");
+            app.operation_error = Some(error.clone());
+            app.toast(error);
+        }
     }
 }
 

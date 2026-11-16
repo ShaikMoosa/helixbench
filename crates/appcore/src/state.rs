@@ -277,7 +277,10 @@ pub enum Dialog {
     ColorSelection(ColorDraft),
     Pcr(PcrDraft),
     PrimerDesign(PrimerDesignDraft),
-    Digest,
+    Digest(crate::enzyme_workflow::DigestDraft),
+    EnzymeSites(crate::enzyme_workflow::CutSiteDraft),
+    Checkpoint(crate::history_workflow::CheckpointDraft),
+    HistoryReview(Box<crate::history_workflow::HistoryReview>),
     Alignment(AlignmentDraft),
     Assembly(AssemblyDraft),
     Crispr(CrisprDraft),
@@ -618,16 +621,7 @@ pub struct RegistryEditDraft {
     pub error: Option<String>,
 }
 
-#[derive(Default)]
-pub struct EnzymeFilterState {
-    pub name: String,
-    pub cut_count: usize, // index into CUT_COUNT_OPTIONS
-    pub overhang: usize,  // index into OVERHANG_OPTIONS
-    pub site_len: usize,  // index into SITE_LEN_OPTIONS
-    pub region: usize,    // index into REGION_OPTIONS
-    pub region_start: String,
-    pub region_end: String,
-}
+pub use storage::views::EnzymeFilter as EnzymeFilterState;
 
 pub const REGION_OPTIONS: [&str; 3] = ["Anywhere", "In selection", "Custom range"];
 
@@ -908,34 +902,7 @@ impl AppState {
     /// Region used by the enzyme "find by region" filter, if any.
     /// Custom bounds are 1-based inclusive; selection is used as-is.
     pub fn enzyme_region(&self) -> Option<Range> {
-        let l = self.doc.sequence.len();
-        match self.enzyme_filter.region {
-            1 => self.selection,
-            2 => {
-                let start = self
-                    .enzyme_filter
-                    .region_start
-                    .trim()
-                    .parse::<usize>()
-                    .unwrap_or(1);
-                let end = self
-                    .enzyme_filter
-                    .region_end
-                    .trim()
-                    .parse::<usize>()
-                    .unwrap_or(l);
-                if l == 0 || start == 0 || end == 0 {
-                    return None;
-                }
-                let start = start.min(l);
-                let end = end.min(l);
-                if end < start {
-                    return None;
-                }
-                Some(Range::new(start - 1, end - start + 1))
-            }
-            _ => None,
-        }
+        crate::enzyme_workflow::region(self).ok().flatten()
     }
 
     pub fn ensure_analysis(&mut self) {
@@ -988,7 +955,12 @@ impl AppState {
     }
 
     fn refresh_dirty(&mut self) {
-        self.dirty = self.saved_depth != Some(self.history.len());
+        self.dirty = self.saved_depth != Some(self.history.len())
+            || self
+                .navigation
+                .saved_document
+                .as_ref()
+                .is_some_and(|d| d.versions != self.doc.versions);
     }
 
     pub fn undo(&mut self) -> bool {
@@ -1004,7 +976,9 @@ impl AppState {
             snapshot: current,
             regions: entry.regions.clone(),
         });
+        let versions = std::mem::take(&mut self.doc.versions);
         self.doc = entry.snapshot;
+        self.doc.versions = versions;
         self.after_time_travel();
         true
     }
@@ -1022,7 +996,9 @@ impl AppState {
             snapshot: current,
             regions: entry.regions.clone(),
         });
+        let versions = std::mem::take(&mut self.doc.versions);
         self.doc = entry.snapshot;
+        self.doc.versions = versions;
         self.after_time_travel();
         true
     }

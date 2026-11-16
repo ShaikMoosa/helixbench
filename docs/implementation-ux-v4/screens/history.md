@@ -65,7 +65,7 @@ Native presentation entry points:
 
 ### F-091 · Undo latest edit
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D edit Undo preserves named checkpoints and correct saved/dirty truth; target-name button copy deferred.
 
 **Entry:** Undo (1 navigation click(s)).
 
@@ -94,7 +94,7 @@ Native presentation entry points:
 
 ### F-092 · Redo edit
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D edit Redo preserves named checkpoints and saved baseline; target-name button copy deferred.
 
 **Entry:** Redo (1 navigation click(s)).
 
@@ -123,7 +123,7 @@ Native presentation entry points:
 
 ### F-093 · Inspect affected regions
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D source-bound highlight action retained without changing scientific data.
 
 **Entry:** Operation row (1 navigation click(s)).
 
@@ -152,7 +152,7 @@ Native presentation entry points:
 
 ### F-094 · Revert to before operation
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D before-edit snapshot review and explicit restore create a new undoable revision.
 
 **Entry:** Operation row → Revert to before (2 navigation click(s)).
 
@@ -181,7 +181,7 @@ Native presentation entry points:
 
 ### F-095 · Save a version snapshot
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D named local checkpoints retain scientific source identity and survive Undo; disk save state is explicit.
 
 **Entry:** Save version (1 navigation click(s)).
 
@@ -210,7 +210,7 @@ Native presentation entry points:
 
 ### F-096 · Restore saved version
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D exact checkpoint capture, impact preview, Cancel and new-revision undoable restore verified.
 
 **Entry:** Version row → Restore (2 navigation click(s)).
 
@@ -239,7 +239,7 @@ Native presentation entry points:
 
 ### F-097 · Open current state
 
-**Status:** Specified; not verified implemented.
+**Status:** P08D Show current state clears transient history highlighting with rendered source validation.
 
 **Entry:** Current state (1 navigation click(s)).
 
@@ -266,3 +266,52 @@ Native presentation entry points:
 - Empty version list, repeated labels and restoration of an unavailable snapshot.
 - Pinned result input reaches the checkpoint-retention boundary.
 
+
+
+## P08D implemented flow and evidence — 16 November 2026
+
+History visibly separates Named checkpoints from this session's Edit Undo / Redo. Name
+checkpoint opens an unapplied naming draft, requires a meaningful label and reports Local
+checkpoint — save document until that exact checkpoint exists in the saved native baseline.
+Checkpoint creation keeps the scientific document/revision identity. Repeated labels and
+multiple names for the same scientific revision are supported by capturing the exact Version
+object, not a row index. Source-only legacy lookups reject same-identity/different-content
+ambiguity rather than substituting another snapshot. Clock order is never identity.
+
+Compare / restore opens a nonmutating impact review: sequence length/differing base positions,
+topology, feature and primer content changes/counts, enzyme counts, name and target previews.
+The target sequence preview is capped at80bases and target feature/primer lists at10 each;
+summary counts describe the whole snapshot. Cancel leaves revision, selection, checkpoints
+and edit stack untouched. Restore validates the captured source plus complete current base
+and exact checkpoint before copying content. It creates a new unsaved revision in the same
+document, preserves checkpoint list and monotonic object allocator, clears dependent selection,
+and records an Undo checkpoint. It does not clear the existing edit stack. Undo can recover
+the state from before restoration; Redo and branching retain the established edit semantics.
+
+Review before edit uses a validated session position plus captured snapshot identity, presents
+the same impact review and requires explicit confirmation. Double-click no longer silently
+reverts. Highlight regions and Show current state are source-bound presentation actions.
+
+Undo/Redo preserve the current named-checkpoint list instead of replacing it with older list
+metadata embedded in transient edit snapshots. Dirty truth includes both edit saved-depth and
+checkpoint-list comparison with the saved native baseline. A new local checkpoint remains
+dirty after undoing edits; after a successful save, Undo leaves dirty and Redo to the saved
+point becomes clean. Save failure retains the current document, checkpoint list and dirty flag.
+
+The silent20-checkpoint retention cap is removed; all named checkpoints remain until an
+explicit deletion policy exists. P01 InputSnapshot already owns full result input separately,
+so retained analyses do not depend on the checkpoint list. The original result-retention
+regression now checks25retained checkpoints and explicit checkpoint removal while retaining
+its original source/content/digest assertions. No historical result input is relabeled as
+the restored current revision. P09 owns saved analysis result UI/lifecycle integration.
+
+Verification:required restore_cancel_leaves_current_revision plus stale review/source,
+same-revision label, undoable restore, checkpoint-retention/Undo/Redo and real save-success/
+failure cases pass among18appcore P08D tests. Full392-test workspace, strict core Clippy and
+native executable build passed. Native1280 observed naming, Local checkpoint status, retained
+checkpoint after Undo, actual impact enzyme count0→1, Cancel preserving0, and confirmed
+restore producing a new Restore operation with1enzyme and Undo available.
+
+Deferred minor review findings: Undo/Redo button labels do not yet include their target
+operation names, and checkpoint row timestamps are stored but not displayed. Large-history
+profiling, background scheduling and comprehensive accessibility acceptance remain P19.

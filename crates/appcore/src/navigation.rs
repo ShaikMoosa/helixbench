@@ -169,6 +169,11 @@ pub struct NavigationState {
     pub(crate) saved_document: Option<Document>,
 }
 impl NavigationState {
+    pub fn checkpoint_saved(&self, version: &domain::document::Version) -> bool {
+        self.saved_document
+            .as_ref()
+            .is_some_and(|d| d.versions.contains(version))
+    }
     pub fn new(doc: &Document) -> Self {
         Self {
             saved_document: Some(doc.clone()),
@@ -437,7 +442,9 @@ fn is_edit_form(dialog: &Dialog) -> bool {
             | Dialog::LetterCodes
             | Dialog::SearchTips
             | Dialog::Options
-            | Dialog::Digest
+            | Dialog::Digest(_)
+            | Dialog::EnzymeSites(_)
+            | Dialog::HistoryReview(_)
             | Dialog::Audit(_)
     )
 }

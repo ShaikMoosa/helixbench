@@ -425,3 +425,132 @@ provenance; older apps cannot open v4, while v1–3 files remain readable with u
 
 Next: P08D — enzyme filters, digest and history. P08C is published on its feature branch
 for review; merging P08C into main awaits the user's next integration instruction.
+
+
+## P08C merge and P08D — enzymes, digest and history
+
+16 November 2026. P08C fast-forward merged/tested/pushed to main at `27c6a6f` per user
+instruction. P08D branch `codex/ux-v4-p08d` starts at that merge. High-fidelity Figma
+Enzymes107:30295 and History107:30500 context/screenshots inspected; incumbent native
+Soft Gallery shell, controls, icons and assets reused with live data.
+
+
+## P08D implemented flow and evidence — 16 November 2026
+
+Choose a predefined set or toggle membership explicitly. Name, count, overhang, recognition
+length and region filters compose without editing the chosen set or molecule topology.
+Counts describe the whole template; a region adds the independent requirement that a
+recognition start or top-strand cleavage boundary lies in it. Thus non-cutter plus region
+can legitimately match no rows. Anywhere, current selection and custom1-based inclusive
+range are supported. Blank/non-numeric/out-of-bounds custom ranges and missing selections
+show correction feedback and no rows, never a whole-template fallback. Circular end before
+start means wrap; linear end before start is invalid. Reset clears every filter and native
+text field, returning to Anywhere while keeping the chosen set, document and dirty state.
+
+Check shown/Uncheck shown/Clear set and predefined sets validate captured source revision
+before one undoable mutation. Unknown names in older chosen sets remain visible as a review
+warning; they are never silently removed or treated as a successful known-enzyme digest.
+
+Click an enzyme row, then choose the exact cleavage site. Each choice captures enzyme,
+source, recognition start, cleavage boundary and strand. A non-first site opens its exact
+Map context; Back restores the Enzymes task and prior selection. Boundary numbers count
+bases before the cut, rather than incorrectly showing the recognition start or boundary+1.
+No-site rows cannot invent a cut. Stale sources or unavailable site identities are rejected.
+
+Digest and gel opens captured setup. Scope is always the entire template and explicitly
+independent of selection/table filters. Review topology, chosen enzymes and input revision,
+then Run. Empty input/no chosen enzyme/unknown name and out-of-template linear cleavage
+boundaries produce actionable errors. The last case uses signed enzyme offsets, including
+mirrored reverse-strand offsets, rather than trusting already-clamped site coordinates.
+Predictions retain an owned InputSnapshot, actual enzymes, CutSites and computed fragments.
+Older-input output stays attached to its original version and is labeled if the source changes.
+
+No recognition sites is Completed — no cut sites, with a whole-length accounting row.
+A single circular cut linearizes the full molecule. Coincident cuts deduplicate, linear
+boundary cuts create no zero-size fragment, and fragment totals equal template length.
+The workflow now uses cleavage offsets, not recognition starts. The existing domain
+recognition engine and logarithmic gel equation remain. The ladder/model range is labeled
+100–10,000bp with edge clamping. Uncut circular DNA receives no misleading linear sample band.
+Methylation and reaction efficiency are not modeled; no sensitivity metadata exists in the
+current enzyme database, despite the original screen contract saying to preserve such a filter.
+
+Columns / Views now persists every composed enzyme filter, sort and hidden columns.
+Loading reseeds retained native name/start/end fields; an old visible field cannot overwrite
+the restored preset on the next render. Legacy name-only views load with other filters reset.
+Save/delete commit the in-memory view list only after a successful atomic write; failed
+writes preserve the prior list, keep the editable name/current filters and surface an error.
+The profile views envelope writes version2 with optional typed enzyme-filter data. Native
+document format remains v4. No biological document edit is implied by saving a table preset.
+
+Verification:18 appcore+2 domain P08D regressions and all392 workspace tests pass; strict core
+Clippy and native build pass. Fresh review's exact-site, composed-preset, cached-input and
+false-success findings were addressed in one fix pass. Native1280 confirmation showed
+AccI second cleavage after2820 opening Map at base2820, Back restoring Enzymes, and a saved
+Eco+Unique preset restored after Reset and changing the visible field to Bam. Earlier native
+checks covered invalid custom scope, direct digest setup, a single EcoRI cut producing one
+3021bp circular-template fragment, labeled gel and whole-template scope.
+
+
+## P08D implemented flow and evidence — 16 November 2026
+
+History visibly separates Named checkpoints from this session's Edit Undo / Redo. Name
+checkpoint opens an unapplied naming draft, requires a meaningful label and reports Local
+checkpoint — save document until that exact checkpoint exists in the saved native baseline.
+Checkpoint creation keeps the scientific document/revision identity. Repeated labels and
+multiple names for the same scientific revision are supported by capturing the exact Version
+object, not a row index. Source-only legacy lookups reject same-identity/different-content
+ambiguity rather than substituting another snapshot. Clock order is never identity.
+
+Compare / restore opens a nonmutating impact review: sequence length/differing base positions,
+topology, feature and primer content changes/counts, enzyme counts, name and target previews.
+The target sequence preview is capped at80bases and target feature/primer lists at10 each;
+summary counts describe the whole snapshot. Cancel leaves revision, selection, checkpoints
+and edit stack untouched. Restore validates the captured source plus complete current base
+and exact checkpoint before copying content. It creates a new unsaved revision in the same
+document, preserves checkpoint list and monotonic object allocator, clears dependent selection,
+and records an Undo checkpoint. It does not clear the existing edit stack. Undo can recover
+the state from before restoration; Redo and branching retain the established edit semantics.
+
+Review before edit uses a validated session position plus captured snapshot identity, presents
+the same impact review and requires explicit confirmation. Double-click no longer silently
+reverts. Highlight regions and Show current state are source-bound presentation actions.
+
+Undo/Redo preserve the current named-checkpoint list instead of replacing it with older list
+metadata embedded in transient edit snapshots. Dirty truth includes both edit saved-depth and
+checkpoint-list comparison with the saved native baseline. A new local checkpoint remains
+dirty after undoing edits; after a successful save, Undo leaves dirty and Redo to the saved
+point becomes clean. Save failure retains the current document, checkpoint list and dirty flag.
+
+The silent20-checkpoint retention cap is removed; all named checkpoints remain until an
+explicit deletion policy exists. P01 InputSnapshot already owns full result input separately,
+so retained analyses do not depend on the checkpoint list. The original result-retention
+regression now checks25retained checkpoints and explicit checkpoint removal while retaining
+its original source/content/digest assertions. No historical result input is relabeled as
+the restored current revision. P09 owns saved analysis result UI/lifecycle integration.
+
+Verification:required restore_cancel_leaves_current_revision plus stale review/source,
+same-revision label, undoable restore, checkpoint-retention/Undo/Redo and real save-success/
+failure cases pass among18appcore P08D tests. Full392-test workspace, strict core Clippy and
+native executable build passed. Native1280 observed naming, Local checkpoint status, retained
+checkpoint after Undo, actual impact enzyme count0→1, Cancel preserving0, and confirmed
+restore producing a new Restore operation with1enzyme and Undo available.
+
+Deferred minor review findings: Undo/Redo button labels do not yet include their target
+operation names, and checkpoint row timestamps are stored but not displayed. Large-history
+profiling, background scheduling and comprehensive accessibility acceptance remain P19.
+
+
+Final verification had one compiler-artifact failure: MSVC LNK1103 reported corrupt debug
+information in the storage rlib. Cleaning only that package's build artifacts and rerunning
+serially produced all392 passing tests and strict core Clippy. No source workaround was
+introduced. Native build has only the existing upstream proc-macro-error2 future-compat notice.
+
+Rulings: keep sequence-only enzyme predictions because methylation metadata is absent;
+retain domain recognition/gel equation but correct cleavage-coordinate and fragment
+accounting; remove silent checkpoint eviction and preserve named metadata across transient
+Undo; bound visual acceptance to the named1280px sample journeys. Costs: methylation-aware
+planning remains unsupported, checkpoint storage may grow, and full scale/accessibility
+acceptance remains P19. Native v4 provenance from P08C remains unchanged.
+
+Next: P09 — saved analysis result lifecycle. P08D is published separately for review;
+merging P08D into main awaits the user's next integration instruction.
