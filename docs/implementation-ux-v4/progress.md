@@ -620,3 +620,16 @@ closed/unavailable source label, retained 3021bp recorded output and captured-in
 review; Cancel returns to that same saved output. Main already contains P08D at 61e2aa3.
 P09 is published on codex/ux-v4-p09; integration awaits the user's next merge instruction.
 Next planned milestone: P10A — alignment, split workspace and saved alignments.
+
+
+### CI follow-up — 17 November 2026
+
+The main runs for 27c6a6f and 61e2aa3 failed desktop Clippy, before Test/Build: the PCR
+toggle wrote `copy_features=!copy_features` inside a fluent UI closure. Core-only Clippy
+did not cover that desktop code. The exact workspace/all-target/all-feature command
+reproduced the failure and also caught P09's timestamp helper after its test module.
+The toggle assignment now has unambiguous spacing and the timestamp test module follows
+production items. No behavior change or lint suppression was introduced. The main repair
+is the separate one-line commit 181e2c1; P09 remains separate. Future validation uses the
+workflow's full commands and verifies the remote run, rather than equating core Clippy
+and a local native build with GitHub Actions success.

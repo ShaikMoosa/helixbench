@@ -90,17 +90,6 @@ pub fn add_months(y: i64, m: u32, delta: i64) -> (i64, u32) {
     (ny, nm)
 }
 
-#[cfg(test)]
-mod timestamp_tests {
-    #[test]
-    fn checkpoint_time_handles_utc_date_and_leap_day_boundaries() {
-        assert_eq!(super::timestamp_utc(0), "1970-01-01 00:00:00 UTC");
-        assert_eq!(super::timestamp_utc(1709164799), "2024-02-28 23:59:59 UTC");
-        assert_eq!(super::timestamp_utc(1709164800), "2024-02-29 00:00:00 UTC");
-        assert_eq!(super::timestamp_utc(u64::MAX), "Timestamp unavailable");
-    }
-}
-
 /// Display a persisted instant without guessing the reader's local timezone.
 pub fn timestamp_utc(ts: u64) -> String {
     if ts > 253402300799 {
@@ -114,4 +103,15 @@ pub fn timestamp_utc(ts: u64) -> String {
         (seconds % 3600) / 60,
         seconds % 60
     )
+}
+
+#[cfg(test)]
+mod timestamp_tests {
+    #[test]
+    fn checkpoint_time_handles_utc_date_and_leap_day_boundaries() {
+        assert_eq!(super::timestamp_utc(0), "1970-01-01 00:00:00 UTC");
+        assert_eq!(super::timestamp_utc(1709164799), "2024-02-28 23:59:59 UTC");
+        assert_eq!(super::timestamp_utc(1709164800), "2024-02-29 00:00:00 UTC");
+        assert_eq!(super::timestamp_utc(u64::MAX), "Timestamp unavailable");
+    }
 }
