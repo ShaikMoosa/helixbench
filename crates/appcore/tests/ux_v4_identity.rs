@@ -89,6 +89,16 @@ fn bulk_annotation_marks_library_revision_and_dirty_flag() {
     }];
     let previous = app.library[0].doc.source_ref();
     appcore::actions::bulk_annotate(&mut app);
+    assert!(
+        app.library[0].doc.features.is_empty(),
+        "Preview cannot mutate before explicit apply"
+    );
+    let review = match &app.dialog {
+        Some(appcore::state::Dialog::AnnotationReview(d)) => d.clone(),
+        _ => panic!("annotation review expected"),
+    };
+    let outcomes = appcore::annotation_review::apply(&mut app, &review).unwrap();
+    assert!(outcomes.iter().all(|o| o.error.is_none()));
     assert!(!app.library[0].doc.features.is_empty());
     assert_ne!(app.library[0].doc.source_ref(), previous);
     assert!(app.library[0].dirty);

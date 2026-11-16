@@ -201,7 +201,7 @@ pub(crate) fn suspend_session(app: &mut AppState) {
     app.navigation.sessions.insert(app.doc.id, session);
 }
 
-fn switch_inner(app: &mut AppState, id: DocumentId) -> Result<(), String> {
+pub(crate) fn switch_inner(app: &mut AppState, id: DocumentId) -> Result<(), String> {
     if app.doc.id == id {
         return Ok(());
     }

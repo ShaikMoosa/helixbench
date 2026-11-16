@@ -216,8 +216,8 @@
   },
   {
     "path": "feature-traceability.csv",
-    "bytes": 72768,
-    "sha256": "ec290f6424a3518f533ae3bb4336b11744330dacff58d9e9f9d41b8aab6e8231"
+    "bytes": 74855,
+    "sha256": "26511d644c597bd94a86b0d4d8b3f81979014db442a34dcdcd0fb91f2d4f278c"
   },
   {
     "path": "fixtures/annotated.gb",
@@ -296,8 +296,8 @@
   },
   {
     "path": "progress.md",
-    "bytes": 34374,
-    "sha256": "78fd955f26e22627f0456ad4f1a5400231f3095e2f319475a58468f88915fa68"
+    "bytes": 38285,
+    "sha256": "5505fc8537b32b3892e2bfc2cf37f560da1fb796825c4d54ed7ec942b73c68a5"
   },
   {
     "path": "README.md",
@@ -361,8 +361,8 @@
   },
   {
     "path": "screens/features.md",
-    "bytes": 41868,
-    "sha256": "ebe3ca2ea25d6cf48286ade2187b369ee19a80dd81db660c7057079072a36c9b"
+    "bytes": 44921,
+    "sha256": "b91226fe4fae4122129bc6f04a7a55c21acbfbf62e6c95df5f51538bb222ce36"
   },
   {
     "path": "screens/history.md",
@@ -431,7 +431,7 @@
   },
   {
     "path": "specification.json",
-    "bytes": 1228567,
-    "sha256": "cd6227e6dc1bc5c85af1c9ce65bb9c4f4aedb8f12de7d86492a8cc80c5ee56c8"
+    "bytes": 1229108,
+    "sha256": "416e5d63a110751f1b41aa57fddacf4e79c83eae2e8082a4743a7ac3c9b8589f"
   }
 ]

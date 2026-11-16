@@ -42,7 +42,11 @@ pub fn delete_feature(app: &mut AppState, id: u64) {
             doc.delete_feature(id);
         },
     );
-    app.selected_feature = None;
+    if app.selected_feature == Some(id) {
+        app.selected_feature = None;
+        app.selected_primer = None;
+        app.select(None);
+    }
     app.toast(format!("Deleted feature \"{}\" — Ctrl+Z to undo", f.name));
 }
 
@@ -62,45 +66,20 @@ pub fn delete_primer(app: &mut AppState, id: u64) {
 }
 
 pub fn parse_segments(text: &str, l: usize, circular: bool) -> Result<Vec<Range>, String> {
-    let mut out = Vec::new();
-    for part in text.split([',', ';']) {
-        let part = part.trim();
-        if part.is_empty() {
-            continue;
-        }
-        let (a, b) = if let Some((a, b)) = part.split_once("..") {
-            (a.trim(), b.trim())
-        } else if let Some((a, b)) = part.split_once('-') {
-            (a.trim(), b.trim())
-        } else {
-            (part, part)
-        };
-        let a: usize = a.parse().map_err(|_| format!("Invalid position \"{a}\""))?;
-        let b: usize = b.parse().map_err(|_| format!("Invalid position \"{b}\""))?;
-        if a < 1 || b < a {
-            return Err(format!(
-                "Invalid range \"{part}\" (positions are 1-based, start ≤ end)"
-            ));
-        }
-        let len = b - a + 1;
-        if !circular && b > l {
-            return Err(format!(
-                "Position {b} is past the end of the {l} bp sequence"
-            ));
-        }
-        if circular && len > l {
-            return Err(format!("Range \"{part}\" is longer than the sequence"));
-        }
-        out.push(Range::new(a - 1, len));
-    }
-    if out.is_empty() {
-        return Err("Enter at least one range, e.g. 100..200".into());
-    }
-    out.sort_by_key(|r| r.start);
-    Ok(out)
+    domain::annotations::parse_segments(text, l, circular)
 }
 
 pub fn save_feature_draft(app: &mut AppState, draft: &FeatureDraft) -> Result<(), String> {
+    if draft.source != app.doc.source_ref() {
+        return Err(
+            "The source sequence changed; reopen this feature to review the current fields".into(),
+        );
+    }
+    if let Some(id) = draft.id {
+        if app.doc.feature(id).is_none() {
+            return Err("The feature was deleted; this draft cannot be saved".into());
+        }
+    }
     let l = app.doc.sequence.len();
     if draft.name.trim().is_empty() {
         return Err("Give the feature a name".into());
@@ -120,25 +99,35 @@ pub fn save_feature_draft(app: &mut AppState, draft: &FeatureDraft) -> Result<()
     f.genetic_code = draft.genetic_code;
     f.first_codon_met = draft.first_codon_met;
     f.frame_offset = draft.frame_offset;
+    domain::annotations::validate_feature(&app.doc, &f)?;
+    if let Some(id) = draft.id {
+        f.id = id;
+        if let Some(old) = app.doc.feature(id) {
+            f.visible = old.visible;
+            f.cleavage_arrows = old.cleavage_arrows.clone();
+            if *old == f {
+                return Ok(());
+            }
+        }
+    }
     let span = f.span(l);
     let label = if draft.id.is_some() {
         format!("Edit feature \"{}\"", f.name)
     } else {
         format!("Add feature \"{}\"", f.name)
     };
-    let id = draft.id;
+    let mut selected = draft.id;
     app.mutate(&label, region(span), |doc| {
-        if let Some(id) = id {
-            if let Some(existing) = doc.feature_mut(id) {
-                f.id = id;
-                f.visible = existing.visible;
-                f.cleavage_arrows = existing.cleavage_arrows.clone();
-                *existing = f;
-            }
+        if let Some(id) = draft.id {
+            *doc.feature_mut(id).expect("validated feature identity") = f;
         } else {
-            doc.add_feature(f);
+            selected = Some(doc.add_feature(f));
         }
     });
+    if let Some(id) = selected {
+        app.select_feature(id);
+    }
+    app.toast("Feature updated — Ctrl+Z to undo");
     Ok(())
 }
 
@@ -214,43 +203,6 @@ pub fn primer_from_selection(app: &mut AppState) {
         error: None,
     };
     app.dialog = Some(Dialog::PrimerEditor(draft));
-}
-
-pub fn apply_detected(
-    app: &mut AppState,
-    detected: &[domain::common_features::DetectedFeature],
-    checked: &[bool],
-) {
-    let mut to_add = Vec::new();
-    for (d, &c) in detected.iter().zip(checked) {
-        if c && !domain::common_features::is_duplicate(&app.doc.features, d) {
-            to_add.push(d.clone());
-        }
-    }
-    if to_add.is_empty() {
-        app.toast("No new common features to add");
-        return;
-    }
-    let n = to_add.len();
-    let regions: Vec<ColorRegion> = to_add
-        .iter()
-        .map(|d| ColorRegion {
-            range: d.range,
-            strands: StrandMask(StrandMask::BOTH),
-            color: [0xf8, 0x51, 0x49],
-        })
-        .collect();
-    app.mutate(
-        &format!("Detect common features ({n} added)"),
-        regions,
-        |doc| {
-            for d in to_add {
-                let f = d.to_feature(0);
-                doc.add_feature(f);
-            }
-        },
-    );
-    app.toast(format!("Added {n} common features"));
 }
 
 // ---------------------------------------------------------------------------
@@ -1562,34 +1514,12 @@ pub fn delete_lib_feature(app: &mut AppState, idx: usize) {
 
 /// Bulk auto-annotate the active document AND all open library documents.
 pub fn bulk_annotate(app: &mut AppState) {
-    let lib = app.feature_lib.clone();
-    let mut total = 0usize;
-    let existing = app.doc.features.clone();
-    let add = domain::feature_lib::auto_annotate(&app.doc.sequence, &lib, &existing);
-    total += add.len();
-    if !add.is_empty() {
-        app.mutate("Bulk auto-annotate", Vec::new(), |doc| {
-            for f in add {
-                doc.add_feature(f);
-            }
-        });
+    if app.dialog.is_some() && !matches!(app.dialog, Some(Dialog::FeatureLib(_))) {
+        app.toast("Apply or cancel the open form first");
+        return;
     }
-    for od in app.library.iter_mut() {
-        let ex = od.doc.features.clone();
-        let add = domain::feature_lib::auto_annotate(&od.doc.sequence, &lib, &ex);
-        total += add.len();
-        let changed = !add.is_empty();
-        for f in add {
-            od.doc.add_feature(f);
-        }
-        if changed {
-            od.doc.advance_revision();
-            od.dirty = true;
-        }
-    }
-    app.toast(format!(
-        "Auto-annotated {total} features across open documents"
-    ));
+    let draft = crate::annotation_review::prepare_library(app);
+    app.dialog = Some(Dialog::AnnotationReview(draft));
 }
 
 // --- Workspace: tags + bulk operations --------------------------------------

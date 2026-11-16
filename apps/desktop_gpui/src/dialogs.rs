@@ -20,7 +20,7 @@ use domain::{Strand, StrandMask, Topology};
 use crate::app::HelixBench;
 use crate::draw::PxVal;
 use crate::theme;
-use crate::views::{check_box, ScrollbarDecoration};
+use crate::views::check_box;
 use crate::widgets::{self, Btn};
 
 // ---------------------------------------------------------------------------
@@ -28,8 +28,13 @@ use crate::widgets::{self, Btn};
 // ---------------------------------------------------------------------------
 
 pub fn open_feature_editor(app: &mut AppState, id: Option<u64>) {
+    if id.is_some_and(|id| app.doc.feature(id).is_none()) {
+        app.toast("The feature is no longer available");
+        return;
+    }
     let draft = if let Some(f) = id.and_then(|i| app.doc.feature(i)) {
         FeatureDraft {
+            source: app.doc.source_ref(),
             id: Some(f.id),
             name: f.name.clone(),
             kind: f.kind.clone(),
@@ -53,11 +58,16 @@ pub fn open_feature_editor(app: &mut AppState, id: Option<u64>) {
         let (seg_text, direction) = match app.selection {
             Some(sel) if sel.len > 0 => (
                 format!("{}..{}", sel.start + 1, sel.start + sel.len),
-                Direction::Forward,
+                if app.selection_strand == Strand::Bottom {
+                    Direction::Reverse
+                } else {
+                    Direction::Forward
+                },
             ),
             _ => (String::new(), Direction::None),
         };
         FeatureDraft {
+            source: app.doc.source_ref(),
             id: None,
             name: String::new(),
             kind: "misc_feature".into(),
@@ -102,17 +112,13 @@ pub fn open_primer_editor(app: &mut AppState, id: Option<u64>) {
 }
 
 pub fn open_detect_common(app: &mut AppState) {
-    app.ensure_analysis();
-    let detected = domain::common_features::detect(&app.doc.sequence);
-    let checked: Vec<bool> = detected
-        .iter()
-        .map(|d| !domain::common_features::is_duplicate(&app.doc.features, d))
-        .collect();
-    if detected.is_empty() {
-        app.toast("No known common features found in this sequence");
+    if app.dialog.is_some() {
+        app.toast("Apply or cancel the open form first");
         return;
     }
-    app.dialog = Some(Dialog::DetectCommon { detected, checked });
+    app.dialog = Some(Dialog::AnnotationReview(
+        appcore::annotation_review::prepare_common(app),
+    ));
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +155,8 @@ pub fn show(
         new_sequence(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::FeatureEditor(_))) {
         feature_editor(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::AnnotationReview(_))) {
+        annotation_review(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::PrimerEditor(_))) {
         primer_editor(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::GeneticCodes { .. })) {
@@ -165,8 +173,6 @@ pub fn show(
         rotate(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Unsaved { .. })) {
         unsaved(app, cx, max_h)
-    } else if matches!(app.app.dialog, Some(Dialog::DetectCommon { .. })) {
-        detect_common(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::ColorSelection(_))) {
         color_selection(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::Pcr(_))) {
@@ -1171,6 +1177,12 @@ fn feature_editor(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pix
         "Segments",
         input_field(seg_inp, 372.0).into_any_element(),
     ));
+    match act::parse_segments(&d.segments_text,l,circular){
+        Err(error)=>body=body.child(error_label(&format!("Segments: {error}"))),
+        Ok(segments) if domain::annotations::segments_overlap(&segments,l,circular)=>body=body.child(widgets::label("Joined segments overlap. Existing coordinates are preserved; confirm the overlap is intentional before saving.",theme::T_BASE,theme::WARN)),
+        _=>{}
+    }
+    body=body.child(widgets::label("Coordinates are 1-based inclusive. Circular spans may cross the origin (e.g. 900..50). Separate joined segments with commas.",theme::T_SM,theme::MUTED));
     body = body.child(field_row(
         "Product",
         input_field(prod_inp, 372.0).into_any_element(),
@@ -2286,200 +2298,6 @@ fn unsaved(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) ->
 // ---------------------------------------------------------------------------
 // Detect common features
 // ---------------------------------------------------------------------------
-
-struct DetectRow {
-    name: String,
-    range: String,
-    strand: String,
-    dup: bool,
-    checked: bool,
-}
-
-fn detect_common(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
-    let (detected, checked) = match &app.app.dialog {
-        Some(Dialog::DetectCommon { detected, checked }) => (detected.clone(), checked.clone()),
-        _ => return div().into_any_element(),
-    };
-    let entity: Entity<HelixBench> = cx.entity();
-    let n_new = detected
-        .iter()
-        .zip(checked.iter())
-        .filter(|(d, &c)| c && !domain::common_features::is_duplicate(&app.app.doc.features, d))
-        .count();
-
-    let rows: Vec<DetectRow> = detected
-        .iter()
-        .enumerate()
-        .map(|(i, d)| {
-            let t = &domain::common_features::COMMON_FEATURES[d.template];
-            let dup = domain::common_features::is_duplicate(&app.app.doc.features, d);
-            DetectRow {
-                name: t.name.to_string(),
-                range: format!("{}..{}", d.range.start + 1, d.range.start + d.range.len),
-                strand: if dup {
-                    "already present".into()
-                } else if d.strand == Strand::Top {
-                    "top".into()
-                } else {
-                    "bottom".into()
-                },
-                dup,
-                checked: checked[i],
-            }
-        })
-        .collect();
-
-    let mut body = div().flex().flex_col();
-    body = body.child(widgets::label(
-        &format!("{} known element(s) found · {} new", detected.len(), n_new),
-        theme::T_BASE,
-        theme::MUTED,
-    ));
-    let tools = div()
-        .flex()
-        .gap(px(8.0))
-        .mt(px(6.0))
-        .mb(px(8.0))
-        .child(
-            widgets::button("dc-all", "Select all new", Btn::Subtle).on_click(cx.listener(
-                |t, _, _, cx| {
-                    if let Some(Dialog::DetectCommon { detected, checked }) = &mut t.app.dialog {
-                        for (d, c) in detected.iter().zip(checked.iter_mut()) {
-                            *c = !domain::common_features::is_duplicate(&t.app.doc.features, d);
-                        }
-                    }
-                    cx.notify();
-                },
-            )),
-        )
-        .child(
-            widgets::button("dc-none", "Select none", Btn::Subtle).on_click(cx.listener(
-                |t, _, _, cx| {
-                    if let Some(Dialog::DetectCommon { checked, .. }) = &mut t.app.dialog {
-                        for c in checked.iter_mut() {
-                            *c = false;
-                        }
-                    }
-                    cx.notify();
-                },
-            )),
-        );
-    body = body.child(tools);
-
-    let n = rows.len();
-    let scroll = app.detect_scroll.clone();
-    let list = uniform_list("detect-list", n, move |range, window, _cx| {
-        range
-            .map(|idx| {
-                let r = &rows[idx];
-                let e_tog = entity.clone();
-                let name_col = if r.dup { theme::FAINT } else { theme::TEXT };
-                let strand_col = if r.dup { theme::FAINT } else { theme::ACCENT };
-                let name = crate::views::ellipsize(window, &r.name, 248.0, theme::T_BASE, false);
-                div()
-                    .id(("detect-row", idx))
-                    .h(px(28.0))
-                    .w_full()
-                    .flex()
-                    .items_center()
-                    .bg(crate::views::row_bg(false, idx))
-                    .border_b_1()
-                    .border_color(theme::BORDER.opacity(0.45))
-                    .child(
-                        div()
-                            .w(px(34.0))
-                            .h_full()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .child(
-                                check_box(SharedString::from(format!("dc-{idx}")), r.checked)
-                                    .on_click(move |_, _, cx| {
-                                        cx.stop_propagation();
-                                        e_tog.update(cx, |t, cx| {
-                                            if let Some(Dialog::DetectCommon {
-                                                detected,
-                                                checked,
-                                            }) = &mut t.app.dialog
-                                            {
-                                                if idx < checked.len()
-                                                    && !domain::common_features::is_duplicate(
-                                                        &t.app.doc.features,
-                                                        &detected[idx],
-                                                    )
-                                                {
-                                                    checked[idx] = !checked[idx];
-                                                }
-                                            }
-                                            cx.notify();
-                                        });
-                                    }),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.0))
-                            .px(px(8.0))
-                            .overflow_hidden()
-                            .text_size(px(theme::T_BASE))
-                            .text_color(name_col)
-                            .child(name),
-                    )
-                    .child(
-                        div()
-                            .w(px(120.0))
-                            .px(px(8.0))
-                            .font_family(theme::mono_family())
-                            .text_size(px(11.5))
-                            .text_color(theme::MUTED)
-                            .child(r.range.clone()),
-                    )
-                    .child(
-                        div()
-                            .w(px(120.0))
-                            .px(px(8.0))
-                            .text_size(px(theme::T_XS))
-                            .text_color(strand_col)
-                            .child(r.strand.clone()),
-                    )
-                    .into_any_element()
-            })
-            .collect()
-    })
-    .track_scroll(scroll)
-    .with_decoration(ScrollbarDecoration)
-    .h(px(280.0));
-    body = body.child(list);
-
-    let det_clone = detected.clone();
-    let chk_clone = checked.clone();
-    let mut add_btn = widgets::button("dc-add", &format!("Add {n_new} Features"), Btn::Primary);
-    if n_new > 0 {
-        add_btn = add_btn.on_click(cx.listener(move |t, _, _, cx| {
-            act::apply_detected(&mut t.app, &det_clone, &chk_clone);
-            close_dialog(t, cx);
-        }));
-    } else {
-        add_btn = add_btn.opacity(0.4);
-    }
-    let footer = footer_row(vec![
-        widgets::button("dc-cancel", "Cancel", Btn::Ghost)
-            .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
-            .into_any_element(),
-        add_btn.into_any_element(),
-    ]);
-    modal_shell(
-        app,
-        cx,
-        "Detect Common Features",
-        580.0,
-        max_h,
-        true,
-        body.into_any_element(),
-        Some(footer.into_any_element()),
-    )
-}
 
 // ---------------------------------------------------------------------------
 // Color selection
@@ -7309,6 +7127,221 @@ fn sample_dialog(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
         600.0,
         max_h,
         false,
+        body.into_any_element(),
+        Some(footer_row(footer).into_any_element()),
+    )
+}
+
+fn annotation_review(
+    app: &mut HelixBench,
+    cx: &mut Context<HelixBench>,
+    max_h: Pixels,
+) -> AnyElement {
+    let draft = match &app.app.dialog {
+        Some(Dialog::AnnotationReview(d)) => d.clone(),
+        _ => return div().into_any_element(),
+    };
+    let mut body=div().w_full().flex().flex_col().gap(px(14.0))
+ .child(widgets::label("Review candidate positions, strand, source motifs and conflicts. Only checked candidates apply. Changes remain unsaved; Undo is available separately in each document.",theme::T_BASE,theme::MUTED));
+    if let Some(outcomes) = &draft.outcomes {
+        for outcome in outcomes {
+            body = body.child(
+                div()
+                    .p(px(14.0))
+                    .rounded(px(14.0))
+                    .bg(theme::BG)
+                    .child(widgets::label(
+                        &format!("{} · {}", outcome.name, outcome.document),
+                        theme::T_MD,
+                        theme::TEXT,
+                    ))
+                    .child(widgets::label(
+                        &format!("{} added · {} skipped", outcome.added, outcome.skipped),
+                        theme::T_BASE,
+                        theme::MUTED,
+                    ))
+                    .when_some(outcome.error.clone(), |d, error| {
+                        d.child(error_label(&error))
+                    }),
+            );
+        }
+    } else {
+        for (di, preview) in draft.previews.iter().enumerate() {
+            body = body.child(widgets::label(
+                &format!("{} · {}", preview.name, preview.source.document),
+                theme::T_SECTION,
+                theme::TEXT,
+            ));
+            if let Some(error) = &preview.error {
+                body = body.child(error_label(error));
+            }
+            if preview.candidates.is_empty() {
+                body=body.child(widgets::label("No new matching candidates. Existing library names are skipped. Adjust the motif library or try another sequence.",theme::T_BASE,theme::MUTED));
+            }
+            body = body.child(
+                div()
+                    .flex()
+                    .gap(px(8.0))
+                    .child(
+                        widgets::button(
+                            SharedString::from(format!("annotation-all-{di}")),
+                            "Select all",
+                            Btn::Outline,
+                        )
+                        .on_click(cx.listener(move |t, _, _, cx| {
+                            if let Some(Dialog::AnnotationReview(d)) = &mut t.app.dialog {
+                                if let Some(p) = d.previews.get_mut(di) {
+                                    p.checked.fill(true);
+                                }
+                            }
+                            cx.notify();
+                        })),
+                    )
+                    .child(
+                        widgets::button(
+                            SharedString::from(format!("annotation-none-{di}")),
+                            "Clear",
+                            Btn::Ghost,
+                        )
+                        .on_click(cx.listener(move |t, _, _, cx| {
+                            if let Some(Dialog::AnnotationReview(d)) = &mut t.app.dialog {
+                                if let Some(p) = d.previews.get_mut(di) {
+                                    p.checked.fill(false);
+                                }
+                            }
+                            cx.notify();
+                        })),
+                    ),
+            );
+            for (ci, candidate) in preview.candidates.iter().enumerate() {
+                let checked = preview.checked.get(ci).copied().unwrap_or(false);
+                let f = &candidate.feature;
+                // Candidate ranges belong to their captured document, not whichever sequence is active.
+                let ranges = f
+                    .segments
+                    .iter()
+                    .map(|r| {
+                        format!(
+                            "{}–{} ({} nt)",
+                            r.start + 1,
+                            (r.start + r.len - 1) % preview.length.max(1) + 1,
+                            r.len
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let mut row = div()
+                    .p(px(14.0))
+                    .rounded(px(14.0))
+                    .bg(if checked { theme::MINT } else { theme::BG })
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(12.0))
+                            .child(
+                                widgets::button(
+                                    SharedString::from(format!("annotation-check-{di}-{ci}")),
+                                    if checked { "Selected" } else { "Select" },
+                                    Btn::Outline,
+                                )
+                                .on_click(cx.listener(
+                                    move |t, _, _, cx| {
+                                        if let Some(Dialog::AnnotationReview(d)) = &mut t.app.dialog
+                                        {
+                                            if d.outcomes.is_none() {
+                                                if let Some(value) = d
+                                                    .previews
+                                                    .get_mut(di)
+                                                    .and_then(|p| p.checked.get_mut(ci))
+                                                {
+                                                    *value = !*value;
+                                                }
+                                            }
+                                        }
+                                        cx.notify();
+                                    },
+                                )),
+                            )
+                            .child(widgets::label(&f.name, theme::T_MD, theme::TEXT)),
+                    )
+                    .child(widgets::label(
+                        &format!("{} · {:?} · {}", f.kind, f.direction, ranges),
+                        theme::T_BASE,
+                        theme::MUTED,
+                    ))
+                    .child(widgets::label(
+                        &format!(
+                            "Source: {} · motif {}",
+                            candidate.source_name, candidate.source_motif
+                        ),
+                        theme::T_SM,
+                        theme::MUTED,
+                    ));
+                if let Some(conflict) = &candidate.conflict {
+                    row = row.child(widgets::label(conflict, theme::T_BASE, theme::WARN));
+                }
+                body = body.child(row);
+            }
+        }
+    }
+    if let Some(error) = &draft.error {
+        body = body.child(error_label(error));
+    }
+    let mut footer = vec![widgets::button(
+        "annotation-cancel",
+        if draft.outcomes.is_some() {
+            "Close"
+        } else {
+            "Cancel"
+        },
+        Btn::Ghost,
+    )
+    .on_click(cx.listener(|t, _, _, cx| close_dialog(t, cx)))
+    .into_any_element()];
+    if draft.outcomes.is_none() {
+        let count = draft
+            .previews
+            .iter()
+            .map(|p| p.checked.iter().filter(|v| **v).count())
+            .sum::<usize>();
+        let mut apply = widgets::button(
+            "annotation-apply",
+            &format!("Apply {count} selected"),
+            Btn::Primary,
+        );
+        if count > 0 {
+            apply = apply.on_click(cx.listener(|t, _, _, cx| {
+                let snapshot = match &t.app.dialog {
+                    Some(Dialog::AnnotationReview(d)) => d.clone(),
+                    _ => return,
+                };
+                match appcore::annotation_review::apply(&mut t.app, &snapshot) {
+                    Ok(outcomes) => {
+                        let mut d = snapshot;
+                        d.outcomes = Some(outcomes);
+                        t.app.dialog = Some(Dialog::AnnotationReview(d));
+                    }
+                    Err(error) => {
+                        if let Some(Dialog::AnnotationReview(d)) = &mut t.app.dialog {
+                            d.error = Some(error);
+                        }
+                    }
+                }
+                cx.notify();
+            }));
+        } else {
+            apply = apply.opacity(0.45);
+        }
+        footer.push(apply.into_any_element());
+    }
+    modal_shell(
+        app,
+        cx,
+        "Review annotations",
+        760.0,
+        max_h,
+        true,
         body.into_any_element(),
         Some(footer_row(footer).into_any_element()),
     )

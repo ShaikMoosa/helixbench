@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use domain::common_features::DetectedFeature;
 use domain::enzyme::CutSite;
 use domain::primer::BindingSite;
 use domain::search::{DnaHit, ProteinHit};
@@ -197,6 +196,7 @@ pub struct TableSort {
 
 #[derive(Clone)]
 pub struct FeatureDraft {
+    pub source: domain::SourceRef,
     pub id: Option<u64>,
     pub name: String,
     pub kind: String,
@@ -257,6 +257,7 @@ pub enum Dialog {
     ImportReview(Box<crate::import::ImportReviewDraft>),
     NewSequence(NewSeqState),
     FeatureEditor(FeatureDraft),
+    AnnotationReview(crate::annotation_review::ReviewDraft),
     PrimerEditor(PrimerDraft),
     GeneticCodes {
         selected: u8,
@@ -271,10 +272,6 @@ pub enum Dialog {
     },
     Unsaved {
         action: PendingAction,
-    },
-    DetectCommon {
-        detected: Vec<DetectedFeature>,
-        checked: Vec<bool>,
     },
     ColorSelection(ColorDraft),
     Pcr(PcrDraft),

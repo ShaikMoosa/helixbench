@@ -3,6 +3,7 @@
 
 pub mod actions;
 pub mod analysis;
+pub mod annotation_review;
 pub mod commands;
 pub mod first_use;
 pub mod fs_dialogs;

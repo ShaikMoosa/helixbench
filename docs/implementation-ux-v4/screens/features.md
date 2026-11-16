@@ -100,7 +100,7 @@ Native presentation entry points:
 
 ### F-051 · Add feature
 
-**Status:** Specified; not verified implemented.
+**Status:** P08B source-bound feature creation and validation wired; reverse selection seeds direction.
 
 **Entry:** Add feature (1 navigation click(s)).
 
@@ -129,7 +129,7 @@ Native presentation entry points:
 
 ### F-052 · Edit feature
 
-**Status:** Specified; not verified implemented.
+**Status:** P08B stable feature ID and source revision validation verified; stale or missing targets rejected.
 
 **Entry:** Feature row → Edit (2 navigation click(s)).
 
@@ -158,7 +158,7 @@ Native presentation entry points:
 
 ### F-053 · Delete feature
 
-**Status:** Specified; not verified implemented.
+**Status:** P08B selected-feature deletion clears dependent range and retains existing undoable mutation.
 
 **Entry:** Feature row → Delete (2 navigation click(s)).
 
@@ -187,7 +187,7 @@ Native presentation entry points:
 
 ### F-054 · Detect common features
 
-**Status:** Specified; not verified implemented.
+**Status:** P08B common-feature review exposes motif/range/strand/conflicts; only selected candidates apply.
 
 **Entry:** Detect common (1 navigation click(s)).
 
@@ -216,7 +216,7 @@ Native presentation entry points:
 
 ### F-055 · Show / hide feature
 
-**Status:** Specified; not verified implemented.
+**Status:** P08B visibility actions bind captured source and feature ID; existing persisted visibility behavior retained.
 
 **Entry:** Row visibility toggle (1 navigation click(s)).
 
@@ -390,7 +390,7 @@ Native presentation entry points:
 
 ### F-061 · Translate feature / choose code / frame
 
-**Status:** Specified; not verified implemented.
+**Status:** P08B frame/code validation and existing translation preview retained; source-bound fields preserved.
 
 **Entry:** Feature row → Translation settings (2 navigation click(s)).
 
@@ -419,7 +419,7 @@ Native presentation entry points:
 
 ### F-062 · Color / product / notes / split segments
 
-**Status:** Specified; not verified implemented.
+**Status:** P08B field preservation and circular/joined segment validation verified; overlapping legacy joins warn without rewriting.
 
 **Entry:** Feature row → Edit details (2 navigation click(s)).
 
@@ -477,7 +477,7 @@ Native presentation entry points:
 
 ### F-064 · Motif library / bulk auto-annotate
 
-**Status:** Specified; not verified implemented.
+**Status:** P08B explicit per-document library annotation review/apply/outcomes and undo verified; ambiguous duplicate names blocked.
 
 **Entry:** Feature library (1 navigation click(s)).
 
@@ -504,3 +504,40 @@ Native presentation entry points:
 - Overlapping/duplicate detection candidates and ambiguous motif matches.
 - Library motif is empty or incompatible with the sequence alphabet.
 
+
+
+## P08B implemented flow and evidence — 16 November 2026
+
+Select a stable feature row, then Edit. The draft captures document/revision and feature
+ID. Name/type, direction, color, note, product, translation flag/code, first-codon-Met
+and frame offset survive the edit. Invalid bounds, empty ranges/names, unsupported
+codes and frame offsets outside0–2 retain the draft with correction feedback. A deleted
+feature or changed source cannot produce a silent successful save or empty checkpoint.
+Successful save selects the exact feature; Undo restores the prior document.
+
+Segments use1-based inclusive UI coordinates. Circular origin-spanning and unrolled
+legacy spans remain supported. Existing joined overlaps are preserved and explicitly
+warned about; stricter bounds validation does not reinterpret their scientific meaning.
+Duplicate names remain valid for ordinary features; library-entry names must be unique
+because they identify source motifs in review.
+
+Detect Common and Review auto-annotation open captured proposals with range, strand,
+motif source and duplicate/overlap warnings. Overlap proposals start unchecked. Select
+individual candidates or Select all/Clear per document, then Apply selected. Cancel
+changes no document. The review displays each document's added/skipped/error outcome;
+stale sources and closed documents cannot be silently replaced. Changes are unsaved
+document edits, not a claim of disk persistence. Each changed open document retains its
+own Undo checkpoint through the existing document-session controller.
+
+The library scan retains its existing exact-motif and existing-name skip behavior.
+Empty/invalid motif data and duplicate library names block ambiguous previews with
+guidance. The original common-feature detector is reused. The obsolete immediate
+detection mutation path was removed. The direct Features entry makes review reachable
+without opening the library first; existing library management remains available.
+
+Verification:10 domain and5 appcore P08B tests, all355 workspace tests, strict core
+Clippy, formatting/diff/source/manifest checks and native executable build passed.
+Native1280px checks covered toolbar fit, editor, inline invalid-range errors, common
+review/conflicts, explicit apply(13→14 features), per-document outcome, Undo(14→13 and
+clean state), direct library review/cancel, and the final overlapping-join warning.
+Broader large-data profiling and complete accessibility acceptance remain P19.

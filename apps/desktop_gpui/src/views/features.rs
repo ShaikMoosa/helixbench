@@ -57,6 +57,7 @@ impl HelixBench {
 
         let code = code_by_id(self.app.doc.default_genetic_code);
         let selected = self.app.selected_feature;
+        let source = self.app.doc.source_ref();
         let mut items: Vec<u64> = self
             .app
             .doc
@@ -137,6 +138,7 @@ impl HelixBench {
         let count = self.app.doc.features.len();
         let mut toolbar = div()
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(px(8.0))
             .px(px(12.0))
@@ -157,6 +159,11 @@ impl HelixBench {
             .opacity(if sel.is_some() { 1.0 } else { 0.4 });
         if sel.is_some() {
             edit = edit.on_click(cx.listener(move |t, _, _, cx| {
+                if t.app.doc.source_ref() != source {
+                    t.app
+                        .toast("The document changed; select the feature again");
+                    return;
+                }
                 crate::dialogs::open_feature_editor(&mut t.app, sel);
                 cx.notify();
             }));
@@ -167,6 +174,11 @@ impl HelixBench {
         if sel.is_some() {
             del = del.on_click(cx.listener(move |t, _, _, cx| {
                 if let Some(id) = sel {
+                    if t.app.doc.source_ref() != source {
+                        t.app
+                            .toast("The document changed; select the feature again");
+                        return;
+                    }
                     act::delete_feature(&mut t.app, id);
                 }
                 cx.notify();
@@ -180,6 +192,17 @@ impl HelixBench {
                     cx.notify();
                 }),
             ),
+        );
+        toolbar = toolbar.child(
+            widgets::button(
+                "feature-review-auto",
+                "Review auto-annotation",
+                Btn::Outline,
+            )
+            .on_click(cx.listener(|t, _, _, cx| {
+                act::bulk_annotate(&mut t.app);
+                cx.notify();
+            })),
         );
         toolbar = toolbar.child(
             crate::views::table_opts::opts_button(
@@ -201,7 +224,7 @@ impl HelixBench {
 
         // --- Header ---
         let hid = self.app.hidden_cols("features");
-        let content_w = self.viewport.width.v() - 184.0;
+        let content_w = self.app.shell.layout(self.viewport.width.v()).content_width;
         let flexw = (content_w - 458.0).max(240.0);
         let name_w = (flexw * 0.38).clamp(150.0, 340.0);
         let prod_w = (flexw - name_w).max(120.0);
@@ -248,8 +271,16 @@ impl HelixBench {
         let scroll = self.feat_scroll.clone();
         let body = if n == 0 {
             empty_state(
-                "No features match",
-                "Add a feature or clear the filter to see annotations.",
+                if count == 0 {
+                    "No annotations yet"
+                } else {
+                    "No features match"
+                },
+                if count == 0 {
+                    "Add a feature or detect common features to begin."
+                } else {
+                    "Clear or change the filter to see annotations."
+                },
             )
         } else {
             uniform_list("features-list", n, move |range, window, _cx| {
@@ -276,6 +307,12 @@ impl HelixBench {
                             .hover(|s| s.bg(theme::FILL_HOVER_STRONG))
                             .on_click(move |_, _, cx| {
                                 e_sel.update(cx, |t, cx| {
+                                    if t.app.doc.source_ref() != source {
+                                        t.app.toast(
+                                            "The document changed; select the feature again",
+                                        );
+                                        return;
+                                    }
                                     t.app.select_feature(id);
                                     cx.notify();
                                 });
@@ -283,6 +320,12 @@ impl HelixBench {
                             .on_mouse_down(MouseButton::Left, move |ev, _, cx| {
                                 if ev.click_count >= 2 {
                                     e_dbl.update(cx, |t, cx| {
+                                        if t.app.doc.source_ref() != source {
+                                            t.app.toast(
+                                                "The document changed; select the feature again",
+                                            );
+                                            return;
+                                        }
                                         crate::dialogs::open_feature_editor(&mut t.app, Some(id));
                                         cx.notify();
                                     });
@@ -300,6 +343,15 @@ impl HelixBench {
                                             .on_click(move |_, _, cx| {
                                                 cx.stop_propagation();
                                                 e_tog.update(cx, |t, cx| {
+                                                    if t.app.doc.source_ref() != source
+                                                        || t.app.doc.feature(id).is_none()
+                                                    {
+                                                        t.app.toast(
+                                                            "The feature changed; refresh the list",
+                                                        );
+                                                        cx.notify();
+                                                        return;
+                                                    }
                                                     let name = t
                                                         .app
                                                         .doc

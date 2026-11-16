@@ -275,7 +275,13 @@ impl HelixBench {
                 format!("import:{}:{}", draft.operation(), draft.active)
             }
             None => "none".into(),
-            Some(Dialog::FeatureEditor(d)) => format!("feat:{:?}", d.id),
+            Some(Dialog::FeatureEditor(d)) => format!(
+                "feat:{:?}:{}:{}",
+                d.id, d.source.document, d.source.revision
+            ),
+            Some(Dialog::AnnotationReview(d)) => {
+                format!("annotation:{}:{}", d.previews.len(), d.outcomes.is_some())
+            }
             Some(Dialog::PrimerEditor(d)) => format!("primer:{:?}", d.id),
             Some(Dialog::NewSequence(_)) => "newseq".into(),
             Some(Dialog::Rotate { .. }) => "rotate".into(),
@@ -286,7 +292,6 @@ impl HelixBench {
             Some(Dialog::About) => "about".into(),
             Some(Dialog::Options) => "options".into(),
             Some(Dialog::Unsaved { action }) => format!("unsaved:{action:?}"),
-            Some(Dialog::DetectCommon { detected, .. }) => format!("detect:{}", detected.len()),
             Some(Dialog::SampleExit) => "sample-exit".into(),
             Some(Dialog::SampleCopy(d)) => {
                 format!("sample-copy:{}:{}", d.document.id, d.document.revision_id)

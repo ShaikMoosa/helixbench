@@ -6690,7 +6690,7 @@
       "intendedOutcome": "Name, kind, segments, direction, color, note, product and translation settings",
       "baselineNote": "Visible action",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08B source-bound feature creation and validation wired; reverse selection seeds direction",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -6785,7 +6785,7 @@
       "intendedOutcome": "Selected editor opens with all attributes",
       "baselineNote": "Selection plus toolbar or double-click",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08B stable feature ID and source revision validation verified; stale or missing targets rejected",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -6880,7 +6880,7 @@
       "intendedOutcome": "Show confirmation; retain undo after delete",
       "baselineNote": "Selection plus Delete",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08B selected-feature deletion clears dependent range and retains existing undoable mutation",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -6974,7 +6974,7 @@
       "intendedOutcome": "Detection checklist with Select new / Select none / Add",
       "baselineNote": "Features menu / page action",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08B common-feature review exposes motif/range/strand/conflicts; only selected candidates apply",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -7068,7 +7068,7 @@
       "intendedOutcome": "Map and Sequence update together",
       "baselineNote": "Visibility checkbox exists in source",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08B visibility actions bind captured source and feature ID; existing persisted visibility behavior retained",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -7636,7 +7636,7 @@
       "intendedOutcome": "Expose enable, code, first-codon methionine and frame offset",
       "baselineNote": "Inside feature editor",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08B frame/code validation and existing translation preview retained; source-bound fields preserved",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -7731,7 +7731,7 @@
       "intendedOutcome": "Support multi-segment ranges and explain syntax",
       "baselineNote": "Inside feature editor",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08B field preservation and circular/joined segment validation verified; overlapping legacy joins warn without rewriting",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -7920,7 +7920,7 @@
       "intendedOutcome": "Review matches and duplicates before applying",
       "baselineNote": "Tools menu only",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08B explicit per-document library annotation review/apply/outcomes and undo verified; ambiguous duplicate names blocked",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
