@@ -71,7 +71,11 @@ fn main() {
                                 allow = false;
                                 cx.notify();
                             } else {
-                                act::persist_config(&mut this.app);
+                                if !act::persist_config(&mut this.app) {
+                                    this.app.exit_settings_failed = true;
+                                    allow = false;
+                                    cx.notify();
+                                }
                             }
                         });
                         allow

@@ -648,6 +648,9 @@ pub enum MapMode {
 }
 
 pub struct AppState {
+    pub operation_error: Option<String>,
+    pub exit_settings_failed: bool,
+    pub recovery: storage::operations::RecoveryPlan,
     pub imported_operations: HashMap<domain::OperationId, Vec<domain::DocumentId>>,
     pub navigation: crate::navigation::NavigationState,
     pub doc: Document,
@@ -752,6 +755,9 @@ impl AppState {
         let prefs = config.ui.clone();
         let zoom_width = doc.sequence.len().max(1);
         let mut s = Self {
+            operation_error: None,
+            exit_settings_failed: false,
+            recovery: storage::operations::Journal::default().recovery(),
             imported_operations: HashMap::new(),
             navigation: crate::navigation::NavigationState::new(&doc),
             doc,

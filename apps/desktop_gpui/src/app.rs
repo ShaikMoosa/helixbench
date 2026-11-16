@@ -1706,6 +1706,113 @@ impl HelixBench {
         )
     }
 
+    fn operation_feedback(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        use storage::operations::{Journal, RecoveryDisposition};
+        use widgets::Btn;
+        let mut body = div()
+            .flex()
+            .flex_col()
+            .max_h(px(220.0))
+            .id("operation-feedback")
+            .overflow_y_scroll();
+        let mut visible = false;
+        if let Some(message) = self.app.operation_error.clone() {
+            visible = true;
+            let mut actions = div().flex().gap(px(8.0)).child(
+                widgets::button("dismiss-operation-error", "Dismiss message", Btn::Ghost).on_click(
+                    cx.listener(|this, _, _, cx| {
+                        this.app.operation_error = None;
+                        cx.notify();
+                    }),
+                ),
+            );
+            if self.app.exit_settings_failed {
+                actions = actions.child(
+                    widgets::button(
+                        "exit-without-settings",
+                        "Exit without saving settings",
+                        Btn::Outline,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        if appcore::operations::can_exit_without_settings(&this.app) {
+                            cx.quit();
+                        } else {
+                            act::guard(&mut this.app, PendingAction::CloseApp);
+                            cx.notify();
+                        }
+                    })),
+                );
+            }
+            body = body.child(widgets::operation_notice(&message).child(actions));
+        }
+        if let Some(message) = self.app.recovery.errors.first() {
+            visible = true;
+            body = body.child(widgets::operation_notice(&format!("Recovery journal needs attention: {message}. The original record is preserved; restore access or update HelixBench, then refresh."))
+                .child(widgets::button("refresh-recovery-errors", "Refresh recovery", Btn::Outline)
+                    .on_click(cx.listener(|this, _, _, cx| { this.app.recovery = Journal::default().recovery(); cx.notify(); }))));
+        }
+        if let Some(item) = self.app.recovery.items.first().cloned() {
+            visible = true;
+            let count = self.app.recovery.items.len();
+            let id = item.id;
+            let (message, primary) = match item.disposition {
+                RecoveryDisposition::Committed => ("The output is present. Record its completion without writing it again.", "Record completion"),
+                RecoveryDisposition::RetryAvailable => ("An interrupted write is ready to retry from its captured input.", "Retry captured write"),
+                RecoveryDisposition::Conflict => ("The destination changed. Keep the current file or recover the captured input to a new file.", ""),
+            };
+            let mut actions = div().flex().gap(px(8.0));
+            if !primary.is_empty() {
+                actions = actions.child(
+                    widgets::button("recover-operation", primary, Btn::Outline).on_click(
+                        cx.listener(move |this, _, _, cx| {
+                            appcore::operations::reconcile(&mut this.app, id, &Journal::default());
+                            cx.notify();
+                        }),
+                    ),
+                );
+            }
+            if item.disposition != RecoveryDisposition::Committed {
+                let recovery_name = format!(
+                    "recovered-{}",
+                    item.destination
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                );
+                actions = actions.child(widgets::button("recover-operation-copy", "Recover to new file", Btn::Outline)
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        if let Some(path) = appcore::fs_dialogs::pick_save("Recover captured output", "Output", &[], &recovery_name, this.app.config.last_directory.as_ref()) {
+                            let journal = Journal::default();
+                            match journal.recover_copy(id, &path) {
+                                Ok(receipt) if receipt.state == domain::operation::OperationState::Completed => {
+                                    this.app.toast(format!("Recovered copy: {}", receipt.destination.display()));
+                                    if let Err(error) = journal.cancel(id) { this.app.operation_error = Some(format!("Copy saved; original recovery entry could not be dismissed: {error}")); }
+                                }
+                                Ok(_) => this.app.operation_error = Some("Recovery copy was written, but its receipt needs reconciliation.".into()),
+                                Err(error) => this.app.operation_error = Some(format!("Could not recover copy: {error}")),
+                            }
+                            this.app.recovery = journal.recovery();
+                        }
+                        cx.notify();
+                    })))
+                    .child(widgets::button("cancel-operation", "Keep current file", Btn::Ghost)
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            let journal = Journal::default();
+                            if let Err(error) = journal.cancel(id) { this.app.operation_error = Some(format!("Could not dismiss recovery: {error}")); }
+                            this.app.recovery = journal.recovery(); cx.notify();
+                        })));
+            }
+            body = body.child(
+                widgets::operation_notice(&format!(
+                    "Recovery ({count} remaining): {}. {message}",
+                    item.destination.display()
+                ))
+                .child(actions),
+            );
+        }
+        visible.then(|| body.into_any_element())
+    }
+
     fn central_view(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         match self.app.view {
             View::Map => crate::editor::render_editor(self, cx),
@@ -1759,8 +1866,11 @@ impl Render for HelixBench {
         }
         if self.app.exit_requested {
             self.app.exit_requested = false;
-            act::persist_config(&mut self.app);
-            cx.quit();
+            if act::persist_config(&mut self.app) {
+                cx.quit();
+            } else {
+                self.app.exit_settings_failed = true;
+            }
         }
         // Appcore owns restored queries/filters; cached input entities must not overwrite them.
         let input_context = (self.app.doc.id, self.app.navigation.context_epoch);
@@ -1785,6 +1895,7 @@ impl Render for HelixBench {
         let menu_overlay = self.render_menu(cx);
         let dialog_overlay = crate::dialogs::show(self, window, cx);
         let toast = self.toast(cx);
+        let operation_feedback = self.operation_feedback(cx);
         let find_bar = if self.app.search.open {
             Some(crate::find::show(self, window, cx))
         } else {
@@ -1822,6 +1933,9 @@ impl Render for HelixBench {
             .on_key_down(cx.listener(Self::on_key_down))
             .child(self.menu_bar(cx))
             .child(self.tab_bar(cx));
+        if let Some(feedback) = operation_feedback {
+            root = root.child(feedback);
+        }
         if let Some(fb) = find_bar {
             root = root.child(fb);
         }

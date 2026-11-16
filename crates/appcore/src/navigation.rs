@@ -575,7 +575,7 @@ fn execute(
         }
         NavigationIntent::NewDemo => actions::new_demo(app),
         NavigationIntent::ExitApplication => {
-            actions::persist_config(app);
+            // The native boundary persists settings and handles failure before exiting.
             app.exit_requested = true;
         }
         NavigationIntent::CloseDocument(id) => {

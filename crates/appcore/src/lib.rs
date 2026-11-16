@@ -6,4 +6,5 @@ pub mod analysis;
 pub mod fs_dialogs;
 pub mod import;
 pub mod navigation;
+pub mod operations;
 pub mod state;

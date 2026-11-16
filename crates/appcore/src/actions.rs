@@ -531,22 +531,12 @@ pub fn save_as(app: &mut AppState) -> bool {
 }
 
 fn save_to(app: &mut AppState, path: &std::path::Path) -> bool {
-    match storage::save_document(&app.doc, path) {
-        Ok(()) => {
-            app.path = Some(path.to_path_buf());
-            crate::navigation::mark_saved(app);
-            app.dirty = false;
-            app.saved_depth = Some(app.history.len());
-            app.config.add_recent(path);
-            let _ = storage::config::save(&app.config);
-            app.toast(format!("Saved {}", path.display()));
-            true
-        }
-        Err(e) => {
-            app.toast(format!("Save failed: {e}"));
-            false
-        }
-    }
+    crate::operations::save_to(
+        app,
+        path,
+        &storage::operations::Journal::default(),
+        &storage::config::config_path(),
+    )
 }
 
 pub fn export_fasta(app: &mut AppState) {
@@ -571,10 +561,13 @@ fn export_with(app: &mut AppState, ext: &str, label: &str, f: impl FnOnce(&Docum
         app.config.last_directory.as_ref(),
     ) {
         let text = f(&app.doc);
-        match storage::atomic_write(&path, text.as_bytes()) {
-            Ok(()) => app.toast(format!("Exported {label} to {}", path.display())),
-            Err(e) => app.toast(format!("Export failed: {e}")),
-        }
+        crate::operations::export_to(
+            app,
+            &path,
+            text,
+            label,
+            &storage::operations::Journal::default(),
+        );
     }
 }
 
@@ -610,9 +603,18 @@ pub fn perform(app: &mut AppState, action: PendingAction) {
     guard(app, action);
 }
 
-pub fn persist_config(app: &mut AppState) {
+pub fn persist_config(app: &mut AppState) -> bool {
     app.config.ui = app.prefs.clone();
-    let _ = storage::config::save(&app.config);
+    match storage::config::save(&app.config) {
+        Ok(()) => {
+            app.exit_settings_failed = false;
+            true
+        }
+        Err(error) => {
+            app.operation_error = Some(format!("Could not save settings: {error}. Retry Quit after fixing the destination, or exit without saving settings."));
+            false
+        }
+    }
 }
 
 pub fn create_from_dialog(app: &mut AppState, state: &NewSeqState) -> Result<(), String> {

@@ -27,6 +27,7 @@ pub mod invivo;
 pub mod iupac;
 pub mod msa;
 pub mod notebook;
+pub mod operation;
 pub mod pcr;
 pub mod primer;
 pub mod primer_design;

@@ -1,7 +1,7 @@
 # UX v4 implementation progress
 
 P00/P01 merged into `main` at `908788b` on 15 November 2026.
-P02 branch: `codex/ux-v4-p02`.
+P02 merged into `main` at `9c6802d`. P03/P04 are pushed implementation branches; no P03/P04 merge is claimed.
 Baseline: `0474cb94e456094dc4e501a9351ca7587a149361`.
 Authority: UX v4 interface; preserve existing scientific capabilities and local data.
 
@@ -105,3 +105,33 @@ Current native format is **v3**. Provenance fields require a version boundary so
 ### Scope and follow-up
 
 Protein/RNA specialist import is not fabricated: incompatible DNA imports are blocked with guidance; P17 supplies the later specialist workflows. Batch commit is in-memory and explicitly unsaved; durable operation recovery is P04/P16. The 64 MiB advisory appears in review; streaming, background parsing, performance budgets and large-data benchmarks remain P04/P19 release work. This milestone does not claim those later capabilities are implemented.
+
+
+## P04 — implemented and verified by automated checks
+
+16 November 2026. Branch: `codex/ux-v4-p04`; base: P03 (`af25311`).
+
+- Native Save and FASTA/GenBank/plain-text exports capture an owned document, full version history, destination fingerprint and expected output hash before writing. A versioned per-operation journal is persisted before the output starts.
+- Journals expose operation state, completion receipts and a read-only startup recovery plan. Explicit recovery recognizes already-committed bytes without replay, permits retry only against unchanged input destinations, or preserves a changed file while recovering captured output to a new destination.
+- Completed retries return the original receipt without replacing later output. Cancellation before commit produces no output; an already-committed write cannot be described as canceled. A failed completion-marker write returns `PartialOutcome` and remains available for hash-based reconciliation.
+- Atomic writes use unique exclusively created staging files, flush before rename, and clean only their own staging file on failure. Destination fingerprint checks and replacement share a process-local critical section. Native legacy backup and newer-version rejection remain intact.
+- Save completion checks the captured full document and receipt hash before marking the current editor clean. A later checkpoint or edit cannot be cleared by an older completion. Unrelated/inactive document state is never cleared.
+- Routine success uses the existing toast without a modal. Errors persist in an inline banner. Recovery exposes labeled actions for retry, recording completion, recovering to a new file, preserving a changed file, and refreshing inaccessible/corrupt journal feedback.
+- Document persistence and settings persistence report distinct outcomes. A settings failure does not dirty an already-saved document or falsely report document failure. Quit and OS window-close retain the window when settings fail; the explicit settings-only exit fallback still checks active/library dirty work, pending decisions and forms before closing.
+- Completed/canceled journal records discard full captured payloads; only small receipts/terminal metadata remain. Unfinished records retain captured input until recovered or explicitly dismissed. Corrupt/newer journals are preserved and surfaced rather than silently reset.
+
+### Verification and traceability
+
+- `cargo test -p domain -p storage -p appcore --locked`: **276 passed, 0 failed** (domain 145; storage 67; appcore 64). Includes 18 P04 integration cases and the storage completion-marker failure case.
+- Required P04 cases are present in `crates/appcore/tests/ux_v4_p04.rs`: `save_rename_failure_is_not_success`, `operation_uses_captured_input`, `restart_reconciles_committed_output`, `routine_success_does_not_block`.
+- Further coverage: failed journal prevents output, native rename staging cleanup, changed-file conflict, cancellation, repeated completed retry, recovery-copy protection, full checkpoint retention, stale completion, forged receipt hash, failed settings and new edits after failed Quit.
+- `cargo clippy -p domain -p storage -p appcore --all-targets --locked -- -D warnings`, native `cargo build -p desktop_gpui --locked`, formatting and diff checks pass. The existing upstream future-compatibility notice remains.
+- Independent review found two exit-path issues; both were fixed and reviewed again: OS close ignoring settings failure and the settings-only fallback bypassing newly edited documents. No remaining important finding was reported within this milestone scope.
+- F-050 persistence foundation is implemented here; P08A retains ownership of the complete Sequence-screen controls and visual validation. Shared contracts: `02-shared-interaction-contracts.md` message taxonomy and `03-data-state-and-persistence.md` durable outcome/recovery rules.
+- Interactive native-window and visual-layout verification remains unverified; a successful native build is not a live UI test.
+
+### Scope and follow-up
+
+This slice retains synchronous Save so existing dirty-navigation guards retain their behavior. Non-blocking routine feedback means non-modal feedback; background scheduling, streaming, in-flight cancellation and large-data performance budgets remain P19. The serial write lock coordinates app workers in one process; cross-process/network-filesystem transaction isolation and power-loss durability are not claimed. Recovery acts on captured file output only, does not retarget the currently open editor, and does not automatically resume an old navigation decision after restart. Multi-store automation journals and rollback remain P16. Existing unrelated module stores still require their owning milestone's persistence-error work.
+
+Next: P05 — command registry and scoped workspace search.

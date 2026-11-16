@@ -16,6 +16,7 @@ pub mod imports;
 pub mod inventory;
 pub mod invivo;
 pub mod migrations;
+pub mod operations;
 pub mod records;
 pub mod registry;
 pub mod results;
@@ -25,7 +26,7 @@ pub mod workflow;
 
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use domain::Document;
 use serde::{Deserialize, Serialize};
@@ -54,50 +55,71 @@ struct Envelope {
     document: Document,
 }
 
-/// Write bytes atomically: temp sibling, flush, rename over the destination.
-pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
+// Serializes app writers; checks and rename share the same critical section.
+// This is process-local, not a cross-process transaction or network-filesystem lock.
+static WRITES: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+pub fn content_hash(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+pub fn file_hash(path: &Path) -> Result<Option<String>> {
+    match fs::read(path) {
+        Ok(bytes) => Ok(Some(content_hash(&bytes))),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.into()),
     }
-    let tmp = temp_sibling(path);
-    let write_result = (|| -> Result<()> {
-        let mut f = fs::File::create(&tmp)?;
-        f.write_all(bytes)?;
-        f.sync_all()?;
-        Ok(())
-    })();
-    if let Err(e) = write_result {
-        let _ = fs::remove_file(&tmp);
-        return Err(e);
+}
+fn check_before(path: &Path, before: &Option<String>) -> Result<()> {
+    if &file_hash(path)? != before {
+        return Err(StorageError::Format(
+            "Destination changed since review; no output was replaced".into(),
+        ));
     }
-    fs::rename(&tmp, path)?;
     Ok(())
 }
-
-fn temp_sibling(path: &Path) -> PathBuf {
-    let mut name = path
-        .file_name()
-        .map(|n| n.to_os_string())
-        .unwrap_or_default();
-    name.push(".tmp");
-    path.with_file_name(name)
-}
-
-/// Serialize a document to the native `.hbx` format and save it atomically.
-pub fn save_document(doc: &Document, path: &Path) -> Result<()> {
-    migrations::validate_v2(doc)?;
-    match fs::read(path) {
-        Ok(bytes) => {
-            let version = native_version(&bytes)?;
-            if version < FORMAT_VERSION {
-                migrations::preserve_original(path, &bytes, version)?;
-            }
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-        Err(e) => return Err(e.into()),
+/// Unique, exclusively created staging file; failed writes/renames remove only that file.
+fn atomic_write_unlocked(path: &Path, bytes: &[u8]) -> Result<()> {
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        fs::create_dir_all(parent)?;
     }
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(format!(".{}.tmp", domain::OperationId::new()));
+    let tmp = path.with_file_name(name);
+    let mut f = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&tmp)?;
+    let result = (|| -> Result<()> {
+        f.write_all(bytes)?;
+        f.sync_all()?;
+        drop(f);
+        fs::rename(&tmp, path)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    result
+}
+pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
+    let _lock = WRITES
+        .lock()
+        .map_err(|_| StorageError::Format("Write controller is unavailable".into()))?;
+    atomic_write_unlocked(path, bytes)
+}
+pub fn atomic_write_checked(path: &Path, bytes: &[u8], before: &Option<String>) -> Result<()> {
+    let _lock = WRITES
+        .lock()
+        .map_err(|_| StorageError::Format("Write controller is unavailable".into()))?;
+    check_before(path, before)?;
+    atomic_write_unlocked(path, bytes)
+}
+pub fn document_bytes(doc: &Document) -> Result<Vec<u8>> {
+    migrations::validate_v2(doc)?;
     let env = Envelope {
         format: FORMAT_NAME.to_string(),
         version: FORMAT_VERSION,
@@ -105,7 +127,35 @@ pub fn save_document(doc: &Document, path: &Path) -> Result<()> {
     };
     let mut json = serde_json::to_vec_pretty(&env)?;
     json.push(b'\n');
-    atomic_write(path, &json)
+    Ok(json)
+}
+fn save_document_unlocked(doc: &Document, path: &Path) -> Result<()> {
+    let bytes = document_bytes(doc)?;
+    match fs::read(path) {
+        Ok(previous) => {
+            let version = native_version(&previous)?;
+            if version < FORMAT_VERSION {
+                migrations::preserve_original(path, &previous, version)?;
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e.into()),
+    }
+    atomic_write_unlocked(path, &bytes)
+}
+/// Native persistence retains legacy backups and never replaces newer formats.
+pub fn save_document(doc: &Document, path: &Path) -> Result<()> {
+    let _lock = WRITES
+        .lock()
+        .map_err(|_| StorageError::Format("Write controller is unavailable".into()))?;
+    save_document_unlocked(doc, path)
+}
+pub fn save_document_checked(doc: &Document, path: &Path, before: &Option<String>) -> Result<()> {
+    let _lock = WRITES
+        .lock()
+        .map_err(|_| StorageError::Format("Write controller is unavailable".into()))?;
+    check_before(path, before)?;
+    save_document_unlocked(doc, path)
 }
 
 /// Load a native `.hbx` document.

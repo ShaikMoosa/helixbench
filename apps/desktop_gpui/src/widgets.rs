@@ -245,3 +245,20 @@ pub fn empty_state(icon: &str, title: &str, sub: &str) -> Div {
                 .child(sub.to_owned()),
         )
 }
+
+/// Persistent, non-modal operation feedback; action controls are supplied by the owner.
+pub fn operation_notice(message: &str) -> Div {
+    div()
+        .w_full()
+        .flex()
+        .flex_col()
+        .gap(px(8.0))
+        .px(px(16.0))
+        .py(px(10.0))
+        .bg(theme::SURFACE_2)
+        .border_b_1()
+        .border_color(theme::BORDER_STRONG)
+        .text_size(px(theme::T_BASE))
+        .text_color(theme::TEXT)
+        .child(div().child(message.to_owned()))
+}
