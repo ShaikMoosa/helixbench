@@ -83,7 +83,33 @@ pub enum MenuKind {
     Help,
 }
 
+struct ProfileUiState {
+    inputs: HashMap<String, Entity<TextInput>>,
+    workspace_scroll: ScrollHandle,
+    dlg_scroll: ScrollHandle,
+    seq_scroll: f32,
+    editor_scroll: f32,
+    cal_year: i64,
+    cal_month: u32,
+    cal_day: Option<u32>,
+}
+impl Default for ProfileUiState {
+    fn default() -> Self {
+        let (year, month, _) = crate::util::civil_from_unix(crate::util::now_unix());
+        Self {
+            inputs: HashMap::new(),
+            workspace_scroll: ScrollHandle::new(),
+            dlg_scroll: ScrollHandle::new(),
+            seq_scroll: 0.0,
+            editor_scroll: 0.0,
+            cal_year: year,
+            cal_month: month,
+            cal_day: None,
+        }
+    }
+}
 pub struct HelixBench {
+    profile_ui: appcore::first_use::ProfileUiSession<ProfileUiState>,
     pub app: AppState,
     pub focus_handle: FocusHandle,
     initialized: bool,
@@ -156,6 +182,7 @@ impl HelixBench {
     pub fn new(app: AppState, cx: &mut Context<Self>) -> Self {
         Self {
             app,
+            profile_ui: Default::default(),
             focus_handle: cx.focus_handle(),
             initialized: false,
             last_title: String::new(),
@@ -253,6 +280,10 @@ impl HelixBench {
             Some(Dialog::Options) => "options".into(),
             Some(Dialog::Unsaved { action }) => format!("unsaved:{action:?}"),
             Some(Dialog::DetectCommon { detected, .. }) => format!("detect:{}", detected.len()),
+            Some(Dialog::SampleExit) => "sample-exit".into(),
+            Some(Dialog::SampleCopy(d)) => {
+                format!("sample-copy:{}:{}", d.document.id, d.document.revision_id)
+            }
             Some(Dialog::Pcr(_)) => "pcr".into(),
             Some(Dialog::PrimerDesign(_)) => "pdesign".into(),
             Some(Dialog::Digest) => "digest".into(),
@@ -330,10 +361,12 @@ impl HelixBench {
                         .into_any_element(),
                 );
                 rows.push(
-                    widgets::menu_row("m-demo", "Open Demo Plasmid", "", true)
+                    widgets::menu_row("m-demo", "Try sample workspace", "", true)
                         .on_click(cx.listener(|t, _, _, cx| {
                             t.menu = None;
-                            act::guard(&mut t.app, PendingAction::NewDemo);
+                            if let Err(error) = appcore::first_use::try_sample(&mut t.app) {
+                                t.app.toast(error);
+                            }
                             cx.notify();
                         }))
                         .into_any_element(),
@@ -955,6 +988,9 @@ impl HelixBench {
             self.dlg_combo = None;
         } else {
             match &self.app.dialog {
+                Some(Dialog::SampleExit) | Some(Dialog::SampleCopy(_)) => {
+                    appcore::first_use::cancel_sample_dialog(&mut self.app)
+                }
                 Some(Dialog::ImportReview(_)) => {
                     if let Err(error) = appcore::import::cancel_import(&mut self.app) {
                         self.app.toast(error);
@@ -1624,7 +1660,7 @@ impl HelixBench {
     }
 
     fn operation_feedback(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        use storage::operations::{Journal, RecoveryDisposition};
+        use storage::operations::RecoveryDisposition;
         use widgets::Btn;
         let mut body = div()
             .flex()
@@ -1666,7 +1702,7 @@ impl HelixBench {
             visible = true;
             body = body.child(widgets::operation_notice(&format!("Recovery journal needs attention: {message}. The original record is preserved; restore access or update HelixBench, then refresh."))
                 .child(widgets::button("refresh-recovery-errors", "Refresh recovery", Btn::Outline)
-                    .on_click(cx.listener(|this, _, _, cx| { this.app.recovery = Journal::default().recovery(); cx.notify(); }))));
+                    .on_click(cx.listener(|this, _, _, cx| { this.app.recovery = this.app.operation_journal().recovery(); cx.notify(); }))));
         }
         if let Some(item) = self.app.recovery.items.first().cloned() {
             visible = true;
@@ -1682,7 +1718,8 @@ impl HelixBench {
                 actions = actions.child(
                     widgets::button("recover-operation", primary, Btn::Outline).on_click(
                         cx.listener(move |this, _, _, cx| {
-                            appcore::operations::reconcile(&mut this.app, id, &Journal::default());
+                            let journal = this.app.operation_journal();
+                            appcore::operations::reconcile(&mut this.app, id, &journal);
                             cx.notify();
                         }),
                     ),
@@ -1699,7 +1736,7 @@ impl HelixBench {
                 actions = actions.child(widgets::button("recover-operation-copy", "Recover to new file", Btn::Outline)
                     .on_click(cx.listener(move |this, _, _, cx| {
                         if let Some(path) = appcore::fs_dialogs::pick_save("Recover captured output", "Output", &[], &recovery_name, this.app.config.last_directory.as_ref()) {
-                            let journal = Journal::default();
+                            let journal = this.app.operation_journal();
                             match journal.recover_copy(id, &path) {
                                 Ok(receipt) if receipt.state == domain::operation::OperationState::Completed => {
                                     this.app.toast(format!("Recovered copy: {}", receipt.destination.display()));
@@ -1714,7 +1751,7 @@ impl HelixBench {
                     })))
                     .child(widgets::button("cancel-operation", "Keep current file", Btn::Ghost)
                         .on_click(cx.listener(move |this, _, _, cx| {
-                            let journal = Journal::default();
+                            let journal = this.app.operation_journal();
                             if let Err(error) = journal.cancel(id) { this.app.operation_error = Some(format!("Could not dismiss recovery: {error}")); }
                             this.app.recovery = journal.recovery(); cx.notify();
                         })));
@@ -1757,6 +1794,42 @@ impl HelixBench {
         }
     }
 
+    fn sync_profile_ui(&mut self) {
+        let sample = appcore::first_use::is_sample(&self.app);
+        if self.profile_ui.sample_active() == sample {
+            return;
+        }
+        let mut ui = ProfileUiState {
+            inputs: std::mem::take(&mut self.inputs),
+            workspace_scroll: std::mem::replace(&mut self.workspace_scroll, ScrollHandle::new()),
+            dlg_scroll: std::mem::replace(&mut self.dlg_scroll, ScrollHandle::new()),
+            seq_scroll: self.seq_scroll,
+            editor_scroll: self.editor_scroll,
+            cal_year: self.cal_year,
+            cal_month: self.cal_month,
+            cal_day: self.cal_day,
+        };
+        self.profile_ui.sync(sample, &mut ui);
+        self.inputs = ui.inputs;
+        self.workspace_scroll = ui.workspace_scroll;
+        self.dlg_scroll = ui.dlg_scroll;
+        self.seq_scroll = ui.seq_scroll;
+        self.editor_scroll = ui.editor_scroll;
+        self.cal_year = ui.cal_year;
+        self.cal_month = ui.cal_month;
+        self.cal_day = ui.cal_day;
+        self.last_input_context = None;
+        self.last_dialog_sig = String::new();
+        self.menu = None;
+        self.combo = None;
+        self.opts = None;
+        self.dlg_combo = None;
+        self.find_recents_open = false;
+        self.map_press = None;
+        self.seq_press = None;
+        self.editor_seq_anchor = None;
+        self.app.workspace_search.focus_request = self.app.workspace_search.open;
+    }
     fn update_title(&mut self, window: &mut Window) {
         let title = format!(
             "HelixBench — {}{}",
@@ -1778,6 +1851,7 @@ impl Focusable for HelixBench {
 
 impl Render for HelixBench {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.sync_profile_ui();
         if self.workspace_was_open && !self.app.workspace_search.open {
             self.focus_root(window);
         }
@@ -1822,6 +1896,7 @@ impl Render for HelixBench {
         let inspected_record = crate::find::inspected_record(self, cx);
         let toast = self.toast(cx);
         let operation_feedback = self.operation_feedback(cx);
+        let sample_banner = crate::lab::sample_banner(self, cx);
         let find_bar = if self.app.search.open && !self.app.workspace_search.open {
             Some(crate::find::show(self, window, cx))
         } else {
@@ -1861,6 +1936,9 @@ impl Render for HelixBench {
             .child(self.menu_bar(cx))
             .child(self.tab_bar(cx))
             .child(workspace_toolbar);
+        if let Some(banner) = sample_banner {
+            root = root.child(banner);
+        }
         if let Some(detail) = inspected_record {
             root = root.child(detail);
         }

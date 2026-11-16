@@ -138,7 +138,12 @@ pub fn show(
     }
     let max_h = (window.viewport_size().height - px(64.0)).max(px(360.0));
 
-    let card = if matches!(app.app.dialog, Some(Dialog::ImportReview(_))) {
+    let card = if matches!(
+        app.app.dialog,
+        Some(Dialog::SampleExit) | Some(Dialog::SampleCopy(_))
+    ) {
+        sample_dialog(app, cx, max_h)
+    } else if matches!(app.app.dialog, Some(Dialog::ImportReview(_))) {
         import_review(app, cx, max_h)
     } else if matches!(app.app.dialog, Some(Dialog::NewSequence(_))) {
         new_sequence(app, cx, max_h)
@@ -243,7 +248,12 @@ pub fn show(
 }
 
 fn close_dialog(app: &mut HelixBench, cx: &mut Context<HelixBench>) {
-    if matches!(app.app.dialog, Some(Dialog::ImportReview(_))) {
+    if matches!(
+        app.app.dialog,
+        Some(Dialog::SampleExit) | Some(Dialog::SampleCopy(_))
+    ) {
+        appcore::first_use::cancel_sample_dialog(&mut app.app);
+    } else if matches!(app.app.dialog, Some(Dialog::ImportReview(_))) {
         if let Err(error) = appcore::import::cancel_import(&mut app.app) {
             app.app.toast(error);
         }
@@ -7210,5 +7220,95 @@ fn bp_replicate(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixel
         true,
         body.into_any_element(),
         Some(footer.into_any_element()),
+    )
+}
+
+fn sample_dialog(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> AnyElement {
+    let mut body = div().flex().flex_col().gap(px(10.0));
+    let copy = matches!(app.app.dialog, Some(Dialog::SampleCopy(_)));
+    let mut footer = vec![widgets::button("sample-stay", "Keep exploring", Btn::Ghost)
+        .on_click(cx.listener(|t, _, _, cx| {
+            appcore::first_use::cancel_sample_dialog(&mut t.app);
+            cx.notify();
+        }))
+        .into_any_element()];
+    if copy {
+        let draft = match &app.app.dialog {
+            Some(Dialog::SampleCopy(d)) => d.clone(),
+            _ => unreachable!(),
+        };
+        let input = app.input_entity(
+            cx,
+            "dlg:sample-copy-name",
+            &draft.name,
+            "Name your personal copy",
+            true,
+        );
+        let name = input.read(cx).text();
+        if let Some(Dialog::SampleCopy(d)) = &mut app.app.dialog {
+            d.name = name;
+        }
+        body=body.child(widgets::label(&format!("Copy the active sequence: {} ({} bp)",draft.document.name,draft.document.sequence.len()),theme::T_MD,theme::TEXT))
+            .child(widgets::label("The sequence, annotations, primers, tags, notes and version history receive an independent document identity. Sample analysis results, other sample documents and lab records are not copied.",theme::T_BASE,theme::MUTED))
+            .child(input).child(widgets::label("Your personal workspace will be restored and the new copy opened as unsaved work. The remaining sample workspace will be left behind.",theme::T_SM,theme::MUTED));
+        footer.push(
+            widgets::button("sample-confirm-copy", "Create personal copy", Btn::Primary)
+                .on_click(cx.listener(|t, _, _, cx| {
+                    let name = match &t.app.dialog {
+                        Some(Dialog::SampleCopy(d)) => d.name.clone(),
+                        _ => return,
+                    };
+                    if let Err(error) = appcore::first_use::confirm_personal_copy(&mut t.app, name)
+                    {
+                        t.app.first_use.error = Some(error);
+                    }
+                    cx.notify();
+                }))
+                .into_any_element(),
+        );
+    } else {
+        body=body.child(widgets::label("Leave this temporary sample workspace?",theme::T_MD,theme::TEXT))
+            .child(widgets::label("Your personal workspace will be restored intact. Sample edits, results and lab records stay temporary. Make a personal copy of the active sequence before leaving if you want to keep it.",theme::T_BASE,theme::MUTED));
+        footer.push(
+            widgets::button("sample-exit-copy", "Review personal copy", Btn::Outline)
+                .on_click(cx.listener(|t, _, _, cx| {
+                    if let Err(error) = appcore::first_use::request_personal_copy(&mut t.app) {
+                        t.app.first_use.error = Some(error);
+                    }
+                    cx.notify();
+                }))
+                .into_any_element(),
+        );
+        footer.push(
+            widgets::button(
+                "sample-confirm-exit",
+                "Discard sample and return",
+                Btn::Danger,
+            )
+            .on_click(cx.listener(|t, _, _, cx| {
+                if let Err(error) = appcore::first_use::leave_sample(&mut t.app, true) {
+                    t.app.first_use.error = Some(error);
+                }
+                cx.notify();
+            }))
+            .into_any_element(),
+        );
+    }
+    if let Some(error) = &app.app.first_use.error {
+        body = body.child(error_label(error));
+    }
+    modal_shell(
+        app,
+        cx,
+        if copy {
+            "Review personal copy"
+        } else {
+            "Leave sample"
+        },
+        600.0,
+        max_h,
+        false,
+        body.into_any_element(),
+        Some(footer_row(footer).into_any_element()),
     )
 }

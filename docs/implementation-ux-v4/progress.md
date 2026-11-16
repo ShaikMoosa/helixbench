@@ -1,7 +1,7 @@
 # UX v4 implementation progress
 
 P00/P01 merged into `main` at `908788b` on 15 November 2026.
-P00–P04 are merged into `main` at `054d249` on 16 November 2026. P05 continues on `codex/ux-v4-p05`.
+P00–P05 are merged into `main` at `97c43f3` on 16 November 2026. P06 continues on `codex/ux-v4-p06`.
 Baseline: `0474cb94e456094dc4e501a9351ca7587a149361`.
 Authority: UX v4 interface; preserve existing scientific capabilities and local data.
 
@@ -165,3 +165,36 @@ Next: P05 — command registry and scoped workspace search.
 Search covers loaded local workspace data. It does not crawl unopened files or remote services. Saved-result search awaits the actual P09 catalog/lifecycle; specialist entities await P17. Search currently runs synchronously; generation-aware reply handling prepares for P19 scheduling/performance work. Full module detail/edit flows, application-wide accessibility, screen-reader announcements and large-data budgets retain their later milestone ownership. No complete Soft Gallery shell migration is claimed before P07.
 
 Next: P06 — first-use Home, samples and resume.
+
+
+## P06 — implemented and verified by automated checks
+
+16 November 2026. Branch: `codex/ux-v4-p06`; base: merged P05 (`97c43f3`).
+
+- Startup now opens Home with an empty document placeholder and the existing local workspace stores. It neither silently opens a recent file nor falls back to a seeded demo. Existing documents/records remain unchanged until the user chooses work.
+- Home exposes Import sequence, New sequence, Try sample, New notebook entry, explicit document Resume, typed recent work, recent-file recovery, and saved-result refind. The welcome guidance can be hidden through a persisted preference without removing these actions.
+- Samples use an independent AppState and unique temporary storage directory under `HelixBench-samples/<operation ID>`. The complete personal AppState is suspended and restored intact; sample projects, records, analysis stores, settings, recents and recovery journals route to the sample profile.
+- Per-instance profile routing covers all 44 existing appcore store/config write sites and the journal UI. Normal personal profiles retain their existing filenames and storage location. No global environment-variable override is used.
+- A persistent sample banner explains the temporary workspace. Native Save/Save As require an explicit reviewed personal copy. Copy review names the active sequence and retained sequence/annotation/primer/tag/note/history scope; sample results, other sample documents and lab records are excluded. Confirmation checks the full captured document, allocates independent document/revision IDs including history snapshots, restores personal work and opens the copy as unsaved work.
+- Leaving a sample asks for a consequential choice. Quit/window-close first leaves the sample, restores the personal workspace and then runs its existing dirty-document/form guards; suspended unsaved work cannot be skipped.
+- Native UI input caches and scroll/calendar state follow the same suspend/restore boundary. Sample search text and dosing drafts cannot overwrite restored personal values; discarded sample UI state is not reused by another sample session.
+- Resume targets are typed as document ID plus optional file path, store-qualified record ID, result ID, or a legacy file link. A known-document resume validates identity against the single captured native read before invoking any dirty-work decision. Wrong-file, missing-record and unavailable-unsaved-draft cases never open a demo or create a replacement record.
+- Home current/library documents, calendar entries, recent entries and worklist tasks use identity-qualified routes. Record resume opens the exact current read-only detail; later module lifecycle/edit work remains owned by P11–P14.
+- Recent work deduplicates document identity across Save As path changes. Missing legacy file links expose persistent Home feedback, explicit alternate-file Open and Forget; known document links additionally offer Locate with ID validation. Failed preference/Forget writes preserve the prior settings state instead of partially removing links.
+- Existing immutable result catalogs use the shared `results.json` path. Home refinds exact result IDs and displays the recorded method, input identity/revision, parameters and output read-only, without changing the active sequence. Corrupt/newer catalogs remain preserved and surfaced. No fabricated analysis result is inserted.
+
+### Verification and traceability
+
+- `cargo test -p domain -p storage -p appcore --locked`: **314 passed, 0 failed** (domain 145; storage 67; appcore 102). P06 contributes 17 integration cases.
+- Required cases in `crates/appcore/tests/ux_v4_p06.rs`: `existing_workspace_not_replaced_by_demo`, `sample_copy_is_personal_and_independent`, `resume_opens_exact_entry_task_or_result`.
+- Additional checks cover real project writes in the sample namespace, preserved personal undo/dirty state, sample Quit guards, native Save refusal, exact moved-file identity, dirty-guard resume, stale copy checkpoints, invalid result catalogs, preference/Forget failures, recent Save As deduplication and sample/personal cached-input restoration.
+- Strict core Clippy, final native executable build, formatting/diff checks and source/manifest integrity checks passed. The native build used `CARGO_INCREMENTAL=0` to avoid the previously observed Windows PDB cache failure. The existing upstream future-compatibility notice remains.
+- Independent review found cached-input crossover and a calendar entry handler bypassing typed resume. Both were corrected and reviewed again; the reviewer independently passed the 17 focused tests and reported no remaining important issue. Final Home resume/file handlers were also spot-checked.
+- Feature traceability updates cover Home F-001/F-002/F-003/F-004/F-005/F-006/F-007 and UX-01/UX-02/UX-19 at their implemented entry/routing scope. Complete later module workflows and live visual validation are not implied.
+- Live native-window interaction and visual-layout QA remain unverified. A compiled UI and core tests do not establish successful visual acceptance.
+
+### Scope and follow-up
+
+The sample profile is temporary and is not automatically resumed on restart; profile files may remain in the OS temporary directory. Explicit exports still write the user-chosen destination. Personal copying transfers the reviewed active document only; other sample artifacts stay isolated. Saved-result refind/inspection is read-only here; P09 retains creation, tool-specific presentation, archive, rerun and comparison. Existing module persistence-error behavior beyond the routed namespace still belongs to its owning milestones. P07 owns the complete Soft Gallery shell/right panel, and P19 owns application-wide accessibility, performance and background execution.
+
+Next: P07 — Soft Gallery shell and contextual tools.

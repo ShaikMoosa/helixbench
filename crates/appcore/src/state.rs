@@ -252,6 +252,8 @@ pub enum PendingAction {
 }
 
 pub enum Dialog {
+    SampleExit,
+    SampleCopy(Box<crate::first_use::SampleCopyDraft>),
     ImportReview(Box<crate::import::ImportReviewDraft>),
     NewSequence(NewSeqState),
     FeatureEditor(FeatureDraft),
@@ -648,6 +650,8 @@ pub enum MapMode {
 }
 
 pub struct AppState {
+    pub first_use: crate::first_use::FirstUseState,
+    storage_root: PathBuf,
     pub workspace_search: crate::workspace_search::WorkspaceSearch,
     pub operation_error: Option<String>,
     pub exit_settings_failed: bool,
@@ -753,25 +757,44 @@ pub struct Analysis {
 
 impl AppState {
     pub fn new(doc: Document, config: Config) -> Self {
+        Self::new_in(doc, config, storage::config::config_dir())
+    }
+    pub fn new_in(doc: Document, config: Config, profile_root: PathBuf) -> Self {
         let prefs = config.ui.clone();
         let zoom_width = doc.sequence.len().max(1);
         let mut s = Self {
+            first_use: crate::first_use::FirstUseState::for_profile(&profile_root),
+            storage_root: profile_root.clone(),
             workspace_search: Default::default(),
             operation_error: None,
             exit_settings_failed: false,
-            recovery: storage::operations::Journal::default().recovery(),
+            recovery: storage::operations::Journal::new(profile_root.join("operations")).recovery(),
             imported_operations: HashMap::new(),
             navigation: crate::navigation::NavigationState::new(&doc),
             doc,
             library: Vec::new(),
-            registry: storage::registry::load(),
-            feature_lib: storage::feature_lib::load(),
+            registry: storage::registry::load_from(
+                &profile_root.join(storage::registry::path().file_name().unwrap()),
+            ),
+            feature_lib: storage::feature_lib::load_from(
+                &profile_root.join(storage::feature_lib::path().file_name().unwrap()),
+            ),
             blast_db: Vec::new(),
-            records: storage::records::load(),
-            inventory: storage::inventory::load(),
-            workflows: storage::workflow::load(),
-            analytics: storage::analytics::load(),
-            alignments: storage::alignments::load(),
+            records: storage::records::load_from(
+                &profile_root.join(storage::records::path().file_name().unwrap()),
+            ),
+            inventory: storage::inventory::load_from(
+                &profile_root.join(storage::inventory::path().file_name().unwrap()),
+            ),
+            workflows: storage::workflow::load_from(
+                &profile_root.join(storage::workflow::path().file_name().unwrap()),
+            ),
+            analytics: storage::analytics::load_from(
+                &profile_root.join(storage::analytics::path().file_name().unwrap()),
+            ),
+            alignments: storage::alignments::load_from(
+                &profile_root.join(storage::alignments::path().file_name().unwrap()),
+            ),
             automation_csv: String::new(),
             automation_csv_name: String::new(),
             path: None,
@@ -797,19 +820,31 @@ impl AppState {
             scroll_to: None,
             enzyme_filter: EnzymeFilterState::default(),
             table_hidden: HashMap::new(),
-            views: storage::views::load(),
-            biologics: storage::biologics::load(),
+            views: storage::views::load_from(
+                &profile_root.join(storage::views::path().file_name().unwrap()),
+            ),
+            biologics: storage::biologics::load_from(
+                &profile_root.join(storage::biologics::path().file_name().unwrap()),
+            ),
             bio_sel: None,
-            chemistry: storage::chemistry::load(),
+            chemistry: storage::chemistry::load_from(
+                &profile_root.join(storage::chemistry::path().file_name().unwrap()),
+            ),
             chem_sel: None,
             chem_search: String::new(),
-            rna: storage::rna::load(),
+            rna: storage::rna::load_from(
+                &profile_root.join(storage::rna::path().file_name().unwrap()),
+            ),
             rna_sel: None,
-            invivo: storage::invivo::load(),
+            invivo: storage::invivo::load_from(
+                &profile_root.join(storage::invivo::path().file_name().unwrap()),
+            ),
             iv_sel: None,
             iv_dose: "10".into(),
             iv_conc: "5".into(),
-            bioprocess: storage::bioprocess::load(),
+            bioprocess: storage::bioprocess::load_from(
+                &profile_root.join(storage::bioprocess::path().file_name().unwrap()),
+            ),
             bp_sel: None,
             feature_sort: TableSort::default(),
             primer_sort: TableSort::default(),
@@ -826,6 +861,13 @@ impl AppState {
         s
     }
 
+    pub fn profile_path(&self, default: PathBuf) -> PathBuf {
+        self.storage_root
+            .join(default.file_name().expect("store path has a filename"))
+    }
+    pub fn operation_journal(&self) -> storage::operations::Journal {
+        storage::operations::Journal::new(self.storage_root.join("operations"))
+    }
     pub fn recompute(&mut self) {
         self.analysis = crate::analysis::compute(&self.doc, &self.prefs);
         self.analysis_dirty = false;

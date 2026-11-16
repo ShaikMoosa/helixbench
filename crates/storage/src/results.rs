@@ -68,3 +68,8 @@ pub fn save_to(catalog: &ResultCatalog, path: &Path) -> Result<()> {
     })?;
     atomic_write(path, &bytes)
 }
+
+/// Shared durable catalog location; P09 owns creation and lifecycle UI.
+pub fn path() -> std::path::PathBuf {
+    crate::config::config_dir().join("results.json")
+}

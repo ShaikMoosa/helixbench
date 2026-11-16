@@ -216,8 +216,8 @@
   },
   {
     "path": "feature-traceability.csv",
-    "bytes": 70228,
-    "sha256": "d089444039b9f7792c2c74d7be4a3c609727729c1140c5d2300a744a03d10f6b"
+    "bytes": 70517,
+    "sha256": "e9bba6a2a8b1ec5f7ee5adbd77d5b1ff66330065edc4506ac4f6e24e80de9ac6"
   },
   {
     "path": "fixtures/annotated.gb",
@@ -296,8 +296,8 @@
   },
   {
     "path": "progress.md",
-    "bytes": 22180,
-    "sha256": "3756992bc1e292f04a452fb3ca79da3a1fa1523c0469b27126fa4e8f2cf7835e"
+    "bytes": 28045,
+    "sha256": "2366fec07b45126fb459a62db025c0cfbf83e2d835e8869ad2cd6d4533e72530"
   },
   {
     "path": "README.md",

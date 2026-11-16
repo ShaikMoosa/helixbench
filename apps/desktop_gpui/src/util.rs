@@ -25,18 +25,6 @@ pub fn search_hit_ranges(app: &AppState) -> Vec<Range> {
     }
 }
 
-/// Open the most recent existing document, else the seeded demo plasmid.
-pub fn initial_document(config: &storage::config::Config) -> domain::Document {
-    for path in &config.recent_files {
-        if path.exists() {
-            if let Ok(doc) = storage::load_any(path) {
-                return doc;
-            }
-        }
-    }
-    domain::demo::build_demo()
-}
-
 /// Current unix seconds.
 pub fn now_unix() -> u64 {
     std::time::SystemTime::now()

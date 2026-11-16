@@ -99,6 +99,7 @@ pub enum NavigationIntent {
     Navigate(Route),
     SwitchDocument(DocumentId),
     OpenFile(PathBuf),
+    OpenKnownFile { path: PathBuf, document: DocumentId },
     OpenFilePicker,
     CloseDocument(DocumentId),
     ExitApplication,
@@ -323,6 +324,22 @@ pub fn request_navigation(
     if app.navigation.pending.is_some() {
         return Err("Answer the unsaved-work decision first".into());
     }
+    if matches!(intent, NavigationIntent::ExitApplication) && crate::first_use::is_sample(app) {
+        if app.dialog.is_some() {
+            return Err("Apply or cancel the sample form before exiting".into());
+        }
+        app.first_use.exit_after_sample = true;
+        crate::first_use::leave_sample(app, false)?;
+        return Ok(NavigationOutcome::AwaitingDecision);
+    }
+    let expected = if let NavigationIntent::OpenKnownFile { document, .. } = &intent {
+        Some(*document)
+    } else {
+        None
+    };
+    if let NavigationIntent::OpenKnownFile { path, .. } = intent {
+        intent = NavigationIntent::OpenFile(path);
+    }
     if matches!(intent, NavigationIntent::OpenFilePicker) {
         let Some(path) = crate::fs_dialogs::pick_open(app.config.last_directory.as_ref()) else {
             return Ok(NavigationOutcome::Canceled);
@@ -338,6 +355,7 @@ pub fn request_navigation(
             }
             switch_inner(app, route.document)?;
             app.view = route.view;
+            app.first_use.selected_result = None;
             crate::workspace_search::depart(app);
             if origin.route != *route {
                 remember(app, origin);
@@ -362,6 +380,9 @@ pub fn request_navigation(
         NavigationIntent::OpenFile(path) => {
             let bytes = std::fs::read(path)
                 .map_err(|e| format!("Could not open {}: {e}", path.display()))?;
+            if expected.is_some() && !storage::imports::is_native_input(path, &bytes) {
+                return Err("Choose the original native HelixBench document; this file has a different format".into());
+            }
             if !storage::imports::is_native_input(path, &bytes) {
                 crate::import::begin_review(
                     app,
@@ -378,6 +399,9 @@ pub fn request_navigation(
         _ => None,
     };
     if let Some(doc) = &prepared {
+        if expected.is_some_and(|id| id != doc.id) {
+            return Err("This file belongs to a different document. Locate the original file or open this file separately".into());
+        }
         if doc.id == app.doc.id || app.library.iter().any(|other| other.doc.id == doc.id) {
             let id = doc.id;
             switch_inner(app, id)?;
@@ -538,7 +562,8 @@ pub fn resolve_guard(
 }
 
 pub fn has_unsaved_work(app: &AppState) -> bool {
-    app.dirty
+    crate::first_use::is_sample(app)
+        || app.dirty
         || app.library.iter().any(|doc| doc.dirty)
         || app.navigation.pending.is_some()
         || app.dialog.as_ref().is_some_and(is_edit_form)

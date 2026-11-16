@@ -481,9 +481,9 @@ pub fn clear_custom_colors(app: &mut AppState) {
 // ---------------------------------------------------------------------------
 
 pub fn new_demo(app: &mut AppState) {
-    app.set_document(domain::demo::build_demo(), None);
-    app.view = crate::state::View::Map;
-    app.toast("Opened demo plasmid pHelixBench-Demo");
+    if let Err(error) = crate::first_use::try_sample(app) {
+        app.toast(error);
+    }
 }
 
 pub fn open_file_dialog(app: &mut AppState) {
@@ -513,6 +513,16 @@ pub(crate) fn install_opened_document(app: &mut AppState, doc: Document, path: &
         crate::navigation::mark_imported(app);
         app.config.add_recent(path);
     }
+    if native {
+        crate::first_use::remember(
+            app,
+            storage::config::RecentTarget::Document {
+                document: app.doc.id,
+                path: Some(path.to_path_buf()),
+            },
+            app.doc.name.clone(),
+        );
+    }
     app.view = crate::state::View::Map;
     app.toast(if native {
         format!("Opened {name} ({len} bp)")
@@ -522,6 +532,12 @@ pub(crate) fn install_opened_document(app: &mut AppState, doc: Document, path: &
 }
 
 pub fn save(app: &mut AppState) -> bool {
+    if crate::first_use::is_sample(app) {
+        app.operation_error = Some(
+            "Use Make personal copy in the sample banner before saving your own document".into(),
+        );
+        return false;
+    }
     match app.path.clone() {
         Some(path) => save_to(app, &path),
         None => save_as(app),
@@ -529,6 +545,12 @@ pub fn save(app: &mut AppState) -> bool {
 }
 
 pub fn save_as(app: &mut AppState) -> bool {
+    if crate::first_use::is_sample(app) {
+        app.operation_error = Some(
+            "Use Make personal copy in the sample banner before saving your own document".into(),
+        );
+        return false;
+    }
     let name = format!("{}.hbx", sanitize_filename(&app.doc.name));
     match crate::fs_dialogs::pick_save(
         "Save Sequence As",
@@ -543,12 +565,9 @@ pub fn save_as(app: &mut AppState) -> bool {
 }
 
 fn save_to(app: &mut AppState, path: &std::path::Path) -> bool {
-    crate::operations::save_to(
-        app,
-        path,
-        &storage::operations::Journal::default(),
-        &storage::config::config_path(),
-    )
+    let journal = app.operation_journal();
+    let config_path = app.profile_path(storage::config::config_path());
+    crate::operations::save_to(app, path, &journal, &config_path)
 }
 
 pub fn export_fasta(app: &mut AppState) {
@@ -573,13 +592,8 @@ fn export_with(app: &mut AppState, ext: &str, label: &str, f: impl FnOnce(&Docum
         app.config.last_directory.as_ref(),
     ) {
         let text = f(&app.doc);
-        crate::operations::export_to(
-            app,
-            &path,
-            text,
-            label,
-            &storage::operations::Journal::default(),
-        );
+        let journal = app.operation_journal();
+        crate::operations::export_to(app, &path, text, label, &journal);
     }
 }
 
@@ -617,7 +631,10 @@ pub fn perform(app: &mut AppState, action: PendingAction) {
 
 pub fn persist_config(app: &mut AppState) -> bool {
     app.config.ui = app.prefs.clone();
-    match storage::config::save(&app.config) {
+    match storage::config::save_to(
+        &app.config,
+        &app.profile_path(storage::config::config_path()),
+    ) {
         Ok(()) => {
             app.exit_settings_failed = false;
             true
@@ -932,7 +949,10 @@ pub fn alignment_save(app: &mut AppState, name: &str) {
         name.trim().to_string()
     };
     app.alignments.add(&name, labels, result, unix_now());
-    let _ = storage::alignments::save(&app.alignments);
+    let _ = storage::alignments::save_to(
+        &app.alignments,
+        &app.profile_path(storage::alignments::path()),
+    );
     app.toast(format!("Saved alignment \"{name}\""));
 }
 
@@ -953,7 +973,10 @@ pub fn alignment_load_saved(app: &mut AppState, id: u64) {
 
 pub fn alignment_delete_saved(app: &mut AppState, id: u64) {
     if app.alignments.remove(id) {
-        let _ = storage::alignments::save(&app.alignments);
+        let _ = storage::alignments::save_to(
+            &app.alignments,
+            &app.profile_path(storage::alignments::path()),
+        );
         app.toast("Alignment deleted");
     }
 }
@@ -1426,14 +1449,15 @@ pub fn save_registry_entry(app: &mut AppState, draft: &RegistryEditDraft) -> Res
             app.registry.add(k, values, now);
         }
     }
-    let _ = storage::registry::save(&app.registry);
+    let _ = storage::registry::save_to(&app.registry, &app.profile_path(storage::registry::path()));
     app.toast("Registry entry saved");
     Ok(())
 }
 
 pub fn delete_registry_entry(app: &mut AppState, id: u64) {
     if app.registry.delete(id) {
-        let _ = storage::registry::save(&app.registry);
+        let _ =
+            storage::registry::save_to(&app.registry, &app.profile_path(storage::registry::path()));
         app.toast("Registry entry deleted");
     }
 }
@@ -1443,7 +1467,7 @@ pub fn link_registry_entry(app: &mut AppState, id: u64) {
     let already = app.registry.get(id).and_then(|e| e.linked_doc.clone()) == Some(current.clone());
     let target = if already { None } else { Some(current) };
     app.registry.link(id, target.clone(), unix_now());
-    let _ = storage::registry::save(&app.registry);
+    let _ = storage::registry::save_to(&app.registry, &app.profile_path(storage::registry::path()));
     app.toast(match target {
         Some(d) => format!("Linked to {d}"),
         None => "Unlinked".into(),
@@ -1519,14 +1543,20 @@ pub fn add_lib_feature(app: &mut AppState, name: &str, kind: &str, motif: &str) 
         motif,
         color: [0x5a, 0xa2, 0xf0],
     });
-    let _ = storage::feature_lib::save(&app.feature_lib);
+    let _ = storage::feature_lib::save_to(
+        &app.feature_lib,
+        &app.profile_path(storage::feature_lib::path()),
+    );
     app.toast("Library feature added");
 }
 
 pub fn delete_lib_feature(app: &mut AppState, idx: usize) {
     if idx < app.feature_lib.len() {
         app.feature_lib.remove(idx);
-        let _ = storage::feature_lib::save(&app.feature_lib);
+        let _ = storage::feature_lib::save_to(
+            &app.feature_lib,
+            &app.profile_path(storage::feature_lib::path()),
+        );
     }
 }
 
@@ -1652,7 +1682,7 @@ pub fn set_tags(app: &mut AppState, tags: Vec<String>) {
 // --- Phase 1: connected records (projects / notebook / audit / home) --------
 
 fn persist_records(app: &AppState) {
-    let _ = storage::records::save(&app.records);
+    let _ = storage::records::save_to(&app.records, &app.profile_path(storage::records::path()));
 }
 
 fn audit(app: &mut AppState, object: &str, action: &str, detail: &str) {
@@ -1832,7 +1862,8 @@ pub fn submit_entry_table(app: &mut AppState, entry_id: u64, table_idx: usize) {
                 created += 1;
             }
         }
-        let _ = storage::registry::save(&app.registry);
+        let _ =
+            storage::registry::save_to(&app.registry, &app.profile_path(storage::registry::path()));
     }
     audit(
         app,
@@ -1873,7 +1904,8 @@ pub fn open_entity_map(app: &mut AppState) {
 
 pub fn link_registry_entries(app: &mut AppState, a: u64, b: u64) {
     if app.registry.add_relation(a, b, unix_now()) {
-        let _ = storage::registry::save(&app.registry);
+        let _ =
+            storage::registry::save_to(&app.registry, &app.profile_path(storage::registry::path()));
         audit(
             app,
             &format!("registry:{a}"),
@@ -1886,7 +1918,8 @@ pub fn link_registry_entries(app: &mut AppState, a: u64, b: u64) {
 
 pub fn archive_registry_entry(app: &mut AppState, id: u64, archived: bool) {
     if app.registry.set_archived(id, archived, unix_now()) {
-        let _ = storage::registry::save(&app.registry);
+        let _ =
+            storage::registry::save_to(&app.registry, &app.profile_path(storage::registry::path()));
         audit(
             app,
             &format!("registry:{id}"),
@@ -1936,7 +1969,7 @@ pub fn run_registry_import(app: &mut AppState, draft: &mut RegistryImportDraft) 
         app.registry.add(kind, values.clone(), now);
     }
     let imported = rows.len();
-    let _ = storage::registry::save(&app.registry);
+    let _ = storage::registry::save_to(&app.registry, &app.profile_path(storage::registry::path()));
     audit(
         app,
         "registry",
@@ -2051,7 +2084,7 @@ pub fn view_save(app: &mut AppState, table: &str, name: &str) {
         sort.dir.map(|d| d == crate::state::SortDir::Desc),
         filter,
     );
-    let _ = storage::views::save(&app.views);
+    let _ = storage::views::save_to(&app.views, &app.profile_path(storage::views::path()));
     app.toast(format!("Saved view \"{name}\""));
 }
 
@@ -2090,7 +2123,7 @@ pub fn view_load(app: &mut AppState, id: u64) {
 
 pub fn view_delete(app: &mut AppState, id: u64) {
     if app.views.remove(id) {
-        let _ = storage::views::save(&app.views);
+        let _ = storage::views::save_to(&app.views, &app.profile_path(storage::views::path()));
         app.toast("View deleted");
     }
 }
@@ -2142,7 +2175,10 @@ pub fn biologics_save(app: &mut AppState, draft: &BiologicsDraft) -> Result<u64,
         updated: now,
     };
     let id = app.biologics.add(b);
-    let _ = storage::biologics::save(&app.biologics);
+    let _ = storage::biologics::save_to(
+        &app.biologics,
+        &app.profile_path(storage::biologics::path()),
+    );
     audit(app, &format!("biologic:{id}"), "registered", &draft.name);
     app.bio_sel = Some(id);
     app.toast("Biologic registered");
@@ -2151,7 +2187,10 @@ pub fn biologics_save(app: &mut AppState, draft: &BiologicsDraft) -> Result<u64,
 
 pub fn biologics_delete(app: &mut AppState, id: u64) {
     if app.biologics.remove(id) {
-        let _ = storage::biologics::save(&app.biologics);
+        let _ = storage::biologics::save_to(
+            &app.biologics,
+            &app.profile_path(storage::biologics::path()),
+        );
         if app.bio_sel == Some(id) {
             app.bio_sel = None;
         }
@@ -2172,7 +2211,10 @@ pub fn chem_add_save(app: &mut AppState, draft: &ChemAddDraft) -> Result<u64, St
     let id = app
         .chemistry
         .add_compound(draft.name.trim(), draft.smiles.trim())?;
-    let _ = storage::chemistry::save(&app.chemistry);
+    let _ = storage::chemistry::save_to(
+        &app.chemistry,
+        &app.profile_path(storage::chemistry::path()),
+    );
     audit(app, &format!("compound:{id}"), "added", &draft.smiles);
     app.chem_sel = Some(id);
     app.toast("Compound added");
@@ -2216,7 +2258,10 @@ pub fn chem_reaction_save(app: &mut AppState, draft: &ChemReactionDraft) -> Resu
         }],
     };
     let id = app.chemistry.add_reaction(rx);
-    let _ = storage::chemistry::save(&app.chemistry);
+    let _ = storage::chemistry::save_to(
+        &app.chemistry,
+        &app.profile_path(storage::chemistry::path()),
+    );
     audit(app, &format!("reaction:{id}"), "added", &draft.name);
     app.toast("Reaction added");
     Ok(id)
@@ -2245,7 +2290,10 @@ pub fn chem_lot_save(app: &mut AppState, draft: &ChemLotDraft) -> Result<u64, St
         .map(|f| f.id)
         .unwrap_or(0);
     let id = app.chemistry.add_lot(comp, form, qty, draft.unit.trim());
-    let _ = storage::chemistry::save(&app.chemistry);
+    let _ = storage::chemistry::save_to(
+        &app.chemistry,
+        &app.profile_path(storage::chemistry::path()),
+    );
     audit(app, &format!("lot:{id}"), "added", "");
     app.toast("Lot added");
     Ok(id)
@@ -2253,7 +2301,10 @@ pub fn chem_lot_save(app: &mut AppState, draft: &ChemLotDraft) -> Result<u64, St
 
 pub fn chem_delete_compound(app: &mut AppState, id: u64) {
     if app.chemistry.remove_compound(id) {
-        let _ = storage::chemistry::save(&app.chemistry);
+        let _ = storage::chemistry::save_to(
+            &app.chemistry,
+            &app.profile_path(storage::chemistry::path()),
+        );
         if app.chem_sel == Some(id) {
             app.chem_sel = None;
         }
@@ -2264,7 +2315,10 @@ pub fn chem_delete_compound(app: &mut AppState, id: u64) {
 
 pub fn chem_delete_reaction(app: &mut AppState, id: u64) {
     if app.chemistry.remove_reaction(id) {
-        let _ = storage::chemistry::save(&app.chemistry);
+        let _ = storage::chemistry::save_to(
+            &app.chemistry,
+            &app.profile_path(storage::chemistry::path()),
+        );
         audit(app, &format!("reaction:{id}"), "deleted", "");
         app.toast("Reaction deleted");
     }
@@ -2316,7 +2370,7 @@ pub fn rna_add_save(app: &mut AppState, draft: &RnaDraft) -> Result<u64, String>
         }
     };
     let id = app.rna.add(oligo);
-    let _ = storage::rna::save(&app.rna);
+    let _ = storage::rna::save_to(&app.rna, &app.profile_path(storage::rna::path()));
     audit(app, &format!("oligo:{id}"), "added", &draft.name);
     app.rna_sel = Some(id);
     app.toast("Oligo added");
@@ -2343,13 +2397,13 @@ pub fn rna_apply_pattern(app: &mut AppState, pattern: usize, mod_code: usize) {
         }
         o.mods.sort_by_key(|m| m.pos);
     }
-    let _ = storage::rna::save(&app.rna);
+    let _ = storage::rna::save_to(&app.rna, &app.profile_path(storage::rna::path()));
     app.toast("Modification pattern applied");
 }
 
 pub fn rna_delete(app: &mut AppState, id: u64) {
     if app.rna.remove(id) {
-        let _ = storage::rna::save(&app.rna);
+        let _ = storage::rna::save_to(&app.rna, &app.profile_path(storage::rna::path()));
         if app.rna_sel == Some(id) {
             app.rna_sel = None;
         }
@@ -2379,7 +2433,7 @@ pub fn iv_study_save(app: &mut AppState, draft: &IvStudyDraft) -> Result<u64, St
     );
     // default cohort/cage for the study
     app.invivo.add_cohort(id, "C1", "cage-1");
-    let _ = storage::invivo::save(&app.invivo);
+    let _ = storage::invivo::save_to(&app.invivo, &app.profile_path(storage::invivo::path()));
     audit(app, &format!("study:{id}"), "created", &draft.name);
     app.iv_sel = Some(id);
     app.toast("Study created");
@@ -2410,7 +2464,7 @@ pub fn iv_animal_save(app: &mut AppState, draft: &IvAnimalDraft) -> Result<u64, 
     }
     let sex = if draft.sex == 1 { 'M' } else { 'F' };
     let id = app.invivo.add_animal(cohort, draft.tag.trim(), sex, weight);
-    let _ = storage::invivo::save(&app.invivo);
+    let _ = storage::invivo::save_to(&app.invivo, &app.profile_path(storage::invivo::path()));
     audit(app, &format!("animal:{id}"), "added", &draft.tag);
     app.toast("Animal added");
     Ok(id)
@@ -2461,7 +2515,7 @@ pub fn iv_measure_save(app: &mut AppState, draft: &IvMeasureDraft) -> Result<(),
         weight_g: weight,
         tumor_mm3: tumor,
     });
-    let _ = storage::invivo::save(&app.invivo);
+    let _ = storage::invivo::save_to(&app.invivo, &app.profile_path(storage::invivo::path()));
     audit(
         app,
         &format!("animal:{animal}"),
@@ -2493,7 +2547,7 @@ pub fn iv_randomize(app: &mut AppState, groups: u32, seed: u64) {
             a.group = g;
         }
     }
-    let _ = storage::invivo::save(&app.invivo);
+    let _ = storage::invivo::save_to(&app.invivo, &app.profile_path(storage::invivo::path()));
     audit(
         app,
         &format!("study:{study}"),
@@ -2505,7 +2559,7 @@ pub fn iv_randomize(app: &mut AppState, groups: u32, seed: u64) {
 
 pub fn iv_delete_study(app: &mut AppState, id: u64) {
     if app.invivo.remove_study(id) {
-        let _ = storage::invivo::save(&app.invivo);
+        let _ = storage::invivo::save_to(&app.invivo, &app.profile_path(storage::invivo::path()));
         if app.iv_sel == Some(id) {
             app.iv_sel = None;
         }
@@ -2525,7 +2579,10 @@ pub fn bp_recipe_save(app: &mut AppState, draft: &BpRecipeDraft) -> Result<u64, 
     }
     let r = domain::bioprocess::Recipe::template(0, draft.name.trim(), draft.product.trim());
     let id = app.bioprocess.add_recipe(r);
-    let _ = storage::bioprocess::save(&app.bioprocess);
+    let _ = storage::bioprocess::save_to(
+        &app.bioprocess,
+        &app.profile_path(storage::bioprocess::path()),
+    );
     audit(app, &format!("recipe:{id}"), "created", &draft.name);
     app.toast("Recipe created");
     Ok(id)
@@ -2543,7 +2600,10 @@ pub fn bp_run_create(app: &mut AppState, recipe: u64, name: &str) -> Result<u64,
         .ok_or("Create a recipe first")?;
     let run = domain::bioprocess::Run::from_recipe(0, &r, name, unix_now());
     let id = app.bioprocess.add_run(run);
-    let _ = storage::bioprocess::save(&app.bioprocess);
+    let _ = storage::bioprocess::save_to(
+        &app.bioprocess,
+        &app.profile_path(storage::bioprocess::path()),
+    );
     audit(app, &format!("run:{id}"), "planned", name);
     app.bp_sel = Some(id);
     app.toast("Run planned (draft)");
@@ -2561,7 +2621,10 @@ pub fn bp_run_action(app: &mut AppState, id: u64, action: &str) {
         _ => false,
     };
     if ok {
-        let _ = storage::bioprocess::save(&app.bioprocess);
+        let _ = storage::bioprocess::save_to(
+            &app.bioprocess,
+            &app.profile_path(storage::bioprocess::path()),
+        );
         audit(app, &format!("run:{id}"), action, "");
         app.toast(format!("Run {action}"));
     }
@@ -2575,7 +2638,10 @@ pub fn bp_step_toggle(app: &mut AppState, run: u64, step: usize) {
     if let Some(op) = r.ops.get_mut(step) {
         op.done = !op.done;
     }
-    let _ = storage::bioprocess::save(&app.bioprocess);
+    let _ = storage::bioprocess::save_to(
+        &app.bioprocess,
+        &app.profile_path(storage::bioprocess::path()),
+    );
 }
 
 pub fn open_bp_replicate(app: &mut AppState) {
@@ -2617,7 +2683,10 @@ pub fn bp_replicate_save(app: &mut AppState, draft: &BpReplicateDraft) -> Result
     let mut rep = rep;
     rep.id = id;
     run.replicates.push(rep);
-    let _ = storage::bioprocess::save(&app.bioprocess);
+    let _ = storage::bioprocess::save_to(
+        &app.bioprocess,
+        &app.profile_path(storage::bioprocess::path()),
+    );
     audit(app, &format!("run:{sel}"), "replicate", &draft.label);
     app.toast("Replicate added");
     Ok(id)
@@ -2625,7 +2694,10 @@ pub fn bp_replicate_save(app: &mut AppState, draft: &BpReplicateDraft) -> Result
 
 pub fn bp_delete_run(app: &mut AppState, id: u64) {
     if app.bioprocess.remove_run(id) {
-        let _ = storage::bioprocess::save(&app.bioprocess);
+        let _ = storage::bioprocess::save_to(
+            &app.bioprocess,
+            &app.profile_path(storage::bioprocess::path()),
+        );
         if app.bp_sel == Some(id) {
             app.bp_sel = None;
         }
@@ -2678,7 +2750,10 @@ pub fn inv_add(app: &mut AppState, draft: &InventoryDraft) {
         _ => domain::inventory::ContainerKind::Location,
     };
     let id = app.inventory.add(draft.name.trim(), kind, draft.parent);
-    let _ = storage::inventory::save(&app.inventory);
+    let _ = storage::inventory::save_to(
+        &app.inventory,
+        &app.profile_path(storage::inventory::path()),
+    );
     audit(app, &format!("inv:{id}"), "created", &draft.name);
     app.toast(format!("{} created", kind.label()));
 }
@@ -2714,7 +2789,10 @@ pub fn inv_fill_demo_wells(app: &mut AppState, plate: u64) {
         ),
     ];
     let n = app.inventory.fill_wells(plate, &wells);
-    let _ = storage::inventory::save(&app.inventory);
+    let _ = storage::inventory::save_to(
+        &app.inventory,
+        &app.profile_path(storage::inventory::path()),
+    );
     audit(
         app,
         &format!("inv:{plate}"),
@@ -2767,7 +2845,8 @@ pub fn open_workflows(app: &mut AppState) {
 }
 
 fn persist_workflows(app: &AppState) {
-    let _ = storage::workflow::save(&app.workflows);
+    let _ =
+        storage::workflow::save_to(&app.workflows, &app.profile_path(storage::workflow::path()));
 }
 
 pub fn wf_add_task(app: &mut AppState, draft: &WorkflowDraft) {
@@ -2926,7 +3005,10 @@ pub fn insights_add_block(
         chart,
         group_by,
     });
-    let _ = storage::analytics::save(&app.analytics);
+    let _ = storage::analytics::save_to(
+        &app.analytics,
+        &app.profile_path(storage::analytics::path()),
+    );
     app.toast("Insights block added");
 }
 
@@ -2956,13 +3038,19 @@ pub fn automation_add_pipeline(app: &mut AppState, name: &str) {
         domain::automation::Step::OutputRegistry,
     ];
     app.analytics.automation.add_pipeline(name, steps);
-    let _ = storage::analytics::save(&app.analytics);
+    let _ = storage::analytics::save_to(
+        &app.analytics,
+        &app.profile_path(storage::analytics::path()),
+    );
     app.toast("Pipeline drafted");
 }
 
 pub fn automation_publish(app: &mut AppState, id: u64) {
     if app.analytics.automation.publish(id) {
-        let _ = storage::analytics::save(&app.analytics);
+        let _ = storage::analytics::save_to(
+            &app.analytics,
+            &app.profile_path(storage::analytics::path()),
+        );
         app.toast("Pipeline published");
     }
 }
@@ -3012,7 +3100,10 @@ pub fn automation_run(app: &mut AppState, id: u64, csv: &str) {
                     registered += 1;
                 }
             }
-            let _ = storage::registry::save(&app.registry);
+            let _ = storage::registry::save_to(
+                &app.registry,
+                &app.profile_path(storage::registry::path()),
+            );
         }
         audit(
             app,
@@ -3027,5 +3118,8 @@ pub fn automation_run(app: &mut AppState, id: u64, csv: &str) {
     } else {
         app.toast("Run failed (see log)");
     }
-    let _ = storage::analytics::save(&app.analytics);
+    let _ = storage::analytics::save_to(
+        &app.analytics,
+        &app.profile_path(storage::analytics::path()),
+    );
 }

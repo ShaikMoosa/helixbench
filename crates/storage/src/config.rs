@@ -44,6 +44,8 @@ impl Default for UiPrefs {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    pub first_use_dismissed: bool,
+    pub recent_work: Vec<RecentWork>,
     pub recent_files: Vec<PathBuf>,
     pub last_directory: Option<PathBuf>,
     pub window_size: Option<[f32; 2]>,
@@ -161,5 +163,50 @@ mod tests {
         assert_eq!(c.recent_files.len(), 1);
         assert!(c.ui.show_features);
         assert_eq!(c.ui.orf_min_aa, 50);
+    }
+}
+
+/// Identity-qualified resume links. Labels are display text, never routing keys.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RecentTarget {
+    Document {
+        document: domain::DocumentId,
+        path: Option<PathBuf>,
+    },
+    Record(domain::RecordRef),
+    Result(domain::ResultId),
+    File(PathBuf),
+}
+impl RecentTarget {
+    pub fn same_identity(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Document { document: a, .. }, Self::Document { document: b, .. }) => a == b,
+            _ => self == other,
+        }
+    }
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Document { .. } => "Document",
+            Self::Record(r) => match r.store {
+                domain::StoreKind::Notebook => "Notebook entry",
+                domain::StoreKind::Workflow => "Workflow task",
+                _ => "Workspace record",
+            },
+            Self::Result(_) => "Saved result",
+            Self::File(_) => "File",
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecentWork {
+    pub target: RecentTarget,
+    pub title: String,
+}
+impl Config {
+    pub fn remember_work(&mut self, work: RecentWork) {
+        self.recent_work
+            .retain(|item| !item.target.same_identity(&work.target));
+        self.recent_work.insert(0, work);
+        self.recent_work.truncate(20);
     }
 }

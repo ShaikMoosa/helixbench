@@ -4,6 +4,7 @@
 pub mod actions;
 pub mod analysis;
 pub mod commands;
+pub mod first_use;
 pub mod fs_dialogs;
 pub mod import;
 pub mod navigation;

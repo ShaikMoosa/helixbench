@@ -18,7 +18,7 @@ use gpui::{
 };
 
 use appcore::actions as act;
-use appcore::state::{AppState, PendingAction};
+use appcore::state::PendingAction;
 use draw::PxVal;
 
 fn main() {
@@ -30,7 +30,6 @@ fn main() {
             find::bind_keys(cx);
 
             let config = storage::config::load();
-            let doc = util::initial_document(&config);
             let [w, h] = config.window_size.unwrap_or([1360.0, 860.0]);
             let restore = Bounds::centered(None, size(px(w), px(h)), cx);
             let bounds = if config.window_maximized {
@@ -38,7 +37,7 @@ fn main() {
             } else {
                 WindowBounds::Windowed(restore)
             };
-            let state = AppState::new(doc, config);
+            let state = appcore::first_use::startup(config);
 
             cx.open_window(
                 WindowOptions {

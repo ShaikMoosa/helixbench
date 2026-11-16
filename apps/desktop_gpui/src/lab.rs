@@ -36,11 +36,17 @@ fn scroll(id: &str) -> gpui::Stateful<gpui::Div> {
 }
 
 pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
+    if app.app.first_use.selected_result.is_some() {
+        return render_saved_result(app, cx);
+    }
     let mut p = page("Home", "Your local workspace at a glance");
-    let mut body = scroll("home-scroll");
+    let mut body = scroll("home-scroll").child(first_use_home(app, cx));
     let mut cards = div().flex().gap(px(10.0));
     for (label, value) in [
-        ("Documents", app.app.library.len() + 1),
+        (
+            "Documents",
+            app.app.library.len() + usize::from(!app.app.doc.sequence.is_empty() || app.app.dirty),
+        ),
         ("Registry", app.app.registry.entries.len()),
         ("Inventory", app.app.inventory.containers.len()),
         ("Tasks", app.app.workflows.tasks.len()),
@@ -223,8 +229,14 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
                             )
                             .on_click(cx.listener(
                                 move |t, _, _, cx| {
-                                    act::open_entry_editor(&mut t.app, Some(id), 0);
-                                    cx.notify();
+                                    resume_work(
+                                        t,
+                                        storage::config::RecentTarget::Record(domain::RecordRef {
+                                            store: domain::StoreKind::Notebook,
+                                            local_id: id,
+                                        }),
+                                        cx,
+                                    );
                                 },
                             )),
                         ),
@@ -258,20 +270,32 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
     }
 
     body = body.child(section_title("My Work"));
-    body = body.child(
-        row_card()
-            .child(
-                div()
-                    .flex_grow()
-                    .text_size(px(theme::T_SM))
-                    .text_color(theme::TEXT)
-                    .child(app.app.doc.name.clone()),
-            )
-            .child(widgets::label("current", theme::T_XS, theme::ACCENT)),
-    );
+    if !app.app.doc.sequence.is_empty() || app.app.dirty || app.app.path.is_some() {
+        let active_target = storage::config::RecentTarget::Document {
+            document: app.app.doc.id,
+            path: app.app.path.clone(),
+        };
+        body = body.child(
+            row_card()
+                .child(
+                    div()
+                        .flex_grow()
+                        .text_size(px(theme::T_SM))
+                        .text_color(theme::TEXT)
+                        .child(app.app.doc.name.clone()),
+                )
+                .child(widgets::label("current", theme::T_XS, theme::ACCENT))
+                .child(
+                    widgets::button("home-resume-current", "Resume", Btn::Outline).on_click(
+                        cx.listener(move |t, _, _, cx| resume_work(t, active_target.clone(), cx)),
+                    ),
+                ),
+        );
+    }
     for (i, od) in app.app.library.iter().enumerate() {
         let name = od.doc.name.clone();
         let document_id = od.doc.id;
+        let document_path = od.path.clone();
         body = body.child(
             row_card()
                 .child(
@@ -284,12 +308,18 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
                 .child(
                     widgets::button(
                         SharedString::from(format!("hm-switch-{i}")),
-                        "Switch",
+                        "Resume",
                         Btn::Subtle,
                     )
                     .on_click(cx.listener(move |t, _, _, cx| {
-                        act::switch_document(&mut t.app, document_id);
-                        cx.notify();
+                        resume_work(
+                            t,
+                            storage::config::RecentTarget::Document {
+                                document: document_id,
+                                path: document_path.clone(),
+                            },
+                            cx,
+                        );
                     })),
                 ),
         );
@@ -299,41 +329,74 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
     if app.app.config.recent_files.is_empty() {
         body = body.child(widgets::label(
             "No recent files yet.",
-            theme::T_XS,
-            theme::FAINT,
+            theme::T_SM,
+            theme::MUTED,
         ));
-    } else {
-        for (i, p) in app.app.config.recent_files.iter().take(6).enumerate() {
-            let path = p.clone();
-            let label = p
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_else(|| p.display().to_string());
-            body = body.child(
-                row_card()
-                    .child(
-                        div()
-                            .flex_grow()
-                            .text_size(px(theme::T_SM))
-                            .text_color(theme::TEXT)
-                            .child(label),
+    }
+    for (i, path) in app
+        .app
+        .config
+        .recent_files
+        .iter()
+        .take(6)
+        .cloned()
+        .enumerate()
+    {
+        let open_path = path.clone();
+        let forget_path = path.clone();
+        body = body.child(
+            row_card()
+                .child(div().flex_1().child(widgets::label(
+                    &path.display().to_string(),
+                    theme::T_SM,
+                    theme::TEXT,
+                )))
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("home-file-open-{i}")),
+                        "Open",
+                        Btn::Outline,
                     )
-                    .child(
-                        widgets::button(
-                            SharedString::from(format!("hm-file-{i}")),
-                            "Open",
-                            Btn::Subtle,
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        resume_work(
+                            t,
+                            storage::config::RecentTarget::File(open_path.clone()),
+                            cx,
                         )
-                        .on_click(cx.listener(move |t, _, _, cx| {
-                            act::guard(
-                                &mut t.app,
-                                appcore::state::PendingAction::OpenRecent(path.clone()),
-                            );
-                            cx.notify();
-                        })),
-                    ),
-            );
-        }
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("home-file-locate-{i}")),
+                        "Open another file",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(|t, _, _, cx| {
+                        if let Some(path) =
+                            appcore::fs_dialogs::pick_open(t.app.config.last_directory.as_ref())
+                        {
+                            resume_work(t, storage::config::RecentTarget::File(path), cx);
+                        }
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    widgets::button(
+                        SharedString::from(format!("home-file-forget-{i}")),
+                        "Forget link",
+                        Btn::Ghost,
+                    )
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        if let Err(error) = appcore::first_use::forget(
+                            &mut t.app,
+                            &storage::config::RecentTarget::File(forget_path.clone()),
+                        ) {
+                            t.app.first_use.error = Some(error);
+                        }
+                        cx.notify();
+                    })),
+                ),
+        );
     }
 
     body = body.child(section_title("Worklist"));
@@ -367,7 +430,16 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
                             "Open",
                             Btn::Subtle,
                         )
-                        .on_click(cx.listener(|t, _, _, cx| t.set_view(View::Workflows, cx))),
+                        .on_click(cx.listener(move |t, _, _, cx| {
+                            resume_work(
+                                t,
+                                storage::config::RecentTarget::Record(domain::RecordRef {
+                                    store: domain::StoreKind::Workflow,
+                                    local_id: id,
+                                }),
+                                cx,
+                            )
+                        })),
                     ),
             );
         }
@@ -393,8 +465,14 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
                         Btn::Subtle,
                     )
                     .on_click(cx.listener(move |t, _, _, cx| {
-                        act::open_entry_editor(&mut t.app, Some(id), 0);
-                        cx.notify();
+                        resume_work(
+                            t,
+                            storage::config::RecentTarget::Record(domain::RecordRef {
+                                store: domain::StoreKind::Notebook,
+                                local_id: id,
+                            }),
+                            cx,
+                        );
                     })),
                 ),
         );
@@ -2437,4 +2515,290 @@ pub fn render_bioprocess(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> 
     }
     p = p.child(body);
     p.into_any_element()
+}
+
+fn resume_work(
+    app: &mut HelixBench,
+    target: storage::config::RecentTarget,
+    cx: &mut Context<HelixBench>,
+) {
+    if let Err(error) = appcore::first_use::resume(&mut app.app, target) {
+        app.app.first_use.error = Some(error);
+    }
+    cx.notify();
+}
+fn first_use_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> gpui::Div {
+    use appcore::first_use as first;
+    use storage::config::RecentTarget;
+    let mut body = div().flex().flex_col().gap(px(10.0));
+    if !app.app.config.first_use_dismissed {
+        body=body.child(widgets::label("Start with a sequence",theme::T_XL,theme::TEXT))
+            .child(widgets::label("Import your DNA sequence, create one, or explore a sample. Your workspace stays local.",theme::T_BASE,theme::MUTED))
+            .child(widgets::button("home-hide-guidance","Hide this guidance",Btn::Ghost).on_click(cx.listener(|t,_,_,cx|{if let Err(error)=first::dismiss_guidance(&mut t.app){t.app.first_use.error=Some(error);}cx.notify();})));
+    }
+    body = body.child(
+        div()
+            .flex()
+            .flex_wrap()
+            .gap(px(8.0))
+            .child(
+                widgets::button("home-import", "Import sequence", Btn::Primary).on_click(
+                    cx.listener(|t, _, _, cx| {
+                        act::guard(&mut t.app, appcore::state::PendingAction::Open);
+                        cx.notify();
+                    }),
+                ),
+            )
+            .child(
+                widgets::button("home-create", "New sequence", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        act::guard(&mut t.app, appcore::state::PendingAction::NewEmpty);
+                        cx.notify();
+                    },
+                )),
+            )
+            .child(
+                widgets::button("home-sample", "Try sample", Btn::Outline).on_click(cx.listener(
+                    |t, _, _, cx| {
+                        if let Err(error) = first::try_sample(&mut t.app) {
+                            t.app.first_use.error = Some(error);
+                        }
+                        cx.notify();
+                    },
+                )),
+            ),
+    );
+    body = body.child(
+        widgets::button("home-new-entry", "New notebook entry", Btn::Ghost).on_click(cx.listener(
+            |t, _, _, cx| {
+                if let Err(error) =
+                    appcore::commands::execute(&mut t.app, appcore::commands::CommandId::NewEntry)
+                {
+                    t.app.first_use.error = Some(error);
+                }
+                cx.notify();
+            },
+        )),
+    );
+    if let Some(error) = &app.app.first_use.error {
+        body = body.child(widgets::label(error, theme::T_BASE, theme::DANGER));
+    }
+    body = body.child(section_title("Resume recent work"));
+    if app.app.config.recent_work.is_empty() {
+        body=body.child(widgets::label("No recent work yet. Open a document, notebook entry, task or saved result to find it here.",theme::T_SM,theme::MUTED));
+    }
+    for (i, work) in app
+        .app
+        .config
+        .recent_work
+        .iter()
+        .take(12)
+        .cloned()
+        .enumerate()
+    {
+        let target = work.target.clone();
+        let forget = work.target.clone();
+        let mut row = row_card()
+            .child(
+                div()
+                    .flex_1()
+                    .child(widgets::label(&work.title, theme::T_BASE, theme::TEXT))
+                    .child(widgets::label(
+                        work.target.kind(),
+                        theme::T_SM,
+                        theme::MUTED,
+                    )),
+            )
+            .child(
+                widgets::button(
+                    SharedString::from(format!("resume-{i}")),
+                    "Resume",
+                    Btn::Outline,
+                )
+                .on_click(cx.listener(move |t, _, _, cx| resume_work(t, target.clone(), cx))),
+            );
+        if let RecentTarget::Document {
+            document,
+            path: Some(_),
+        } = work.target
+        {
+            row = row.child(
+                widgets::button(
+                    SharedString::from(format!("locate-{i}")),
+                    "Locate file",
+                    Btn::Ghost,
+                )
+                .on_click(cx.listener(move |t, _, _, cx| {
+                    if let Some(path) =
+                        appcore::fs_dialogs::pick_open(t.app.config.last_directory.as_ref())
+                    {
+                        resume_work(
+                            t,
+                            RecentTarget::Document {
+                                document,
+                                path: Some(path),
+                            },
+                            cx,
+                        );
+                    }
+                    cx.notify();
+                })),
+            );
+        }
+        row = row.child(
+            widgets::button(
+                SharedString::from(format!("forget-{i}")),
+                "Forget link",
+                Btn::Ghost,
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Err(error) = first::forget(&mut t.app, &forget) {
+                    t.app.first_use.error = Some(error);
+                }
+                cx.notify();
+            })),
+        );
+        body = body.child(row);
+    }
+    body = body.child(section_title("Saved analysis results")).child(
+        widgets::button("refresh-home-results", "Refresh saved results", Btn::Ghost).on_click(
+            cx.listener(|t, _, _, cx| {
+                first::refresh_results(&mut t.app);
+                cx.notify();
+            }),
+        ),
+    );
+    if let Some(error) = &app.app.first_use.results_error {
+        body = body.child(widgets::label(error, theme::T_BASE, theme::DANGER));
+    }
+    if app.app.first_use.results.results.is_empty() && app.app.first_use.results_error.is_none() {
+        body = body.child(widgets::label(
+            "No saved analysis results yet.",
+            theme::T_SM,
+            theme::MUTED,
+        ));
+    }
+    for result in app.app.first_use.results.results.iter().rev().take(10) {
+        let id = result.id;
+        body =
+            body.child(
+                row_card()
+                    .child(
+                        div()
+                            .flex_1()
+                            .child(widgets::label(
+                                &format!("{} · {}", result.tool, result.id),
+                                theme::T_BASE,
+                                theme::TEXT,
+                            ))
+                            .child(widgets::label(
+                                &format!(
+                                    "Method {} · recorded {}",
+                                    result.method_version, result.created
+                                ),
+                                theme::T_SM,
+                                theme::MUTED,
+                            )),
+                    )
+                    .child(
+                        widgets::button(
+                            SharedString::from(format!("home-result-{id}")),
+                            "Open result",
+                            Btn::Outline,
+                        )
+                        .on_click(cx.listener(move |t, _, _, cx| {
+                            resume_work(t, RecentTarget::Result(id), cx)
+                        })),
+                    ),
+            );
+    }
+    body
+}
+
+fn render_saved_result(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
+    let id = app.app.first_use.selected_result.unwrap();
+    let mut body = scroll("home-saved-result").child(
+        widgets::button("close-saved-result", "Back to Home", Btn::Outline).on_click(cx.listener(
+            |t, _, _, cx| {
+                t.app.first_use.selected_result = None;
+                cx.notify();
+            },
+        )),
+    );
+    if let Some(result) = app
+        .app
+        .first_use
+        .results
+        .results
+        .iter()
+        .find(|r| r.id == id)
+    {
+        body = body
+            .child(widgets::label(
+                &format!("{} result", result.tool),
+                theme::T_XL,
+                theme::TEXT,
+            ))
+            .child(widgets::label(
+                &format!(
+                    "Read-only · {} · Method {} · recorded {}",
+                    result.id, result.method_version, result.created
+                ),
+                theme::T_SM,
+                theme::MUTED,
+            ));
+        for input in &result.inputs {
+            body = body
+                .child(section_title(&format!(
+                    "Captured input: {}",
+                    input.document().name
+                )))
+                .child(widgets::label(
+                    &format!(
+                        "{} bp · Document {} · Revision {}",
+                        input.document().sequence.len(),
+                        input.source().document,
+                        input.source().revision
+                    ),
+                    theme::T_BASE,
+                    theme::TEXT,
+                ));
+        }
+        body = body
+            .child(section_title("Recorded parameters"))
+            .child(widgets::label(
+                &result.parameters.to_string(),
+                theme::T_BASE,
+                theme::TEXT,
+            ))
+            .child(section_title("Recorded output"))
+            .child(widgets::label(
+                &result.output.to_string(),
+                theme::T_BASE,
+                theme::TEXT,
+            ));
+    } else {
+        body = body.child(widgets::label(
+            "This saved result is no longer available. Return to Home and refresh the catalog.",
+            theme::T_BASE,
+            theme::DANGER,
+        ));
+    }
+    page(
+        "Saved result",
+        "Captured input and recorded output; the current document is unchanged",
+    )
+    .child(body)
+    .into_any_element()
+}
+
+pub fn sample_banner(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> Option<AnyElement> {
+    if !appcore::first_use::is_sample(&app.app) {
+        return None;
+    }
+    Some(widgets::operation_notice("Sample workspace — changes and lab records stay separate from your personal work. Copy the active sequence to keep it.")
+        .child(div().flex().gap(px(8.0))
+            .child(widgets::button("sample-copy","Make personal copy",Btn::Primary).on_click(cx.listener(|t,_,_,cx|{if let Err(error)=appcore::first_use::request_personal_copy(&mut t.app){t.app.toast(error);}cx.notify();})))
+            .child(widgets::button("sample-leave","Leave sample",Btn::Outline).on_click(cx.listener(|t,_,_,cx|{if let Err(error)=appcore::first_use::leave_sample(&mut t.app,false){t.app.toast(error);}cx.notify();}))))
+        .into_any_element())
 }

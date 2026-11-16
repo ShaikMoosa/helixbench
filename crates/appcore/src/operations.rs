@@ -20,6 +20,11 @@ pub fn dispatch_saved(app: &mut AppState, plan: &WritePlan, receipt: &OperationR
 }
 
 pub fn save_to(app: &mut AppState, path: &Path, journal: &Journal, config_path: &Path) -> bool {
+    if crate::first_use::is_sample(app) {
+        app.operation_error=Some("This is a temporary sample workspace. Use Make personal copy before saving a personal document.".into());
+        return false;
+    }
+
     let result = journal
         .prepare_native(&app.doc, path)
         .and_then(|plan| journal.execute(plan.id()).map(|receipt| (plan, receipt)));
@@ -27,6 +32,13 @@ pub fn save_to(app: &mut AppState, path: &Path, journal: &Journal, config_path: 
         Ok((plan, receipt)) if receipt.state == OperationState::Completed => {
             dispatch_saved(app, &plan, &receipt);
             app.config.add_recent(&receipt.destination);
+            app.config.remember_work(storage::config::RecentWork {
+                target: storage::config::RecentTarget::Document {
+                    document: receipt.source.document,
+                    path: Some(receipt.destination.clone()),
+                },
+                title: plan.document().name.clone(),
+            });
             app.operation_error = storage::config::save_to(&app.config, config_path).err()
                 .map(|error| format!("Document saved, but settings could not be saved: {error}. Save again to retry settings."));
             app.exit_settings_failed = false;
