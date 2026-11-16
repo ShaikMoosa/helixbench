@@ -2673,7 +2673,7 @@ fn pcr(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> Any
         saved = saved.child(row);
     }
     body=body.child(section_heading("Choose saved primers by identity")).child(saved)
- .child(check_row("pcr-copy","Copy contained visible features; preserve joined segments",draft.copy_features).on_click(cx.listener(|t,_,_,cx|{if let Some(Dialog::Pcr(d))=&mut t.app.dialog{d.copy_features=!d.copy_features;}cx.notify();})))
+ .child(check_row("pcr-copy","Copy contained visible features; preserve joined segments",draft.copy_features).on_click(cx.listener(|t,_,_,cx|{if let Some(Dialog::Pcr(d))=&mut t.app.dialog{d.copy_features = !d.copy_features;}cx.notify();})))
  .child(widgets::label("SantaLucia nearest-neighbor Tm · 50 mM Na⁺ · 250 nM oligo · minimum 12 matching 3′ bases and 45°C binding Tm. Predictions include primer 5′ tails.",theme::T_SM,theme::MUTED))
  .child(widgets::button("pcr-run","Run PCR prediction",Btn::Primary).on_click(cx.listener(|t,_,_,cx|{let mut d=match &t.app.dialog{Some(Dialog::Pcr(d))=>d.clone(),_=>return};if let Err(error)=appcore::primer_workflow::run_pcr(&t.app,&mut d){d.error=Some(error);}t.app.dialog=Some(Dialog::Pcr(d));cx.notify();})));
     let current = appcore::primer_workflow::validate_pcr(&app.app, &draft);
