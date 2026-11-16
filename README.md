@@ -29,12 +29,17 @@ disk; saves are atomic and versioned. There is no cloud, no telemetry, and no si
 
 ## Preview
 
-![HelixBench light editor](docs/screenshot.png)
+![HelixBench Soft Gallery editor showing a sample plasmid map and the Details & tools panel](docs/screenshot.png)
 
-*The light editor: circular plasmid map with pastel features and enzyme cut-site labels (left),
-annotated double-stranded sequence panel (right), and feature description / properties / legend
-cards below. A labeled navigation sidebar switches workspace and sequence views; Plasmid / Linear /
-Metadata tabs, document tabs and a zoom slider + minimap sit above the map.*
+*The current Soft Gallery editor with the built-in 3021 bp sample: labeled workspace navigation,
+sequence-view tabs, a circular plasmid map with pastel annotations and enzyme cut sites, and the
+right-side Details & tools panel. Sample work stays separate from personal files.*
+
+![HelixBench saved digest result showing captured input, recorded settings, rerun, comparison and export actions](docs/saved-analysis-result.png)
+
+*Saved analysis results retain their input snapshot, method, settings and output. Digest and PCR
+results can be found again from Home, rerun with explicitly chosen inputs, compared and exported
+as JSON or CSV. This sample result remains readable while its source is closed.*
 
 The shell is built on **GPUI** (Zed's UI framework) over a framework-agnostic core:
 
@@ -155,8 +160,9 @@ cargo build --release -p desktop_gpui
 # -> target/release/helixbench_gpui.exe
 ```
 
-On first launch HelixBench opens a seeded demo plasmid (`pHelixBench-Demo`, 3021 bp) so every view
-is populated and explorable immediately.
+On first launch, choose **Import sequence** to open your own data or **Try a sample** to explore
+`pHelixBench-Demo` (3021 bp). The temporary sample workspace stays separate from your personal
+files; choose **Make personal copy** to keep a sample sequence.
 
 ### Keyboard shortcuts
 
