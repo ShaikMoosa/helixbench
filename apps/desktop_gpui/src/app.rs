@@ -12,7 +12,6 @@ use gpui::{
 
 use appcore::actions as act;
 use appcore::state::{AppState, ColorsMode, Dialog, PendingAction, View};
-use domain::Topology;
 
 use crate::text_input::TextInput;
 use crate::theme;
@@ -21,8 +20,26 @@ use crate::widgets;
 actions!(
     hb,
     [
-        New, Open, Save, SaveAs, Undo, Redo, Find, Escape, SelectAll, Copy, Cut, Paste, Delete,
-        View1, View2, View3, View4, View5, View6,
+        New,
+        Open,
+        Save,
+        SaveAs,
+        Undo,
+        Redo,
+        Find,
+        WorkspaceFind,
+        Escape,
+        SelectAll,
+        Copy,
+        Cut,
+        Paste,
+        Delete,
+        View1,
+        View2,
+        View3,
+        View4,
+        View5,
+        View6,
     ]
 );
 
@@ -36,6 +53,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("ctrl-z", Undo, Some("HelixBench")),
         KeyBinding::new("ctrl-y", Redo, Some("HelixBench")),
         KeyBinding::new("ctrl-f", Find, Some("HelixBench")),
+        KeyBinding::new("ctrl-k", WorkspaceFind, Some("HelixBench")),
         KeyBinding::new("escape", Escape, Some("HelixBench")),
         KeyBinding::new("ctrl-a", SelectAll, Some("HelixBench")),
         KeyBinding::new("ctrl-c", Copy, Some("HelixBench")),
@@ -71,6 +89,8 @@ pub struct HelixBench {
     initialized: bool,
     last_title: String,
     toast_armed: Option<std::time::Instant>,
+    pub workspace_scroll: ScrollHandle,
+    workspace_was_open: bool,
 
     // Map interaction
     pub map_bounds: Option<Bounds<Pixels>>,
@@ -140,6 +160,8 @@ impl HelixBench {
             initialized: false,
             last_title: String::new(),
             toast_armed: None,
+            workspace_scroll: ScrollHandle::new(),
+            workspace_was_open: false,
             map_bounds: None,
             map_press: None,
             map_dragged: false,
@@ -295,7 +317,6 @@ impl HelixBench {
         let has_sel = self.app.selection.is_some();
         let can_undo = !self.app.history.is_empty();
         let can_redo = !self.app.future.is_empty();
-        let circular = self.app.doc.sequence.is_circular();
 
         match kind {
             MenuKind::File => {
@@ -406,6 +427,27 @@ impl HelixBench {
                             cx.notify();
                         }))
                         .into_any_element(),
+                );
+            }
+            MenuKind::Edit | MenuKind::Features | MenuKind::Primers | MenuKind::Enzymes
+                if self.app.workspace_search.open =>
+            {
+                rows.push(
+                    widgets::menu_row(
+                        "workspace-edit-unavailable",
+                        "Return to the document to edit DNA",
+                        "",
+                        false,
+                    )
+                    .into_any_element(),
+                );
+                rows.push(
+                    widgets::label(
+                        "Use the keyboard to edit the search query.",
+                        theme::T_SM,
+                        theme::MUTED,
+                    )
+                    .into_any_element(),
                 );
             }
             MenuKind::Edit => {
@@ -737,191 +779,26 @@ impl HelixBench {
                 }
             }
             MenuKind::Tools => {
-                rows.push(
-                    widgets::menu_row("mt-pcr", "In-silico PCR…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_pcr(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-pdesign", "Primer Design…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_primer_design(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-digest", "Virtual Digest & Gel…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_digest(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-align", "Sequence Alignment…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_alignment(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-assembly", "Assembly Wizard…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_assembly(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-crispr", "CRISPR Guides…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_crispr(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-codon", "Codon Optimization…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_codon(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-blast", "Local BLAST…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_blast(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-comb", "Combinatorial Assembly…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_combinatorial(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-registry", "Local Registry…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_registry(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-protein", "Protein Analysis…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_protein(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-featlib", "Feature Library…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_feature_lib(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-workspace", "Workspace / Bulk…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::open_workspace(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(widgets::divider().into_any_element());
-                rows.push(
-                    widgets::menu_row("mt-codes", "Genetic Codes…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            t.app.dialog = Some(Dialog::GeneticCodes {
-                                selected: t.app.doc.default_genetic_code,
-                            });
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-letters", "Letter Codes…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            t.app.dialog = Some(Dialog::LetterCodes);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(
-                    widgets::menu_row("mt-tips", "Search Tips…", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            t.app.dialog = Some(Dialog::SearchTips);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(widgets::divider().into_any_element());
-                let mut rot =
-                    widgets::menu_row("mt-rotate", "Rotate Circular Sequence…", "", circular);
-                if circular {
-                    rot = rot.on_click(cx.listener(|t, _, _, cx| {
-                        t.menu = None;
-                        t.app.dialog = Some(Dialog::Rotate {
-                            position: "1".into(),
-                            error: None,
-                        });
-                        cx.notify();
-                    }));
-                }
-                rows.push(rot.into_any_element());
-                rows.push(
-                    widgets::menu_row("mt-revcomp", "Reverse Complement Sequence", "", true)
-                        .on_click(cx.listener(|t, _, _, cx| {
-                            t.menu = None;
-                            act::reverse_complement_sequence(&mut t.app);
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                );
-                rows.push(widgets::divider().into_any_element());
-                rows.push(widgets::menu_section("Topology").into_any_element());
-                for (topo, label) in [
-                    (Topology::Linear, "Linear"),
-                    (Topology::Circular, "Circular"),
-                ] {
+                for descriptor in appcore::commands::tools() {
+                    let id = descriptor.id;
+                    let availability = appcore::commands::availability(&self.app, id);
+                    let label = if availability.enabled() {
+                        descriptor.label.to_string()
+                    } else {
+                        format!("{} (unavailable)", descriptor.label)
+                    };
                     rows.push(
-                        widgets::menu_check(
-                            SharedString::from(format!("mt-topo-{label}")),
-                            label,
-                            self.app.doc.sequence.topology == topo,
+                        widgets::menu_row(
+                            SharedString::from(format!("tool-{id:?}")),
+                            &label,
+                            "",
+                            availability.enabled(),
                         )
                         .on_click(cx.listener(move |t, _, _, cx| {
                             t.menu = None;
-                            act::set_topology(&mut t.app, topo);
+                            if let Err(error) = appcore::commands::execute(&mut t.app, id) {
+                                t.app.toast(error);
+                            }
                             cx.notify();
                         }))
                         .into_any_element(),
@@ -1034,25 +911,44 @@ impl HelixBench {
         cx.notify();
     }
     fn on_undo(&mut self, _: &Undo, _: &mut Window, cx: &mut Context<Self>) {
+        if self.app.workspace_search.open {
+            return;
+        }
         if self.app.undo() {
             self.app.toast("Undo");
         }
         cx.notify();
     }
     fn on_redo(&mut self, _: &Redo, _: &mut Window, cx: &mut Context<Self>) {
+        if self.app.workspace_search.open {
+            return;
+        }
         if self.app.redo() {
             self.app.toast("Redo");
         }
         cx.notify();
     }
+    fn on_workspace_find(&mut self, _: &WorkspaceFind, _: &mut Window, cx: &mut Context<Self>) {
+        self.menu = None;
+        if let Err(error) = appcore::workspace_search::open(&mut self.app) {
+            self.app.toast(error);
+        }
+        cx.notify();
+    }
     fn on_find(&mut self, _: &Find, window: &mut Window, cx: &mut Context<Self>) {
+        if self.app.workspace_search.open {
+            if let Err(error) = appcore::workspace_search::close(&mut self.app) {
+                self.app.toast(error);
+                return;
+            }
+        }
         self.app.search.open = true;
         self.app.search.focus_request = true;
         self.menu = None;
         let _ = window;
         cx.notify();
     }
-    fn on_escape(&mut self, _: &Escape, _: &mut Window, cx: &mut Context<Self>) {
+    fn on_escape(&mut self, _: &Escape, window: &mut Window, cx: &mut Context<Self>) {
         if self.menu.is_some() {
             self.menu = None;
         } else if self.dlg_combo.is_some() {
@@ -1074,7 +970,13 @@ impl HelixBench {
                 }
                 Some(_) => self.app.dialog = None,
                 None => {
-                    if self.app.search.open {
+                    if self.app.workspace_search.open {
+                        if let Err(error) = appcore::workspace_search::close(&mut self.app) {
+                            self.app.workspace_search.error = Some(error);
+                        } else {
+                            self.focus_handle.focus(window);
+                        }
+                    } else if self.app.search.open {
                         self.app.search.open = false;
                     } else {
                         self.app.select(None);
@@ -1086,16 +988,25 @@ impl HelixBench {
         cx.notify();
     }
     fn on_select_all(&mut self, _: &SelectAll, _: &mut Window, cx: &mut Context<Self>) {
+        if self.app.workspace_search.open {
+            return;
+        }
         act::select_all(&mut self.app);
         cx.notify();
     }
     fn on_copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
+        if self.app.workspace_search.open {
+            return;
+        }
         let text = act::copy_selection(&self.app);
         if !text.is_empty() {
             cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
         }
     }
     fn on_cut(&mut self, _: &Cut, _: &mut Window, cx: &mut Context<Self>) {
+        if self.app.workspace_search.open {
+            return;
+        }
         if let Some(text) = act::cut_selection(&mut self.app) {
             if !text.is_empty() {
                 cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
@@ -1104,6 +1015,9 @@ impl HelixBench {
         cx.notify();
     }
     fn on_paste(&mut self, _: &Paste, _: &mut Window, cx: &mut Context<Self>) {
+        if self.app.workspace_search.open {
+            return;
+        }
         if let Some(text) = cx.read_from_clipboard().and_then(|i| i.text()) {
             if let Err(error) = appcore::import::review_paste(&mut self.app, &text) {
                 self.app.toast(error);
@@ -1112,6 +1026,9 @@ impl HelixBench {
         cx.notify();
     }
     fn on_delete(&mut self, _: &Delete, _: &mut Window, cx: &mut Context<Self>) {
+        if self.app.workspace_search.open {
+            return;
+        }
         act::delete_selection(&mut self.app);
         cx.notify();
     }
@@ -1132,7 +1049,7 @@ impl HelixBench {
     }
 
     fn on_key_down(&mut self, ev: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        if self.app.dialog.is_some() || self.menu.is_some() {
+        if self.app.workspace_search.open || self.app.dialog.is_some() || self.menu.is_some() {
             return;
         }
         if !self.focus_handle.is_focused(window) || self.app.view != View::Sequence {
@@ -1814,6 +1731,9 @@ impl HelixBench {
     }
 
     fn central_view(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        if self.app.workspace_search.open {
+            return crate::find::show_workspace(self, window, cx);
+        }
         match self.app.view {
             View::Map => crate::editor::render_editor(self, cx),
             View::Sequence => self.render_sequence(cx),
@@ -1858,6 +1778,10 @@ impl Focusable for HelixBench {
 
 impl Render for HelixBench {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.workspace_was_open && !self.app.workspace_search.open {
+            self.focus_root(window);
+        }
+        self.workspace_was_open = self.app.workspace_search.open;
         self.app.ensure_analysis();
 
         if !self.initialized {
@@ -1894,9 +1818,11 @@ impl Render for HelixBench {
         let toolbar = self.left_rail(cx);
         let menu_overlay = self.render_menu(cx);
         let dialog_overlay = crate::dialogs::show(self, window, cx);
+        let workspace_toolbar = crate::find::workspace_toolbar(self, cx);
+        let inspected_record = crate::find::inspected_record(self, cx);
         let toast = self.toast(cx);
         let operation_feedback = self.operation_feedback(cx);
-        let find_bar = if self.app.search.open {
+        let find_bar = if self.app.search.open && !self.app.workspace_search.open {
             Some(crate::find::show(self, window, cx))
         } else {
             None
@@ -1918,6 +1844,7 @@ impl Render for HelixBench {
             .on_action(cx.listener(Self::on_undo))
             .on_action(cx.listener(Self::on_redo))
             .on_action(cx.listener(Self::on_find))
+            .on_action(cx.listener(Self::on_workspace_find))
             .on_action(cx.listener(Self::on_escape))
             .on_action(cx.listener(Self::on_select_all))
             .on_action(cx.listener(Self::on_copy))
@@ -1932,7 +1859,11 @@ impl Render for HelixBench {
             .on_action(cx.listener(|this, _: &View6, _, cx| this.set_view(View::History, cx)))
             .on_key_down(cx.listener(Self::on_key_down))
             .child(self.menu_bar(cx))
-            .child(self.tab_bar(cx));
+            .child(self.tab_bar(cx))
+            .child(workspace_toolbar);
+        if let Some(detail) = inspected_record {
+            root = root.child(detail);
+        }
         if let Some(feedback) = operation_feedback {
             root = root.child(feedback);
         }

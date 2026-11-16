@@ -1,7 +1,7 @@
 # UX v4 implementation progress
 
 P00/P01 merged into `main` at `908788b` on 15 November 2026.
-P02 merged into `main` at `9c6802d`. P03/P04 are pushed implementation branches; no P03/P04 merge is claimed.
+P00–P04 are merged into `main` at `054d249` on 16 November 2026. P05 continues on `codex/ux-v4-p05`.
 Baseline: `0474cb94e456094dc4e501a9351ca7587a149361`.
 Authority: UX v4 interface; preserve existing scientific capabilities and local data.
 
@@ -135,3 +135,33 @@ Protein/RNA specialist import is not fabricated: incompatible DNA imports are bl
 This slice retains synchronous Save so existing dirty-navigation guards retain their behavior. Non-blocking routine feedback means non-modal feedback; background scheduling, streaming, in-flight cancellation and large-data performance budgets remain P19. The serial write lock coordinates app workers in one process; cross-process/network-filesystem transaction isolation and power-loss durability are not claimed. Recovery acts on captured file output only, does not retarget the currently open editor, and does not automatically resume an old navigation decision after restart. Multi-store automation journals and rollback remain P16. Existing unrelated module stores still require their owning milestone's persistence-error work.
 
 Next: P05 — command registry and scoped workspace search.
+
+
+## P05 — implemented and verified by automated checks
+
+16 November 2026. Branch: `codex/ux-v4-p05`; base: merged P04 (`054d249`).
+
+- Added a shared catalog of 22 existing tools/actions and 19 page commands. The Tools menu, owning-page labeled tool entries and workspace search use the same command IDs, labels and availability checks. Known prerequisites explain missing DNA, extra assembly inputs, circular topology, or an open form/decision; availability is rechecked on activation.
+- Owning-page tool entries are directly visible and activate in one click. This fulfills the two-click access limit for the registered tools; complete feature controls on the remaining module screens still belong to P08–P17. Existing algorithm entry points and scientific behavior are reused.
+- Added a visible **Search workspace · Ctrl+K** entry, separate from **Ctrl+F** sequence Find. Search scopes are All, Open documents, Notebook, Registry, Inventory, Workflows, Projects, and Tools & pages. Archive inclusion is explicit; matching supports names, IDs, available notes/fields and tool keywords.
+- Results use `DocumentId`, store-qualified `RecordRef`, project ID or `CommandId`, never a display name alone. Duplicate names remain distinct. Result activation revalidates live existence and tool availability. Deleted records cannot fall through to legacy create-on-missing editors.
+- Record results open current read-only detail on their owning page. Notebook/Registry have explicit edit entry points; locked notebook entries and archived Registry entities remain read-only with a reason. Other module editors and deeper relationships remain owned by their later milestones.
+- Explicit **Back to search** preserves scope, query, archive choice, selected target, visible-result count and the native scroll handle. Closing search restores its captured document/view, sequence Find, selection, zoom, filter and sort context via P02. If its original document was closed, search closes safely on the current page and explains the missing source.
+- Request generations and query/scope matching reject late replies and replies received after closing search. Ordinary page/document navigation, already-open native-file handoff and successful import leave search; invalid or canceled import preserves search. Keyboard focus returns from an unmounted query input to the current document shell.
+- Arrow keys select search results and Enter opens them; Escape closes search. Query text editing stays inside its input. The search page suppresses sequence edit shortcuts and Edit/Features/Primers/Enzymes menu actions, with core Cut/Delete/Insert and undo/redo guards preventing hidden DNA changes from stale edit events.
+- Search displays empty/no-match guidance, explicit refresh, live deletion feedback, archived status, tool prerequisites and progressive result disclosure instead of silently truncating matches.
+
+### Verification and traceability
+
+- `cargo test -p domain -p storage -p appcore --locked`: **297 passed, 0 failed** (domain 145; storage 67; appcore 85). P05 contributes 21 integration cases.
+- Required tests in `crates/appcore/tests/ux_v4_p05.rs`: `owning_page_tool_entry_within_two_clicks`, `search_back_restores_scope`, `late_search_reply_is_ignored`, `deleted_record_is_not_reopened`.
+- Additional observed-failing regressions were fixed for activation after closing search, closed-origin recovery, ordinary page navigation, hidden-sequence editing, locked notebook editing, already-loaded native file handoff, successful import handoff, and preserving canceled import.
+- Strict core Clippy, native executable build, formatting, diff checks and source/manifest integrity checks passed. A Windows LNK1318 PDB error on the final incremental link required a non-incremental native rebuild; no product source change was used to bypass the linker.
+- Independent review identified hidden Edit-menu DNA mutation and two successful-open handoffs; fixes and their regression cases were reviewed again. No remaining important finding was reported within P05 scope.
+- UX-06 and UX-07 have implementation/test evidence in this milestone and the feature traceability catalog. Live native-window interaction and visual-layout QA remain unverified; compiled bindings and core tests do not prove those checks.
+
+### Scope and follow-up
+
+Search covers loaded local workspace data. It does not crawl unopened files or remote services. Saved-result search awaits the actual P09 catalog/lifecycle; specialist entities await P17. Search currently runs synchronously; generation-aware reply handling prepares for P19 scheduling/performance work. Full module detail/edit flows, application-wide accessibility, screen-reader announcements and large-data budgets retain their later milestone ownership. No complete Soft Gallery shell migration is claimed before P07.
+
+Next: P06 — first-use Home, samples and resume.

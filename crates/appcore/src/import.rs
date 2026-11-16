@@ -329,6 +329,7 @@ pub fn commit_import(
             vec![app.doc.id]
         }
     };
+    crate::workspace_search::depart(app);
     app.imported_operations.insert(plan.operation, ids.clone());
     app.toast(format!(
         "Imported {} reviewed record(s) — unsaved; save to keep your work",

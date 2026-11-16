@@ -3,8 +3,10 @@
 
 pub mod actions;
 pub mod analysis;
+pub mod commands;
 pub mod fs_dialogs;
 pub mod import;
 pub mod navigation;
 pub mod operations;
 pub mod state;
+pub mod workspace_search;

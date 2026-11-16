@@ -648,6 +648,7 @@ pub enum MapMode {
 }
 
 pub struct AppState {
+    pub workspace_search: crate::workspace_search::WorkspaceSearch,
     pub operation_error: Option<String>,
     pub exit_settings_failed: bool,
     pub recovery: storage::operations::RecoveryPlan,
@@ -755,6 +756,7 @@ impl AppState {
         let prefs = config.ui.clone();
         let zoom_width = doc.sequence.len().max(1);
         let mut s = Self {
+            workspace_search: Default::default(),
             operation_error: None,
             exit_settings_failed: false,
             recovery: storage::operations::Journal::default().recovery(),
@@ -936,6 +938,9 @@ impl AppState {
     }
 
     pub fn undo(&mut self) -> bool {
+        if self.workspace_search.open {
+            return false;
+        }
         let Some(entry) = self.history.pop() else {
             return false;
         };
@@ -951,6 +956,9 @@ impl AppState {
     }
 
     pub fn redo(&mut self) -> bool {
+        if self.workspace_search.open {
+            return false;
+        }
         let Some(entry) = self.future.pop() else {
             return false;
         };

@@ -304,6 +304,7 @@ pub fn go_back(app: &mut AppState) -> Result<NavigationOutcome, String> {
         .cloned()
         .ok_or("No previous location")?;
     restore_return_location(app, location)?;
+    crate::workspace_search::depart(app);
     app.navigation.back_stack.pop();
     Ok(NavigationOutcome::Completed)
 }
@@ -337,6 +338,7 @@ pub fn request_navigation(
             }
             switch_inner(app, route.document)?;
             app.view = route.view;
+            crate::workspace_search::depart(app);
             if origin.route != *route {
                 remember(app, origin);
             }
@@ -344,6 +346,7 @@ pub fn request_navigation(
         }
         NavigationIntent::SwitchDocument(id) => {
             switch_inner(app, *id)?;
+            crate::workspace_search::depart(app);
             if origin.route.document != *id {
                 remember(app, origin);
             }
@@ -381,6 +384,7 @@ pub fn request_navigation(
             if origin.route.document != id {
                 remember(app, origin);
             }
+            crate::workspace_search::depart(app);
             app.toast("This document is already open — showing its existing draft");
             return Ok(NavigationOutcome::Completed);
         }
@@ -597,5 +601,6 @@ fn execute(
         }
         _ => return Err("Navigation destination was not prepared".into()),
     }
+    crate::workspace_search::depart(app);
     Ok(())
 }

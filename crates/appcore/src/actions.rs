@@ -258,6 +258,10 @@ pub fn apply_detected(
 // ---------------------------------------------------------------------------
 
 pub fn delete_selection(app: &mut AppState) {
+    if app.workspace_search.open {
+        app.toast("Return to the sequence before editing DNA");
+        return;
+    }
     let Some(sel) = app.selection else { return };
     if sel.len == 0 {
         return;
@@ -277,6 +281,10 @@ pub fn copy_selection(app: &AppState) -> String {
 }
 
 pub fn cut_selection(app: &mut AppState) -> Option<String> {
+    if app.workspace_search.open {
+        app.toast("Return to the sequence before editing DNA");
+        return None;
+    }
     if app.selection.is_some() {
         let text = copy_selection(app);
         delete_selection(app);
@@ -287,6 +295,10 @@ pub fn cut_selection(app: &mut AppState) -> Option<String> {
 }
 
 pub fn insert_bases(app: &mut AppState, text: &str, replace_selection: bool) {
+    if app.workspace_search.open {
+        app.toast("Return to the sequence before editing DNA");
+        return;
+    }
     let bases = match storage::imports::strict_dna(text) {
         Ok(bases) => bases,
         Err(error) => {
