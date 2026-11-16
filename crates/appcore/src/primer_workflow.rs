@@ -23,6 +23,9 @@ pub struct DesignCapture {
 }
 #[derive(Clone)]
 pub struct PcrRun {
+    pub input: Box<domain::results::InputSnapshot>,
+    pub result_id: domain::ResultId,
+    pub created: u64,
     pub operation: OperationId,
     pub source: SourceRef,
     pub template_sha256: String,
@@ -278,29 +281,7 @@ pub fn run_pcr(app: &AppState, draft: &mut PcrDraft) -> Result<(), String> {
     let forward = resolve_primer(app, &draft.fwd, draft.fwd_id)?;
     let reverse = resolve_primer(app, &draft.rev, draft.rev_id)?;
     let params = HybridizationParams::default();
-    let fp = Primer::new(
-        0,
-        forward.name.clone(),
-        &String::from_utf8_lossy(&forward.sequence),
-    );
-    let rp = Primer::new(
-        0,
-        reverse.name.clone(),
-        &String::from_utf8_lossy(&reverse.sequence),
-    );
-    let nf = domain::primer::binding_sites(&fp, &app.doc.sequence, &params)
-        .iter()
-        .filter(|s| s.strand == Strand::Top)
-        .count();
-    let nr = domain::primer::binding_sites(&rp, &app.doc.sequence, &params)
-        .iter()
-        .filter(|s| s.strand == Strand::Bottom)
-        .count();
-    let pairs = nf.saturating_mul(nr);
-    if pairs > 512 || pairs.saturating_mul(app.doc.sequence.len()) > 20_000_000 {
-        return Err("Too many binding-site pairs for an interactive prediction. Choose more specific primers; no partial product list was created".into());
-    }
-    let products = domain::pcr::products(&app.doc.sequence, &fp, &rp, &params);
+    let products = predict(&app.doc, &forward, &reverse, &params)?;
     let diagnostic=products.is_empty().then(||"Run completed: no predicted product. Check binding length/Tm, primer directions and template positions".into());
     let pair = app
         .doc
@@ -315,6 +296,9 @@ pub fn run_pcr(app: &AppState, draft: &mut PcrDraft) -> Result<(), String> {
         })
         .map(|p| p.pair);
     draft.result = Some(PcrRun {
+        input: Box::new(domain::results::InputSnapshot::capture(&app.doc, None)?),
+        result_id: domain::ResultId::new(),
+        created: crate::actions::unix_now(),
         operation: OperationId::new(),
         source,
         template_sha256: storage::content_hash(&app.doc.sequence.bases),
@@ -481,4 +465,54 @@ impl PrimerRowTarget {
     pub fn select(self, app: &mut AppState) -> Result<(), String> {
         crate::selection::primer_from_list(app, self.source, self.id)
     }
+}
+
+pub fn predict(
+    doc: &Document,
+    forward: &PrimerInput,
+    reverse: &PrimerInput,
+    params: &HybridizationParams,
+) -> Result<Vec<domain::pcr::PcrProduct>, String> {
+    if params.min_3prime_match == 0
+        || !params.min_tm.is_finite()
+        || !params.salt_mm.is_finite()
+        || params.salt_mm <= 0.0
+        || !params.primer_nm.is_finite()
+        || params.primer_nm <= 0.0
+    {
+        return Err("Recorded binding parameters are invalid".into());
+    }
+    if forward.sequence.is_empty()
+        || reverse.sequence.is_empty()
+        || forward
+            .sequence
+            .iter()
+            .chain(&reverse.sequence)
+            .any(|b| domain::iupac::dna_mask(*b) == 0)
+    {
+        return Err("Recorded primers contain unsupported DNA".into());
+    }
+    let fp = Primer::new(
+        0,
+        forward.name.clone(),
+        &String::from_utf8_lossy(&forward.sequence),
+    );
+    let rp = Primer::new(
+        0,
+        reverse.name.clone(),
+        &String::from_utf8_lossy(&reverse.sequence),
+    );
+    let nf = domain::primer::binding_sites(&fp, &doc.sequence, params)
+        .iter()
+        .filter(|s| s.strand == Strand::Top)
+        .count();
+    let nr = domain::primer::binding_sites(&rp, &doc.sequence, params)
+        .iter()
+        .filter(|s| s.strand == Strand::Bottom)
+        .count();
+    let pairs = nf.saturating_mul(nr);
+    if pairs > 512 || pairs.saturating_mul(doc.sequence.len()) > 20_000_000 {
+        return Err("Too many binding-site pairs for an interactive prediction. Choose more specific primers; no partial product list was created".into());
+    }
+    Ok(domain::pcr::products(&doc.sequence, &fp, &rp, params))
 }

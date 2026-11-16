@@ -14,6 +14,9 @@ pub struct DigestDraft {
 }
 #[derive(Clone)]
 pub struct DigestRun {
+    pub result_id: domain::ResultId,
+    pub operation: domain::OperationId,
+    pub created: u64,
     pub input: InputSnapshot,
     pub enzymes: Vec<Enzyme>,
     pub sites: Vec<CutSite>,
@@ -200,36 +203,11 @@ pub fn run(app: &AppState, draft: &mut DigestDraft) -> Result<(), String> {
         return Err("The chosen enzyme set changed; reopen digest setup".into());
     }
     let enzymes=draft.names.iter().map(|n|domain::enzyme_db::enzyme_by_name(n).ok_or_else(||format!("Unknown enzyme {n}; it remains in the set for review. Remove it explicitly before prediction."))).collect::<Result<Vec<_>,_>>()?;
-    let sites = domain::enzyme::digest(&app.doc.sequence, &enzymes);
-    if !app.doc.sequence.is_circular() {
-        for site in &sites {
-            let enzyme = enzymes
-                .iter()
-                .find(|e| e.name == site.enzyme)
-                .ok_or("Enzyme identity unavailable")?;
-            let (top, bottom) = if site.strand == domain::Strand::Top {
-                (enzyme.cut_top, enzyme.cut_bottom)
-            } else {
-                (
-                    enzyme.site_len() as i32 - enzyme.cut_bottom,
-                    enzyme.site_len() as i32 - enzyme.cut_top,
-                )
-            };
-            if [top, bottom].iter().any(|offset| {
-                let p = site.position as i64 + *offset as i64;
-                p < 0 || p > app.doc.sequence.len() as i64
-            }) {
-                return Err(format!("{} has a cleavage boundary outside this linear template. Review the sequence ends before predicting a complete digest.",site.enzyme));
-            }
-        }
-    }
-    let cuts = sites.iter().map(|s| s.cut_top).collect::<Vec<_>>();
-    let fragments = domain::digest::fragments(
-        &cuts,
-        app.doc.sequence.len(),
-        app.doc.sequence.is_circular(),
-    );
+    let (sites, fragments) = prediction(&app.doc, &enzymes)?;
     draft.result = Some(Box::new(DigestRun {
+        result_id: domain::ResultId::new(),
+        operation: domain::OperationId::new(),
+        created: crate::actions::unix_now(),
         input: InputSnapshot::capture(&app.doc, None)?,
         enzymes,
         completed_no_sites: sites.is_empty(),
@@ -306,4 +284,46 @@ pub fn show_cut(app: &mut AppState, draft: &CutSiteDraft, site: &CutSite) -> Res
         draft.enzyme, site.cut_top
     ));
     Ok(())
+}
+
+fn prediction(
+    doc: &domain::Document,
+    enzymes: &[Enzyme],
+) -> Result<(Vec<CutSite>, Vec<domain::digest::Fragment>), String> {
+    if doc.sequence.is_empty() {
+        return Err("A nonempty captured input is required".into());
+    }
+    let sites = domain::enzyme::digest(&doc.sequence, enzymes);
+    if !doc.sequence.is_circular() {
+        for site in &sites {
+            let enzyme = enzymes
+                .iter()
+                .find(|e| e.name == site.enzyme)
+                .ok_or("Enzyme identity unavailable")?;
+            let (top, bottom) = if site.strand == domain::Strand::Top {
+                (enzyme.cut_top, enzyme.cut_bottom)
+            } else {
+                (
+                    enzyme.site_len() as i32 - enzyme.cut_bottom,
+                    enzyme.site_len() as i32 - enzyme.cut_top,
+                )
+            };
+            if [top, bottom].iter().any(|offset| {
+                let p = site.position as i64 + *offset as i64;
+                p < 0 || p > doc.sequence.len() as i64
+            }) {
+                return Err(format!("{} has a cleavage boundary outside this linear template. Review the sequence ends before predicting a complete digest.",site.enzyme));
+            }
+        }
+    }
+    let cuts = sites.iter().map(|s| s.cut_top).collect::<Vec<_>>();
+    let fragments =
+        domain::digest::fragments(&cuts, doc.sequence.len(), doc.sequence.is_circular());
+    Ok((sites, fragments))
+}
+pub fn predict(doc: &domain::Document, enzymes: &[Enzyme]) -> Result<serde_json::Value, String> {
+    let (sites, fragments) = prediction(doc, enzymes)?;
+    Ok(
+        serde_json::json!({"completed_no_sites":sites.is_empty(),"sites":sites,"fragments":fragments.iter().map(|f|serde_json::json!({"start":f.start,"end":f.end,"size":f.size})).collect::<Vec<_>>()}),
+    )
 }

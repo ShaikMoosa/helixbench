@@ -31,8 +31,11 @@ fn scroll(id: &str) -> gpui::Stateful<gpui::Div> {
 }
 
 pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
-    if app.app.first_use.selected_result.is_some() {
-        return render_saved_result(app, cx);
+    if app.app.first_use.selected_result.is_some()
+        || app.app.results.pending.is_some()
+        || app.app.results.list
+    {
+        return crate::views::results::render(app, cx);
     }
     let mut p = page("Home", "Your local workspace at a glance");
     let mut body = scroll("home-scroll").child(first_use_home(app, cx));
@@ -2639,6 +2642,19 @@ fn first_use_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> gpui::D
         );
         body = body.child(row);
     }
+    body = body.child(
+        widgets::button(
+            "browse-all-results",
+            "Browse and search all saved results",
+            Btn::Outline,
+        )
+        .on_click(cx.listener(|t, _, _, cx| {
+            if let Err(e) = appcore::results::browse(&mut t.app) {
+                t.app.results.error = Some(e);
+            }
+            cx.notify();
+        })),
+    );
     body = body.child(section_title("Saved analysis results")).child(
         widgets::button("refresh-home-results", "Refresh saved results", Btn::Ghost).on_click(
             cx.listener(|t, _, _, cx| {
@@ -2692,83 +2708,6 @@ fn first_use_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> gpui::D
             );
     }
     body
-}
-
-fn render_saved_result(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
-    let id = app.app.first_use.selected_result.unwrap();
-    let mut body = scroll("home-saved-result").child(
-        widgets::button("close-saved-result", "Back to Home", Btn::Outline).on_click(cx.listener(
-            |t, _, _, cx| {
-                t.app.first_use.selected_result = None;
-                cx.notify();
-            },
-        )),
-    );
-    if let Some(result) = app
-        .app
-        .first_use
-        .results
-        .results
-        .iter()
-        .find(|r| r.id == id)
-    {
-        body = body
-            .child(widgets::label(
-                &format!("{} result", result.tool),
-                theme::T_XL,
-                theme::TEXT,
-            ))
-            .child(widgets::label(
-                &format!(
-                    "Read-only · {} · Method {} · recorded {}",
-                    result.id, result.method_version, result.created
-                ),
-                theme::T_SM,
-                theme::MUTED,
-            ));
-        for input in &result.inputs {
-            body = body
-                .child(section_title(&format!(
-                    "Captured input: {}",
-                    input.document().name
-                )))
-                .child(widgets::label(
-                    &format!(
-                        "{} bp · Document {} · Revision {}",
-                        input.document().sequence.len(),
-                        input.source().document,
-                        input.source().revision
-                    ),
-                    theme::T_BASE,
-                    theme::TEXT,
-                ));
-        }
-        body = body
-            .child(section_title("Recorded parameters"))
-            .child(widgets::label(
-                &result.parameters.to_string(),
-                theme::T_BASE,
-                theme::TEXT,
-            ))
-            .child(section_title("Recorded output"))
-            .child(widgets::label(
-                &result.output.to_string(),
-                theme::T_BASE,
-                theme::TEXT,
-            ));
-    } else {
-        body = body.child(widgets::label(
-            "This saved result is no longer available. Return to Home and refresh the catalog.",
-            theme::T_BASE,
-            theme::DANGER,
-        ));
-    }
-    page(
-        "Saved result",
-        "Captured input and recorded output; the current document is unchanged",
-    )
-    .child(body)
-    .into_any_element()
 }
 
 pub fn sample_banner(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> Option<AnyElement> {

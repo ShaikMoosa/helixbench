@@ -122,3 +122,14 @@ Profile views.json writes envelope2 and optional typed enzyme_filter with name, 
 overhang, site length, scope and bounds. Legacy views without it reset non-name filters.
 Atomic save/delete updates live Views only after persistence succeeds; native fields reseed
 after Load. Source scientific documents and chosen enzymes do not change when presets load.
+
+
+### P09 result persistence implementation — 17 November 2026
+
+The version-1 result catalog uses validated AnalysisResult snapshots and shared P04 journal
+Text writes. Loading captures the hash of the same bytes parsed. Preparation verifies that
+hash; execution checks it again. Changed catalogs are rejected for refresh/retry. Failed or
+partial saves/exports refresh the Recovery cache immediately, including error paths. Result
+save does not change source save state. Recent-work config is secondary: a shortcut failure
+warns while the successfully saved result remains refindable through the full catalog.
+Document native format remains v4; the existing result catalog remains version 1.

@@ -6,6 +6,7 @@ pub mod features;
 pub mod history;
 pub mod map;
 pub mod primers;
+pub mod results;
 pub mod sequence;
 pub mod table_opts;
 

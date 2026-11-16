@@ -315,3 +315,13 @@ restore producing a new Restore operation with1enzyme and Undo available.
 Deferred minor review findings: Undo/Redo button labels do not yet include their target
 operation names, and checkpoint row timestamps are stored but not displayed. Large-history
 profiling, background scheduling and comprehensive accessibility acceptance remain P19.
+
+
+## P08D follow-up delivered with P09 — 17 November 2026
+
+Undo and Redo now name their actual next operation, with explicit unavailable labels when
+the corresponding stack is empty. Checkpoint rows show Created YYYY-MM-DD HH:MM:SS UTC.
+Epoch, UTC date rollover, leap day and invalid timestamp fallback have regression coverage.
+Native 1280px verification observed the target label on both actions and a newly named
+checkpoint's timestamp. These two previously deferred UI items are resolved. The existing
+methylation limitation and checkpoint storage-growth note still apply.

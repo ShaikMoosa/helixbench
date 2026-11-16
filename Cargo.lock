@@ -72,6 +72,7 @@ version = "1.17.0"
 dependencies = [
  "domain",
  "rfd",
+ "serde_json",
  "storage",
 ]
 
