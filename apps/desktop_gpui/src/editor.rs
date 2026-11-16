@@ -387,11 +387,7 @@ pub fn render_editor(this: &mut HelixBench, cx: &mut Context<HelixBench>) -> Any
                     |d| d.child(seq),
                 ),
         )
-        .when(
-            this.app.shell.layout(this.viewport.width.v()).inspector
-                == appcore::shell::InspectorPlacement::Hidden,
-            |d| d.child(cards),
-        )
+        .when(this.app.map_mode == MapMode::Metadata, |d| d.child(cards))
         .into_any_element()
 }
 
@@ -720,7 +716,13 @@ impl HelixBench {
     ) {
         if let Some(i) = self.seq_index_at(ev.position) {
             self.editor_seq_anchor = Some(i);
-            self.app.select(Some(Range::new(i, 1)));
+            let source = self.app.doc.source_ref();
+            let _ = appcore::selection::apply(
+                &mut self.app,
+                source,
+                Some(Range::new(i, 1)),
+                domain::Strand::Top,
+            );
             cx.notify();
         }
     }
@@ -736,7 +738,13 @@ impl HelixBench {
         };
         if let Some(cur) = self.seq_index_at(ev.position) {
             let (a, b) = (anchor.min(cur), anchor.max(cur));
-            self.app.select(Some(Range::new(a, b - a + 1)));
+            let source = self.app.doc.source_ref();
+            let _ = appcore::selection::apply(
+                &mut self.app,
+                source,
+                Some(Range::new(a, b - a + 1)),
+                domain::Strand::Top,
+            );
             cx.notify();
         }
     }
@@ -762,7 +770,7 @@ impl HelixBench {
         };
         let l = self.app.doc.sequence.len().max(1);
         let frac = ((pos.y.v() - b.origin.y.v()) / b.size.height.v()).clamp(0.0, 1.0);
-        self.app.zoom_width = ((1.0 - frac) * l as f32).clamp(20.0, l as f32) as usize;
+        self.app.zoom_width = ((1.0 - frac) * l as f32).clamp(20.min(l) as f32, l as f32) as usize;
         self.app.center_zoom_on_selection();
         cx.notify();
     }

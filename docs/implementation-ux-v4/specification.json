@@ -3253,7 +3253,7 @@
       "intendedOutcome": "Change representation without changing molecule topology",
       "baselineNote": "Representation tabs already present",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08A representation and topology separation verified; native map captions identify actual DNA topology",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -3453,7 +3453,7 @@
       "intendedOutcome": "Open synchronized selection inspector",
       "baselineNote": "Canvas labels require hit-target discovery",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08A stable feature/primer/range bindings verified; exact map primer site and explicit first-site list selection",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -4620,7 +4620,7 @@
       "intendedOutcome": "Toggle the named layer; keep active state visible",
       "baselineNote": "View menu or Options",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08A labeled display controls wired; map Features Off renderer and hit-test regression verified",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -4720,7 +4720,7 @@
       "intendedOutcome": "Keep zoom controls visible by default; fit returns full map",
       "baselineNote": "Zoom controls must first be enabled in View menu",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08A direct zoom-controls and full-sequence entry; short/empty bounds and origin selection feedback verified",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -5099,7 +5099,7 @@
       "intendedOutcome": "Enter coordinates as an accessible alternative to dragging",
       "baselineNote": "Mouse drag and canvas interactions exist",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08A typed source/revision and top-strand coordinates with independent strand verified; native reverse drag and view switch checked",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -5375,7 +5375,7 @@
       "intendedOutcome": "Open find strip with three labeled modes",
       "baselineNote": "Ctrl+F and mode selector",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08A visible Find entry and reverse-hit strand binding verified; existing DNA/protein/name algorithms retained",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -5481,7 +5481,7 @@
       "intendedOutcome": "Keep hit count and strand visible",
       "baselineNote": "Find strip",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08A hit navigation retains hit strand; existing next/previous controls retained",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -6086,7 +6086,7 @@
       "intendedOutcome": "Change one layer with current state visible",
       "baselineNote": "View menu and Options",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08A labeled ORF/translation/complement/color display controls wired; scientific algorithms retained",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",
@@ -6299,7 +6299,7 @@
       "intendedOutcome": "Pan and zoom with selection maintained",
       "baselineNote": "Hidden until enabled in View",
       "baselineAssessment": "Existing capability; proposed entry point",
-      "implementationStatus": "Specified; not verified implemented",
+      "implementationStatus": "P08A short-sequence zoom bounds and circular minimap selection segments verified; existing center/minimap controls retained",
       "currentCode": [
         {
           "file": "crates/appcore/src/actions.rs",

@@ -298,13 +298,8 @@ impl HelixBench {
                             .hover(|s| s.bg(theme::FILL_HOVER_STRONG))
                             .on_click(move |_, _, cx| {
                                 e_sel.update(cx, |t, cx| {
-                                    t.app.selected_primer = Some(id);
-                                    t.app.selected_feature = None;
-                                    if let Some(s) =
-                                        t.app.analysis.primer_sites.get(&id).and_then(|s| s.first())
-                                    {
-                                        t.app.select(Some(domain::Range::new(s.start, s.len)));
-                                    }
+                                    let source=t.app.doc.source_ref();
+                                    if let Err(error)=appcore::selection::primer_from_list(&mut t.app,source,id){t.app.toast(error);}else if t.app.selection.is_some(){t.app.toast("Selected the first binding site; click a map site to choose another");}
                                     cx.notify();
                                 });
                             })

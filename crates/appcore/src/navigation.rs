@@ -72,7 +72,7 @@ impl ReturnLocation {
             selection: SelectionContext {
                 source: app.doc.source_ref(),
                 range: app.selection,
-                strand: Strand::Top,
+                strand: app.selection_strand,
                 active_pane: PaneId::Primary,
                 feature: app.selected_feature,
                 primer: app.selected_primer,
@@ -239,6 +239,7 @@ fn switch_inner(app: &mut AppState, id: DocumentId) -> Result<(), String> {
         app.saved_depth = if other.dirty { None } else { Some(0) };
         app.navigation.saved_document = (!other.dirty).then(|| app.doc.clone());
         app.selection = None;
+        app.selection_strand = Strand::Top;
         app.selected_feature = None;
         app.selected_primer = None;
         app.zoom_start = 0;
@@ -262,6 +263,11 @@ fn apply_location(app: &mut AppState, location: ReturnLocation) {
         location.selection.range
     } else {
         None
+    };
+    app.selection_strand = if same_revision {
+        location.selection.strand
+    } else {
+        Strand::Top
     };
     app.selected_feature = location
         .selection
@@ -548,6 +554,7 @@ pub fn resolve_guard(
         app.saved_depth = Some(0);
         app.dirty = false;
         app.selection = None;
+        app.selection_strand = Strand::Top;
         app.selected_feature = None;
         app.selected_primer = None;
         app.analysis_dirty = true;

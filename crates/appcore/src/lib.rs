@@ -9,6 +9,7 @@ pub mod fs_dialogs;
 pub mod import;
 pub mod navigation;
 pub mod operations;
+pub mod selection;
 pub mod shell;
 pub mod state;
 pub mod workspace_search;

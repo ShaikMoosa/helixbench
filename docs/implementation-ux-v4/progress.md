@@ -240,3 +240,53 @@ canvas caption says “linear” for the representation; clarify its view/topolo
 wording alongside coordinate/selection UX. Inspector topology and document status
 remain authoritative and unchanged. Detailed scientific label contrast/overlap,
 zoom fitting and lower Home content density also retain their owning screen work.
+
+
+## P08A — map, sequence and coordinate synchronization
+
+16 November 2026. Branch `codex/ux-v4-p08a`, stacked on P07 `d0583ab`.
+Main remains at P06 until an explicit merge. Figma Sequence107:29677 was inspected
+with code and screenshot; shared Soft Gallery widgets and existing embedded assets
+are reused, with live scientific data replacing reference fixtures.
+
+- Added validated source/revision-bound selection and 1-based inclusive conversion,
+  ordered circular segments and independent strand. Invalid coordinates, stale source,
+  open forms and workspace search cannot replace a valid selection silently.
+- Navigation captures/restores strand; reverse features and DNA/protein search hits
+  retain top-coordinate ranges plus the selected strand. Circular/linear representation
+  captions distinguish the view from actual DNA topology.
+- Direct Find, Annotation list, full-sequence and zoom controls improve discoverability.
+  Shared feedback and the inspector agree on origin crossing, length and strand.
+  Map/Sequence clear actions remove dependent feature/primer identities.
+- Complement-row drags use the pressed strand. Whitespace/translation rows do not
+  retag selections; selecting the opposite strand at the same base does not clear it.
+  Map primer clicks carry exact binding-site range/strand. The primer list explicitly
+  chooses its first site, preserving strand; an unbound primer clears previous DNA range.
+- Labeled display toggles preserve dirty/history/document state. Features Off now
+  suppresses map rendering and hit testing. Circular selections paint both ordered
+  segments in a linear view and sequence minimap. Short/empty zoom bounds are safe.
+- The scientific canvas receives space previously occupied by persistent footer cards;
+  metadata cards remain in Metadata and the annotation list is directly accessible.
+  Annotation text uses readable ink while scientific feature/base colors remain intact.
+
+Verification:339 core tests passed, including14 P08A integration cases;1 new native
+renderer/hit-test case passed. Strict core Clippy, non-incremental native build,
+format/diff checks and manifest/source integrity checks passed. The upstream
+proc-macro-error2 future-compatibility notice remains.
+
+Fresh review reported three important UI binding issues (Features Off, whitespace
+strand changes, primer-list reverse strand). All were fixed in one pass with observed
+failing regressions followed by passing focused/full checks. Native1600px checks
+confirmed complement-row reverse selection, gutter click preserving it, view-switch
+retention and the Features Off result. No final P08A1280 visual acceptance or complete
+accessibility/large-data performance claim is made.
+
+Rulings: selection strand is a view attribute on top-strand coordinates. Copy keeps its
+existing top-strand behavior, with explicit guidance and reverse-complement commands.
+No scientific algorithm is changed to infer reverse output from a display selection.
+The branch is stacked on the unmerged P07 milestone to preserve its prerequisite.
+
+Follow-up: P08B feature editing/annotation review, P08C primer design/PCR and P08D
+enzyme/digest/history own their detailed action/review flows. Mutation impact previews
+and result lifecycle are not claimed complete here. Dense-label layout, application-wide
+accessibility and large-data performance retain their later acceptance work.

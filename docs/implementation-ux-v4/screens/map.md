@@ -112,7 +112,7 @@ Native presentation entry points:
 
 ### F-015 · Circular / linear representation
 
-**Status:** Specified; not verified implemented.
+**Status:** P08A representation and topology separation verified; native map captions identify actual DNA topology.
 
 **Entry:** Plasmid or Linear tab (1 navigation click(s)).
 
@@ -170,7 +170,7 @@ Native presentation entry points:
 
 ### F-017 · Inspect feature / enzyme / primer
 
-**Status:** Specified; not verified implemented.
+**Status:** P08A stable feature/primer/range bindings verified; exact map primer site and explicit first-site list selection.
 
 **Entry:** Annotation click (1 navigation click(s)).
 
@@ -547,7 +547,7 @@ Native presentation entry points:
 
 ### F-030 · Show features / primers / enzymes / ORFs / translation
 
-**Status:** Specified; not verified implemented.
+**Status:** P08A labeled display controls wired; map Features Off renderer and hit-test regression verified.
 
 **Entry:** Display → Named layer toggle (2 navigation click(s)).
 
@@ -576,7 +576,7 @@ Native presentation entry points:
 
 ### F-031 · Zoom / fit / center / minimap
 
-**Status:** Specified; not verified implemented.
+**Status:** P08A direct zoom-controls and full-sequence entry; short/empty bounds and origin selection feedback verified.
 
 **Entry:** Zoom control (1 navigation click(s)).
 
@@ -690,3 +690,30 @@ Native presentation entry points:
 - Map display is Linear while topology is Circular, and the reverse.
 - Selection or document changes after opening a tool.
 
+
+
+## P08A implementation evidence — 16 November 2026
+
+Shared selection feedback uses 1-based inclusive coordinates, explicit forward/reverse
+strand and an origin-crossing label. Domain ranges remain zero-based start plus length.
+Map/Sequence switches retain the source document, range and strand; navigation snapshots
+now capture strand instead of assigning Top. Invalid/stale range actions preserve state.
+
+Find in sequence, Annotation list, Show entire sequence and Zoom controls have direct
+visible entries. Clear selection clears dependent feature/primer inspector actions.
+Page tools exposes labeled display toggles, including missing-prerequisite explanations
+for analysis commands. Map annotations use readable ink text while scientific fills stay
+unchanged. Primer list selection explicitly chooses the first site; an exact map-site
+click selects that site's coordinates and strand. A primer without a site clears the
+previous DNA range instead of leaving an unrelated range selected.
+
+Verification:14 core P08A regressions and1 native renderer/hit-test regression;339 core
+tests in total passed. Native1600px sample checks covered reverse-complement-row drag,
+whitespace click, Sequence→Map range/strand retention and Features Off. The final P08A
+controls were not separately visually checked at1280px; P07 shell validation remains
+independent evidence. Dense scientific labels, full keyboard/screen-reader behavior and
+large-data performance are not comprehensively established by these checks.
+
+Copy retains its existing top-strand semantics; reverse complement remains explicit.
+Editing/import review, mutation impact previews and tool/result lifecycle are governed
+by their owning P03/P08B–P10 milestones. This evidence does not mark those complete.

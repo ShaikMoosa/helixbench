@@ -690,6 +690,7 @@ pub struct AppState {
     pub history_highlight: Option<usize>,
     pub colors_mode: ColorsMode,
     pub selection: Option<Range>,
+    pub selection_strand: domain::Strand,
     pub selected_feature: Option<u64>,
     pub selected_primer: Option<u64>,
     pub view: View,
@@ -807,6 +808,7 @@ impl AppState {
             history_highlight: None,
             colors_mode: ColorsMode::None,
             selection: None,
+            selection_strand: domain::Strand::Top,
             selected_feature: None,
             selected_primer: None,
             view: View::Map,
@@ -1058,6 +1060,7 @@ impl AppState {
         self.future.clear();
         self.history_highlight = None;
         self.selection = None;
+        self.selection_strand = domain::Strand::Top;
         self.selected_feature = None;
         self.selected_primer = None;
         self.zoom_start = 0;
@@ -1075,15 +1078,28 @@ impl AppState {
     }
 
     pub fn select(&mut self, range: Option<Range>) {
-        self.selection = range.map(|r| r.normalized(self.doc.sequence.len().max(1)));
+        self.selection = range.filter(|r| crate::shell::valid_range(self, *r));
+        self.selection_strand = domain::Strand::Top;
     }
 
     pub fn select_feature(&mut self, id: u64) {
-        self.selected_feature = Some(id);
+        let target = self.doc.feature(id).map(|f| {
+            (
+                f.span(self.doc.sequence.len()),
+                f.direction.strand().unwrap_or(domain::Strand::Top),
+            )
+        });
+        self.selected_feature = None;
         self.selected_primer = None;
-        if let Some(f) = self.doc.feature(id) {
-            let span = f.span(self.doc.sequence.len());
-            self.select(Some(span));
+        if let Some((range, strand)) =
+            target.filter(|(range, _)| crate::shell::valid_range(self, *range))
+        {
+            self.select(Some(range));
+            self.selection_strand = strand;
+            self.selected_feature = Some(id);
+            self.scroll_to = Some(range.start);
+        } else {
+            self.select(None);
         }
     }
 
@@ -1259,6 +1275,30 @@ impl AppState {
                 None => None,
             },
         };
+        let hit_strand = match self.search.mode {
+            SearchMode::Dna => self
+                .search
+                .dna_hits
+                .get(self.search.current)
+                .map(|h| h.strand),
+            SearchMode::Protein => self
+                .search
+                .protein_hits
+                .get(self.search.current)
+                .map(|h| h.strand),
+            SearchMode::Name => feature_target
+                .and_then(|id| self.doc.feature(id))
+                .and_then(|f| f.direction.strand())
+                .or_else(|| {
+                    primer_target
+                        .and_then(|id| self.analysis.primer_sites.get(&id))
+                        .and_then(|sites| sites.first())
+                        .map(|site| site.strand)
+                }),
+        }
+        .unwrap_or(domain::Strand::Top);
+        self.selected_feature = None;
+        self.selected_primer = None;
         if let Some(id) = feature_target {
             self.select_feature(id);
         }
@@ -1267,6 +1307,7 @@ impl AppState {
         }
         if let Some((range, scroll)) = target {
             self.select(Some(range));
+            self.selection_strand = hit_strand;
             self.scroll_to = Some(scroll);
         }
         if self.prefs.show_zoom_controls && l > 0 {

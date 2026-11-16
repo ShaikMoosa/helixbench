@@ -480,6 +480,7 @@ pub struct SeqLayout {
     rows: Vec<RowLayout>,
     disp_len: usize,
     positions: Vec<usize>,
+    show_complement: bool,
 }
 
 impl SeqLayout {
@@ -492,7 +493,10 @@ impl SeqLayout {
         let row = self.rows.partition_point(|r| r.y + r.h <= ly);
         let r = self.rows.get(row)?;
         let in_row = ly - r.y;
-        if !(r.top_h..r.top_h + r.mid_h).contains(&in_row) {
+        if !(r.top_h
+            ..r.top_h + (BASE_H + if self.show_complement { COMP_H } else { 0.0 }).min(r.mid_h))
+            .contains(&in_row)
+        {
             return None;
         }
         let mut i = ((lx - GUTTER) / (CW + GROUP_GAP / GROUP as f32)) as usize;
@@ -510,6 +514,20 @@ impl SeqLayout {
         }
     }
 
+    pub fn strand_at(&self, pos: Point<Pixels>) -> Strand {
+        let ly = (pos.y - self.bounds.top()).v() + self.scroll - 8.0;
+        let row = self.rows.partition_point(|r| r.y + r.h <= ly);
+        self.rows
+            .get(row)
+            .map(|r| {
+                if ly - r.y - r.top_h >= BASE_H {
+                    Strand::Bottom
+                } else {
+                    Strand::Top
+                }
+            })
+            .unwrap_or(Strand::Top)
+    }
     pub fn position(&self, idx: usize) -> Option<usize> {
         self.positions.get(idx).copied()
     }
@@ -1067,17 +1085,24 @@ fn paint_mini(d: &MiniDraw, b: Bounds<Pixels>, window: &mut Window) {
         );
     }
     if let Some(sel) = d.sel {
-        let a = x(sel.start);
-        let bb = x((sel.start + sel.len).min(d.l));
-        draw::rect(
-            window,
-            Bounds::new(
-                point(px(a), b.top() + px(10.0)),
-                size(px((bb - a).max(1.0)), b.size.height - px(13.0)),
-            ),
-            1.0,
-            theme::SELECT.opacity(0.8),
-        );
+        let first = sel.len.min(d.l - sel.start);
+        for (start, len) in [(sel.start, first), (0, sel.len - first)] {
+            if len == 0 {
+                continue;
+            }
+            draw::rect(
+                window,
+                Bounds::new(
+                    point(px(x(start)), b.top() + px(10.0)),
+                    size(
+                        px((x(start + len) - x(start)).max(1.0)),
+                        b.size.height - px(13.0),
+                    ),
+                ),
+                1.0,
+                theme::SELECT.opacity(0.8),
+            );
+        }
     }
     if d.zoom_width < d.l {
         let a = x(d.zoom_start);
@@ -1110,6 +1135,7 @@ impl HelixBench {
             );
         }
         let draw = SeqDraw::build(&self.app);
+        let show_complement = draw.show_complement;
 
         // Scroll-to request (search navigation): center the target row.
         if let Some(target) = self.app.scroll_to.take() {
@@ -1139,6 +1165,7 @@ impl HelixBench {
                     this.seq_layout = Some(SeqLayout {
                         bounds,
                         scroll,
+                        show_complement,
                         rows: rows.clone(),
                         disp_len,
                         positions: positions.clone(),
@@ -1204,7 +1231,14 @@ impl HelixBench {
         if let (Some(anchor), Some(cur)) = (self.app.seq_drag_anchor, lay.hit_base(ev.position)) {
             let (a, b) = (anchor.min(cur), anchor.max(cur));
             if let Some(start) = lay.position(a) {
-                self.app.select(Some(Range::new(start, b - a + 1)));
+                let source = self.app.doc.source_ref();
+                let strand = lay.strand_at(press);
+                let _ = appcore::selection::apply(
+                    &mut self.app,
+                    source,
+                    Some(Range::new(start, b - a + 1)),
+                    strand,
+                );
                 cx.notify();
             }
         }
@@ -1221,16 +1255,13 @@ impl HelixBench {
             if let Some(lay) = self.seq_layout.as_ref() {
                 if let Some(idx) = lay.hit_base(ev.position) {
                     if let Some(p) = lay.position(idx) {
-                        let toggle_off = self
-                            .app
-                            .selection
-                            .map(|s| s.len == 1 && s.start == p)
-                            .unwrap_or(false);
-                        self.app.select(if toggle_off {
-                            None
-                        } else {
-                            Some(Range::new(p, 1))
-                        });
+                        let strand = lay.strand_at(ev.position);
+                        let source = self.app.doc.source_ref();
+                        let _ = appcore::selection::click_base(
+                            &mut self.app,
+                            source,
+                            Some((p, strand)),
+                        );
                         self.app.history_highlight = None;
                     }
                 }
@@ -1246,8 +1277,7 @@ impl HelixBench {
             let e = cx.entity();
             widgets::icon_only("seq-zoom-in", "zoom-in", Btn::Subtle).on_click(move |_, _, cx| {
                 e.update(cx, |t, cx| {
-                    t.app.zoom_width = (t.app.zoom_width / 2).max(20);
-                    t.app.center_zoom_on_selection();
+                    appcore::selection::zoom(&mut t.app, true);
                     cx.notify();
                 });
             })
@@ -1256,8 +1286,7 @@ impl HelixBench {
             let e = cx.entity();
             widgets::icon_only("seq-zoom-out", "zoom-out", Btn::Subtle).on_click(move |_, _, cx| {
                 e.update(cx, |t, cx| {
-                    t.app.zoom_width = (t.app.zoom_width * 2).min(l);
-                    t.app.center_zoom_on_selection();
+                    appcore::selection::zoom(&mut t.app, false);
                     cx.notify();
                 });
             })
@@ -1336,9 +1365,9 @@ impl HelixBench {
                     ))
                     .child(widgets::label(
                         &format!(
-                            "range {}..{}",
+                            "range {}–{}",
                             self.app.zoom_start + 1,
-                            self.app.zoom_start + self.app.zoom_width
+                            (self.app.zoom_start + self.app.zoom_width - 1) % l + 1
                         ),
                         theme::T_SM,
                         theme::FAINT,

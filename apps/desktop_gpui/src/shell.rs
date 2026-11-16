@@ -422,6 +422,35 @@ pub fn inspector(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEleme
                     ));
             }
         }
+        if app.app.shell.tab == PanelTab::Tools
+            && matches!(app.app.view, View::Map | View::Sequence)
+        {
+            body = body.child(label("Display", theme::T_MD));
+            for toggle in appcore::selection::DisplayToggle::ALL {
+                let text = format!(
+                    "{} · {}",
+                    toggle.label(),
+                    if toggle.enabled(&app.app) {
+                        "On"
+                    } else {
+                        "Off"
+                    }
+                );
+                body = body.child(
+                    widgets::button(
+                        SharedString::from(format!("display-{}", toggle.label())),
+                        &text,
+                        Btn::Outline,
+                    )
+                    .w_full()
+                    .on_click(cx.listener(move |t, _, _, cx| {
+                        appcore::selection::toggle_display(&mut t.app, toggle);
+                        cx.notify();
+                    })),
+                );
+            }
+            body=body.child(widgets::label("Display settings change the view only. Copy uses top-strand coordinates; choose reverse complement explicitly when needed.",theme::T_SM,theme::MUTED));
+        }
         body = body.child(label("Tools", theme::T_MD));
         let mut tools = commands::owning_page(app.app.view);
         if matches!(
@@ -605,19 +634,10 @@ fn context_properties(
                 }
                 .into(),
             ));
-        if let Some(range) = app.app.selection.filter(|r| r.len > 0) {
-            body = body.child(property(
-                "Selected range",
-                format!(
-                    "{}–{} · {} bp",
-                    range.start + 1,
-                    range.start + range.len,
-                    range.len
-                ),
-            ));
-        } else {
-            body = body.child(property("Selected range", "No range selected".into()));
-        }
+        body = body.child(property(
+            "Selected range",
+            appcore::selection::summary(&app.app),
+        ));
         if let PanelContext::Feature { feature, .. } = context {
             if let Some(f) = app.app.doc.feature(feature) {
                 body = body

@@ -149,6 +149,7 @@ struct EnzDraw {
 pub struct MapDraw {
     l: usize,
     circular: bool,
+    topology: &'static str,
     name: String,
     gc: f32,
     selection: Option<Range>,
@@ -173,7 +174,7 @@ impl MapDraw {
         let l = app.doc.sequence.len();
         let mut features = Vec::new();
         for f in &app.doc.features {
-            if !f.visible || f.segments.is_empty() {
+            if !app.prefs.show_features || !f.visible || f.segments.is_empty() {
                 continue;
             }
             features.push(FeatDraw {
@@ -228,6 +229,7 @@ impl MapDraw {
         MapDraw {
             l,
             circular: app.map_circular(),
+            topology: app.doc.sequence.topology.label(),
             name: app.doc.name.clone(),
             gc: app.doc.sequence.gc_content(),
             selection: app.selection,
@@ -301,6 +303,7 @@ impl MapDraw {
         MapDraw {
             l,
             circular: doc.sequence.topology == domain::Topology::Circular,
+            topology: doc.sequence.topology.label(),
             name: doc.name.clone(),
             gc: doc.sequence.gc_content(),
             selection: None,
@@ -561,7 +564,16 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
                 } else {
                     Align::Right
                 };
-                draw::text(window, cx, pos, &name, 11.5, col, theme::ui_font(), align);
+                draw::text(
+                    window,
+                    cx,
+                    pos,
+                    &name,
+                    11.5,
+                    theme::TEXT,
+                    theme::ui_font(),
+                    align,
+                );
                 let w = draw::measure(window, &name, 11.5, theme::ui_font()).v();
                 let (x0, x1) = if mid.cos() >= 0.0 {
                     (pos.x.v(), pos.x.v() + w)
@@ -587,7 +599,7 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
                 pos,
                 &name,
                 10.5,
-                col.opacity(0.7),
+                theme::TEXT,
                 theme::ui_font(),
                 align,
             );
@@ -728,7 +740,7 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
         window,
         cx,
         c + point(px(0.0), px(-12.0)),
-        &format!("{} bp · circular", l),
+        &format!("{} bp · {} DNA", l, d.topology),
         theme::T_SM,
         theme::MUTED,
         theme::ui_font(),
@@ -959,24 +971,34 @@ fn paint_linear(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: &m
         );
     }
     if let Some(sel) = d.selection {
-        let sx0 = px_at(sel.start);
-        let sx1 = px_at((sel.start + sel.len).min(l));
-        let b = Bounds::new(pt(sx0, y - 5.0), gpui::size(px(sx1 - sx0), px(10.0)));
-        draw::rect_border(
-            window,
-            b,
-            2.0,
-            theme::SELECT.opacity(0.25),
-            1.5,
-            theme::SELECT,
-        );
+        let first = sel.len.min(l - sel.start);
+        for (start, len) in [(sel.start, first), (0, sel.len - first)] {
+            if len == 0 {
+                continue;
+            }
+            let b = Bounds::new(
+                pt(px_at(start), y - 5.0),
+                gpui::size(px(px_at(start + len) - px_at(start)), px(10.0)),
+            );
+            draw::rect_border(
+                window,
+                b,
+                2.0,
+                theme::SELECT.opacity(0.25),
+                1.5,
+                theme::SELECT,
+            );
+        }
     }
 
     draw::text(
         window,
         cx,
         pt(x0, bounds.top().v() + 18.0),
-        &format!("{} · {} bp · linear · GC {:.1}%", d.name, l, d.gc),
+        &format!(
+            "{} · {} bp · linear view · {} DNA · GC {:.1}%",
+            d.name, l, d.topology, d.gc
+        ),
         theme::T_BASE,
         theme::TEXT,
         theme::ui_font(),
@@ -989,7 +1011,7 @@ fn paint_linear(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: &m
 #[derive(Clone)]
 pub enum Hit {
     Feature(u64),
-    Primer(u64),
+    Primer(u64, Range, Strand),
     Enzyme(usize),
 }
 
@@ -1004,7 +1026,7 @@ pub fn hit_test(app: &AppState, g: Geom, pos: Point<Pixels>) -> Option<Hit> {
         let r = g.r;
         // features (highest priority)
         for f in &app.doc.features {
-            if !f.visible || f.segments.is_empty() {
+            if !app.prefs.show_features || !f.visible || f.segments.is_empty() {
                 continue;
             }
             let span = f.span(l);
@@ -1024,7 +1046,7 @@ pub fn hit_test(app: &AppState, g: Geom, pos: Point<Pixels>) -> Option<Hit> {
                         let a0 = pos_angle(s.start, l);
                         let a1 = a0 + TAU * s.len as f32 / l as f32;
                         if (d - (r - 52.0)).abs() < 9.0 && angle_in(pa, a0, a1) {
-                            return Some(Hit::Primer(p.id));
+                            return Some(Hit::Primer(p.id, Range::new(s.start, s.len), s.strand));
                         }
                     }
                 }
@@ -1045,7 +1067,7 @@ pub fn hit_test(app: &AppState, g: Geom, pos: Point<Pixels>) -> Option<Hit> {
         let px_at = |p: usize| x0 + w * (p as f32 / l as f32);
         let mut lane_ends: Vec<f32> = Vec::new();
         for f in &app.doc.features {
-            if !f.visible || f.segments.is_empty() {
+            if !app.prefs.show_features || !f.visible || f.segments.is_empty() {
                 continue;
             }
             let span = f.span(l);
@@ -1150,13 +1172,25 @@ impl HelixBench {
             if g.circular {
                 let cur = angle_pos(angle_of(ev.position, g.center), l);
                 let len = (cur + l - anchor) % l + 1;
-                self.app.select(Some(Range::new(anchor, len)));
+                let source = self.app.doc.source_ref();
+                let _ = appcore::selection::apply(
+                    &mut self.app,
+                    source,
+                    Some(Range::new(anchor, len)),
+                    Strand::Top,
+                );
             } else {
                 let (x0, w, _) = linear_x(g.bounds);
                 let p =
                     (((ev.position.x.v() - x0) / w) * l as f32).clamp(0.0, (l - 1) as f32) as usize;
                 let (a, b) = (anchor.min(p), anchor.max(p));
-                self.app.select(Some(Range::new(a, b - a + 1)));
+                let source = self.app.doc.source_ref();
+                let _ = appcore::selection::apply(
+                    &mut self.app,
+                    source,
+                    Some(Range::new(a, b - a + 1)),
+                    Strand::Top,
+                );
             }
             cx.notify();
         }
@@ -1176,26 +1210,59 @@ impl HelixBench {
         let Some(g) = self.map_geom() else { return };
         match hit_test(&self.app, g, ev.position) {
             Some(Hit::Feature(id)) => self.app.select_feature(id),
-            Some(Hit::Primer(id)) => {
-                self.app.selected_primer = Some(id);
-                self.app.selected_feature = None;
-                if let Some(s) = self
-                    .app
-                    .analysis
-                    .primer_sites
-                    .get(&id)
-                    .and_then(|s| s.first())
+            Some(Hit::Primer(id, range, strand)) => {
+                let source = self.app.doc.source_ref();
+                if let Err(error) =
+                    appcore::selection::primer_site(&mut self.app, source, id, range, strand)
                 {
-                    self.app.select(Some(Range::new(s.start, s.len)));
+                    self.app.toast(error);
                 }
             }
-            Some(Hit::Enzyme(pos)) => self.app.select(Some(Range::new(pos, 1))),
+            Some(Hit::Enzyme(pos)) => {
+                let source = self.app.doc.source_ref();
+                let _ = appcore::selection::apply(
+                    &mut self.app,
+                    source,
+                    Some(Range::new(pos, 1)),
+                    Strand::Top,
+                );
+            }
             None => {
-                self.app.select(None);
-                self.app.selected_feature = None;
+                let source = self.app.doc.source_ref();
+                let _ = appcore::selection::apply(&mut self.app, source, None, Strand::Top);
                 self.app.history_highlight = None;
             }
         }
         cx.notify();
+    }
+}
+
+#[cfg(test)]
+mod p08a_tests {
+    use super::*;
+    #[test]
+    fn hidden_map_features_are_neither_drawn_nor_clickable() {
+        let mut app = AppState::new(
+            domain::Document::new(
+                "test".into(),
+                b"ATGCGTAC".to_vec(),
+                domain::Topology::Circular,
+            ),
+            Default::default(),
+        );
+        app.doc.add_feature(domain::Feature::new(
+            0,
+            "gene".into(),
+            "gene".into(),
+            vec![Range::new(0, 4)],
+        ));
+        assert_eq!(MapDraw::build(&app).features.len(), 1);
+        app.prefs.show_features = false;
+        assert!(MapDraw::build(&app).features.is_empty());
+        let g = geom(
+            Bounds::new(point(px(0.0), px(0.0)), gpui::size(px(800.0), px(800.0))),
+            true,
+        );
+        assert!(hit_test(&app, g, polar(g.center, g.r - 5.0, -HALF_PI + 0.2)).is_none());
     }
 }

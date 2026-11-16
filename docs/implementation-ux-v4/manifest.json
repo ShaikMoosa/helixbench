@@ -216,8 +216,8 @@
   },
   {
     "path": "feature-traceability.csv",
-    "bytes": 70826,
-    "sha256": "1839832464986b2d341cf6011077d889b828bcb21e9fb7b4a6e378ade803a05c"
+    "bytes": 72768,
+    "sha256": "ec290f6424a3518f533ae3bb4336b11744330dacff58d9e9f9d41b8aab6e8231"
   },
   {
     "path": "fixtures/annotated.gb",
@@ -296,8 +296,8 @@
   },
   {
     "path": "progress.md",
-    "bytes": 30935,
-    "sha256": "e50588b32cc1e7e7e22da2d6d35c7e131634a7fb367a14f7560061026c93d8f0"
+    "bytes": 34374,
+    "sha256": "78fd955f26e22627f0456ad4f1a5400231f3095e2f319475a58468f88915fa68"
   },
   {
     "path": "README.md",
@@ -391,8 +391,8 @@
   },
   {
     "path": "screens/map.md",
-    "bytes": 57135,
-    "sha256": "62686a03c3413286de64cdf5f6a488be5eb1d064da1815c7b47b41ffdefbf75f"
+    "bytes": 59208,
+    "sha256": "7d9b3975ddd63e888f00b1518605556e1cd9d3a9dfbae24e772e141ea3dd326c"
   },
   {
     "path": "screens/notebook.md",
@@ -416,8 +416,8 @@
   },
   {
     "path": "screens/sequence.md",
-    "bytes": 49156,
-    "sha256": "fa50d5b1ba4a8cd03082b943f16fbae192a88b147df0738c3280c1b913709068"
+    "bytes": 51321,
+    "sha256": "d4d5a11f658f0bf7f63f7c1eb34e46e47a2119a479e330a182789bbe2dc16ce0"
   },
   {
     "path": "screens/split.md",
@@ -431,7 +431,7 @@
   },
   {
     "path": "specification.json",
-    "bytes": 1227921,
-    "sha256": "ca49cb225b7b06dc6165b571e6d53abc419bb774e3e771172facd2f093807886"
+    "bytes": 1228567,
+    "sha256": "cd6227e6dc1bc5c85af1c9ce65bb9c4f4aedb8f12de7d86492a8cc80c5ee56c8"
   }
 ]

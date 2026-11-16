@@ -7,6 +7,7 @@ mod editor;
 mod find;
 mod icons;
 mod lab;
+mod selection_ui;
 mod shell;
 mod text_input;
 mod theme;

@@ -104,7 +104,7 @@ Native presentation entry points:
 
 ### F-035 · Select / navigate a range
 
-**Status:** Specified; not verified implemented.
+**Status:** P08A typed source/revision and top-strand coordinates with independent strand verified; native reverse drag and view switch checked.
 
 **Entry:** Range field (1 navigation click(s)).
 
@@ -191,7 +191,7 @@ Native presentation entry points:
 
 ### F-038 · Find DNA / protein / name
 
-**Status:** Specified; not verified implemented.
+**Status:** P08A visible Find entry and reverse-hit strand binding verified; existing DNA/protein/name algorithms retained.
 
 **Entry:** Find (1 navigation click(s)).
 
@@ -220,7 +220,7 @@ Native presentation entry points:
 
 ### F-039 · Next / previous search result
 
-**Status:** Specified; not verified implemented.
+**Status:** P08A hit navigation retains hit strand; existing next/previous controls retained.
 
 **Entry:** Next or Previous result (1 navigation click(s)).
 
@@ -394,7 +394,7 @@ Native presentation entry points:
 
 ### F-045 · ORFs / translation / complement / base colors
 
-**Status:** Specified; not verified implemented.
+**Status:** P08A labeled ORF/translation/complement/color display controls wired; scientific algorithms retained.
 
 **Entry:** Display → Named layer (2 navigation click(s)).
 
@@ -452,7 +452,7 @@ Native presentation entry points:
 
 ### F-047 · Zoom / fit / center / minimap
 
-**Status:** Specified; not verified implemented.
+**Status:** P08A short-sequence zoom bounds and circular minimap selection segments verified; existing center/minimap controls retained.
 
 **Entry:** Visible zoom controls (1 navigation click(s)).
 
@@ -566,3 +566,30 @@ Native presentation entry points:
 - Changing the genetic code changes computed translations without corrupting annotations.
 - Window resizing and large text do not move the caret to an unrelated coordinate.
 
+
+
+## P08A implementation evidence — 16 November 2026
+
+Shared selection feedback uses 1-based inclusive coordinates, explicit forward/reverse
+strand and an origin-crossing label. Domain ranges remain zero-based start plus length.
+Map/Sequence switches retain the source document, range and strand; navigation snapshots
+now capture strand instead of assigning Top. Invalid/stale range actions preserve state.
+
+Find in sequence, Annotation list, Show entire sequence and Zoom controls have direct
+visible entries. Clear selection clears dependent feature/primer inspector actions.
+Page tools exposes labeled display toggles, including missing-prerequisite explanations
+for analysis commands. Map annotations use readable ink text while scientific fills stay
+unchanged. Primer list selection explicitly chooses the first site; an exact map-site
+click selects that site's coordinates and strand. A primer without a site clears the
+previous DNA range instead of leaving an unrelated range selected.
+
+Verification:14 core P08A regressions and1 native renderer/hit-test regression;339 core
+tests in total passed. Native1600px sample checks covered reverse-complement-row drag,
+whitespace click, Sequence→Map range/strand retention and Features Off. The final P08A
+controls were not separately visually checked at1280px; P07 shell validation remains
+independent evidence. Dense scientific labels, full keyboard/screen-reader behavior and
+large-data performance are not comprehensively established by these checks.
+
+Copy retains its existing top-strand semantics; reverse complement remains explicit.
+Editing/import review, mutation impact previews and tool/result lifecycle are governed
+by their owning P03/P08B–P10 milestones. This evidence does not mark those complete.

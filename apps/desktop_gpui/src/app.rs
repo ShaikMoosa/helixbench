@@ -1732,6 +1732,13 @@ impl Render for HelixBench {
         let central = self.central_view(window, cx);
         let shell_layout = self.app.shell.layout(self.viewport.width.v());
         let gallery_header = crate::shell::page_header(self, cx);
+        let selection_bar = if matches!(self.app.view, View::Map | View::Sequence)
+            && !self.app.workspace_search.open
+        {
+            Some(crate::selection_ui::bar(self, cx))
+        } else {
+            None
+        };
         let inspector = if shell_layout.inspector != appcore::shell::InspectorPlacement::Hidden {
             Some(crate::shell::inspector(self, cx))
         } else {
@@ -1809,6 +1816,9 @@ impl Render for HelixBench {
         }
         if let Some(fb) = find_bar {
             workspace = workspace.child(fb);
+        }
+        if let Some(bar) = selection_bar {
+            workspace = workspace.child(bar);
         }
         let scientific = View::ALL.contains(&self.app.view) && !self.app.workspace_search.open;
         workspace = workspace
