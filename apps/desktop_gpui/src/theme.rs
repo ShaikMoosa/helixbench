@@ -1,7 +1,7 @@
 //! Visual language for the GPUI shell: a light, modern laboratory
 //! editor. White canvas and chrome, ink text, a single teal accent for
 //! selection, and pastel feature fills so annotations read softly on light.
-//! Spacing sits on a 4px grid; radii nest (8 outer / 6 inner / 4).
+//! Spacing sits on a 4px grid; v6 uses 12px cards and 8px action controls.
 
 use gpui::{hsla, point, px, BoxShadow, Font, Hsla};
 
@@ -65,7 +65,7 @@ pub const PANEL: Hsla = hex(0xffffff); // chrome bars / cards
 pub const SURFACE: Hsla = hex(0xf1f5f5); // fields / rows
 pub const SURFACE_2: Hsla = hex(0xdcf4e9); // hover / selected row
 pub const OVERLAY: Hsla = hex(0xffffff); // dialog surface
-pub const BORDER: Hsla = hex(0xe8e9e7);
+pub const BORDER: Hsla = hex(0xe6e4df);
 pub const BORDER_STRONG: Hsla = hex(0xc6cbc8);
 pub const TEXT: Hsla = hex(0x17191a);
 pub const MUTED: Hsla = hex(0x666b6e);
@@ -84,6 +84,7 @@ pub const TOPBAR_TEXT: Hsla = hex(0x17191a);
 pub const TOPBAR_MUTED: Hsla = hex(0x666b6e);
 
 // --- Single UI accent (instrument teal) ------------------------------------
+// Existing scientific/display geometry retains its original accent.
 pub const ACCENT: Hsla = hex(0x357d73);
 pub const SELECT: Hsla = hex(0x357d73);
 
@@ -116,8 +117,10 @@ pub const BASE_N: Hsla = hex(0x8b97a7);
 
 // --- Semantic tones ---------------------------------------------------------
 pub const OK: Hsla = hex(0x286d4e);
-pub const WARN: Hsla = hex(0x956116);
-pub const DANGER: Hsla = hex(0xb23636);
+pub const WARN: Hsla = hex(0x7a4f00);
+pub const DANGER: Hsla = hex(0xb42318);
+pub const WARN_SURFACE: Hsla = hex(0xfdf0d5);
+pub const NEUTRAL_STATUS: Hsla = hex(0xf1f0ec);
 pub const INFO: Hsla = hex(0x2f7fd6);
 
 // --- Alpha-based interaction fills (sit naturally on any surface) ----------
@@ -167,6 +170,11 @@ fn shadow(a: f32, y: f32, blur: f32, spread: f32) -> BoxShadow {
 /// Menus / dropdowns / popovers.
 pub fn shadow_menu() -> Vec<BoxShadow> {
     vec![shadow(0.05, 1.0, 3.0, 0.0), shadow(0.10, 8.0, 24.0, 0.0)]
+}
+
+/// Quiet v6 content-card elevation; transient surfaces retain stronger shadows.
+pub fn shadow_card() -> Vec<BoxShadow> {
+    vec![shadow(0.03, 1.0, 2.0, 0.0), shadow(0.05, 2.0, 8.0, 0.0)]
 }
 
 /// Second-level panels, search popups, toasts.
@@ -234,17 +242,19 @@ pub const T_MD: f32 = 14.0;
 pub const T_LG: f32 = 16.0;
 pub const T_XL: f32 = 20.0;
 
-// Approved UX v4 Soft Gallery roles (reference 1600×1080).
+// Adopted UX v6 Soft Gallery roles (reference 1600×1080).
 pub const MINT: Hsla = hex(0xdcf4e9);
-pub const ACCENT_TEXT: Hsla = hex(0x2e7168);
+pub const ACCENT_TEXT: Hsla = hex(0x2a6a60);
+pub const NAV_TEXT: Hsla = hex(0x2e3235);
+pub const NAV_GROUP_TEXT: Hsla = hex(0x5f6467);
 pub const NAV_WIDTH: f32 = 200.0;
 pub const INSPECTOR_WIDTH: f32 = 320.0;
 pub const PAGE_PAD: f32 = 32.0;
 pub const PANEL_PAD: f32 = 24.0;
-pub const CARD_RADIUS: f32 = 16.0;
-pub const ROW_RADIUS: f32 = 14.0;
+pub const CARD_RADIUS: f32 = 12.0;
+pub const ROW_RADIUS: f32 = 12.0;
 pub const T_SECTION: f32 = 19.0;
-pub const T_TITLE: f32 = 27.0;
+pub const T_TITLE: f32 = 28.0;
 static UI_FAMILY: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
 static MONO_FAMILY: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
 pub fn ui_family() -> &'static str {
@@ -280,5 +290,62 @@ pub fn load_fonts(cx: &gpui::App) -> Result<(), String> {
                 "DM Sans could not be loaded; using Segoe UI: {error}"
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod ux_v6_contrast_tests {
+    use super::*;
+
+    fn luminance(color: Hsla) -> f64 {
+        let color: gpui::Rgba = color.into();
+        let linear = |channel: f32| {
+            let channel = f64::from(channel);
+            if channel <= 0.04045 {
+                channel / 12.92
+            } else {
+                ((channel + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * linear(color.r) + 0.7152 * linear(color.g) + 0.0722 * linear(color.b)
+    }
+
+    fn ratio(a: Hsla, b: Hsla) -> f64 {
+        let a = luminance(a);
+        let b = luminance(b);
+        (a.max(b) + 0.05) / (a.min(b) + 0.05)
+    }
+
+    #[test]
+    fn accent_text_is_readable_on_canvas_white_and_selected_mint() {
+        for background in [BG, PANEL, MINT] {
+            let actual = ratio(ACCENT_TEXT, background);
+            assert!(actual >= 4.5, "Accent text contrast is {actual:.3}:1");
+        }
+    }
+
+    #[test]
+    fn readable_text_does_not_recolor_existing_display_geometry() {
+        assert_ne!(
+            ACCENT, ACCENT_TEXT,
+            "Text and display roles must be independent"
+        );
+        assert_eq!(ACCENT, SELECT, "Keep the established display accent");
+    }
+
+    #[test]
+    fn semantic_text_and_action_labels_meet_normal_text_contrast() {
+        for foreground in [TEXT, MUTED, FAINT, WARN, DANGER] {
+            for background in [BG, PANEL] {
+                assert!(ratio(foreground, background) >= 4.5);
+            }
+        }
+        assert!(ratio(PANEL, DANGER) >= 4.5);
+        assert!(ratio(PANEL, TEXT) >= 4.5);
+        assert!(ratio(WARN, WARN_SURFACE) >= 4.5);
+        assert!(ratio(MUTED, NEUTRAL_STATUS) >= 4.5);
+        assert!(ratio(NAV_TEXT, PANEL) >= 4.5);
+        assert!(ratio(NAV_GROUP_TEXT, PANEL) >= 4.5);
+        assert!(ratio(SELECT, MINT) >= 3.0);
     }
 }

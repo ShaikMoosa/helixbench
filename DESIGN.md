@@ -1,6 +1,12 @@
 # HelixBench — Soft Gallery design contract
 
-UX v4 is the visual authority. Preserve live scientific data, base/feature colors,
+UX v6 is the target visual authority, adopted by the user on 17 November 2026.
+Figma page `199:1316`, Map `199:2197`, supersedes v4 presentation in migrated slices.
+See `docs/implementation-ux-v6/README.md` for delivery order and boundaries.
+Unmigrated layouts remain v4 until their own route/viewer milestone; do not claim
+the shared foundation update completes the entire redesign.
+
+Preserve live scientific data, base/feature colors,
 coordinates, topology and established algorithm behavior when applying this shell.
 Reference Figma file: U1kWw1K5NZBgEYkuxMz3Qb; Home 107:29237, Map 107:29429,
 context inspector 107:29634, empty Home 107:37024.
@@ -8,15 +14,17 @@ context inspector 107:29634, empty Home 107:37024.
 ## Foundations
 
 Use central roles in `apps/desktop_gpui/src/theme.rs`: warm canvas #F7F6F3,
-white panels, ink #17191A, muted #666B6E, borders #E8E9E7, mint #DCF4E9,
-teal #357D73. Secondary text #6D7274 and selected navigation text #2E7168
-are darker than the design exports for readable contrast. Semantic feedback
+white panels, ink #17191A, muted #666B6E, borders #E6E4DF, mint #DCF4E9,
+display teal #357D73 and readable accent text #2A6A60. Navigation rests at #2E3235;
+warning text is #7A4F00 and error/danger text #B42318. Secondary text remains #6D7274.
+Keep display accents separate from text roles. Semantic feedback
 colors remain distinct; scientific A/T/C/G colors retain their existing meanings.
 
 DM Sans is embedded with its OFL license. Registration failure surfaces an error
 and uses Segoe UI. Scientific text uses installed Cascadia Mono, falling back to
 Consolas. UI roles are 13/19 body, 15/21 description, 19/27 section, 24/34 task
-card, 27/38 page heading. Use medium weight and whitespace for hierarchy.
+card, 28/40 page heading. Group section headings and descriptions with a 4px gap;
+page title/subtitle gap is 6px. Use medium weight and whitespace for hierarchy.
 
 ## Layout
 
@@ -27,9 +35,10 @@ manual Close remains closed across resizing. Header actions reserve 360px.
 Sequence view tabs and document tabs are independently accessible. All modules
 retains specialist destinations; the native application menu retains existing tools.
 
-Buttons are 36px high, radius18, horizontal padding16; primary actions use ink
-with white text. Cards use radius16; rows radius14. Resting surfaces use subtle
-borders/spacing. Reserve elevation for transient menus, dialogs and drawers.
+Buttons are 40px high, radius8, horizontal padding16; primary actions use ink
+with white text. Cards/rows use radius12, a #E6E4DF border and subtle two-layer
+elevation. Popovers, dialogs and drawers use stronger elevation. Navigation rows
+are 40px high, with an 8px radius and a persistent 3px selected accent.
 Scrollable inspector content must retain natural control heights and wrap within
 272px; do not shrink buttons to fit the viewport.
 

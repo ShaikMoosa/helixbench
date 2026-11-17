@@ -653,7 +653,7 @@ fn paint(d: &SeqDraw, scroll: f32, bounds: Bounds<Pixels>, window: &mut Window, 
                         pt(lx, ly + 6.0),
                         name,
                         10.5,
-                        theme::ACCENT.opacity(0.9),
+                        theme::ACCENT_TEXT.opacity(0.9),
                         prop.clone(),
                         Align::Left,
                     );

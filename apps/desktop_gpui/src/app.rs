@@ -1330,7 +1330,7 @@ impl HelixBench {
                 .child(
                     div()
                         .text_size(px(theme::T_XS))
-                        .text_color(theme::ACCENT)
+                        .text_color(theme::ACCENT_TEXT)
                         .px(px(7.0))
                         .py(px(2.0))
                         .rounded(px(4.0))
@@ -1379,7 +1379,7 @@ impl HelixBench {
             "No selection".into()
         };
         let sel_color = if app.selection.is_some() {
-            theme::ACCENT
+            theme::ACCENT_TEXT
         } else {
             theme::FAINT
         };

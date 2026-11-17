@@ -588,7 +588,7 @@ fn bottom_cards(this: &mut HelixBench, _cx: &mut Context<HelixBench>) -> AnyElem
             .child(
                 div()
                     .text_size(px(theme::T_SM))
-                    .text_color(theme::ACCENT)
+                    .text_color(theme::ACCENT_TEXT)
                     .child(f.name.clone()),
             )
             .child(

@@ -37,7 +37,12 @@ pub fn navigation(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElem
         .flex()
         .flex_col()
         .gap(px(7.0));
-    body = body.child(widgets::label("Workspace", theme::T_SM, theme::MUTED));
+    body = body.child(
+        widgets::label("WORKSPACE", theme::T_XS, theme::NAV_GROUP_TEXT)
+            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .mt(px(16.0))
+            .mb(px(6.0)),
+    );
     let primary = [
         View::Home,
         View::Notebook,
@@ -174,13 +179,19 @@ fn nav_item(
     div()
         .id(SharedString::from(format!("gallery-nav-{view:?}")))
         .w_full()
-        .h(px(36.0))
+        .h(px(40.0))
         .flex_shrink_0()
         .px(px(8.0))
-        .rounded(px(12.0))
+        .rounded(px(8.0))
+        .border_l(px(3.0))
+        .border_color(if active {
+            theme::SELECT
+        } else {
+            theme::transparent()
+        })
         .flex()
         .items_center()
-        .gap(px(8.0))
+        .gap(px(10.0))
         .bg(if active {
             theme::MINT
         } else {
@@ -189,7 +200,7 @@ fn nav_item(
         .text_color(if active {
             theme::ACCENT_TEXT
         } else {
-            theme::TEXT
+            theme::NAV_TEXT
         })
         .child(icons::gallery_view(
             view,
@@ -205,7 +216,7 @@ fn nav_item(
             if active {
                 theme::ACCENT_TEXT
             } else {
-                theme::TEXT
+                theme::NAV_TEXT
             },
         ))
         .cursor_pointer()
@@ -285,10 +296,10 @@ pub fn page_header(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
                 .min_w(px(layout.title_min_width))
                 .flex()
                 .flex_col()
-                .gap(px(3.0))
+                .gap(px(6.0))
                 .child(
                     label(title, theme::T_TITLE)
-                        .line_height(px(38.0))
+                        .line_height(px(40.0))
                         .font_weight(gpui::FontWeight::MEDIUM),
                 )
                 .child(widgets::label(subtitle, theme::T_BASE, theme::MUTED)),
@@ -625,15 +636,14 @@ fn context_properties(
         body = body
             .child(property("Document", app.app.doc.id.to_string()))
             .child(property("Revision", app.app.doc.revision_id.to_string()))
-            .child(property(
-                "Status",
-                if app.app.dirty {
-                    "Unsaved changes"
-                } else {
-                    "No unsaved changes"
-                }
-                .into(),
-            ));
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(4.0))
+                    .child(widgets::label("Status", theme::T_SM, theme::MUTED))
+                    .child(widgets::document_status(app.app.dirty)),
+            );
         if let Some(provenance) = &app.app.doc.pcr_source {
             let parent = provenance.parent;
             body=body.child(property("Derived by","PCR · independent product".into()))

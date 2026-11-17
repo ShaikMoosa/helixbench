@@ -38,7 +38,7 @@ fn mode_btn(id: impl Into<ElementId>, label: &str, active: bool) -> Stateful<Div
         d.bg(theme::SURFACE_2)
             .border_1()
             .border_color(theme::ACCENT.opacity(0.7))
-            .text_color(theme::ACCENT)
+            .text_color(theme::ACCENT_TEXT)
     } else {
         d.text_color(theme::MUTED)
             .hover(|s| s.bg(theme::SURFACE).text_color(theme::TEXT))
@@ -197,7 +197,7 @@ fn status_label(app: &appcore::state::AppState, n: usize) -> Div {
             .font_family(theme::mono_family())
             .font_weight(gpui::FontWeight::SEMIBOLD)
             .text_size(px(theme::T_SM))
-            .text_color(theme::ACCENT)
+            .text_color(theme::ACCENT_TEXT)
             .child(format!("{} of {}", app.search.current + 1, n)),
     );
     if let Some((start, len, strand)) = current_hit_locus(app) {

@@ -150,7 +150,7 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
                 .child(if ne + nt > 0 {
                     div()
                         .text_size(px(9.0))
-                        .text_color(theme::ACCENT)
+                        .text_color(theme::ACCENT_TEXT)
                         .child(format!("{}", ne + nt))
                 } else {
                     div()
@@ -255,7 +255,7 @@ pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEle
                         .text_color(theme::TEXT)
                         .child(app.app.doc.name.clone()),
                 )
-                .child(widgets::label("current", theme::T_XS, theme::ACCENT))
+                .child(widgets::label("current", theme::T_XS, theme::ACCENT_TEXT))
                 .child(
                     widgets::button("home-resume-current", "Resume", Btn::Outline).on_click(
                         cx.listener(move |t, _, _, cx| resume_work(t, active_target.clone(), cx)),
@@ -1368,7 +1368,11 @@ pub fn render_biologics(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> A
                                 )),
                         ),
                 )
-                .child(widgets::label(b.format.label(), theme::T_XS, theme::ACCENT))
+                .child(widgets::label(
+                    b.format.label(),
+                    theme::T_XS,
+                    theme::ACCENT_TEXT,
+                ))
                 .child(
                     widgets::button(
                         SharedString::from(format!("bio-sel-{id}")),
@@ -1598,7 +1602,7 @@ pub fn render_rna(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElem
                 div()
                     .font_family(theme::mono_family())
                     .text_size(px(theme::T_XS))
-                    .text_color(theme::ACCENT)
+                    .text_color(theme::ACCENT_TEXT)
                     .child(o.to_helm()),
             );
             if !o.mods.is_empty() {
@@ -1652,7 +1656,7 @@ pub fn render_rna(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElem
                         .w(px(50.0))
                         .font_family(theme::mono_family())
                         .text_size(px(theme::T_XS))
-                        .text_color(theme::ACCENT)
+                        .text_color(theme::ACCENT_TEXT)
                         .child(m.code.clone()),
                 )
                 .child(
@@ -2026,7 +2030,7 @@ pub fn render_chemistry(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> A
                                 .child(c.smiles.clone()),
                         ),
                 )
-                .child(widgets::label(&c.formula, theme::T_XS, theme::ACCENT))
+                .child(widgets::label(&c.formula, theme::T_XS, theme::ACCENT_TEXT))
                 .child(widgets::label(
                     &format!("{:.2} g/mol", c.mw),
                     theme::T_XS,
@@ -2426,7 +2430,7 @@ pub fn render_bioprocess(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> 
                 body = body.child(widgets::label(
                     &format!("Mean titer {:.1} mg/L", run.mean_titer()),
                     theme::T_SM,
-                    theme::ACCENT,
+                    theme::ACCENT_TEXT,
                 ));
             }
         }

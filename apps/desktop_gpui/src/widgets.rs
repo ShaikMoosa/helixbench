@@ -29,9 +29,10 @@ fn button_base(id: impl Into<ElementId>, variant: Btn) -> Stateful<Div> {
         .flex()
         .items_center()
         .justify_center()
-        .h(px(36.0))
+        .h(px(40.0))
+        .flex_shrink_0()
         .px(px(16.0))
-        .rounded(px(18.0))
+        .rounded(px(8.0))
         .text_size(px(theme::T_BASE))
         .cursor_pointer()
         .active(|s| s.bg(theme::FILL_PRESSED));
@@ -74,7 +75,7 @@ pub fn icon_button(
     variant: Btn,
 ) -> Stateful<Div> {
     button_base(id, variant)
-        .gap(px(7.0))
+        .gap(px(8.0))
         .child(icons::icon(icon, 14.0, variant_text(variant)))
         .child(label.to_owned())
 }
@@ -136,7 +137,7 @@ pub fn menu_check(id: impl Into<ElementId>, label: &str, checked: bool) -> State
         .child(
             div()
                 .w(px(14.0))
-                .text_color(theme::ACCENT)
+                .text_color(theme::ACCENT_TEXT)
                 .child(if checked { "✓" } else { "" }.to_owned()),
         )
         .child(label.to_owned())
@@ -168,11 +169,11 @@ pub fn page_header(title: &str, subtitle: &str) -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(px(10.0))
+        .gap(px(6.0))
         .child(
             div()
-                .text_size(px(24.0))
-                .line_height(px(34.0))
+                .text_size(px(theme::T_TITLE))
+                .line_height(px(40.0))
                 .font_weight(gpui::FontWeight::MEDIUM)
                 .text_color(theme::TEXT)
                 .child(title.to_owned()),
@@ -186,7 +187,7 @@ pub fn page_header(title: &str, subtitle: &str) -> Div {
         )
 }
 
-/// A list row card: consistent 8px gap / 10px padding, 8px radius, hairline
+/// A list row card: consistent 8px gap / 10px padding, 12px radius, hairline
 /// border plus a subtle elevation so rows read as discrete objects.
 pub fn row_card() -> Div {
     div()
@@ -199,6 +200,30 @@ pub fn row_card() -> Div {
         .bg(theme::PANEL)
         .border_1()
         .border_color(theme::BORDER)
+        .shadow(theme::shadow_card())
+}
+
+/// Edit status is deliberately not a persistence receipt: a clean imported
+/// document need not have a local saved path.
+pub fn document_status(dirty: bool) -> Div {
+    let (label, foreground, background) = if dirty {
+        ("Unsaved changes", theme::WARN, theme::WARN_SURFACE)
+    } else {
+        ("No unsaved changes", theme::MUTED, theme::NEUTRAL_STATUS)
+    };
+    div()
+        .flex()
+        .items_center()
+        .gap(px(6.0))
+        .px(px(8.0))
+        .py(px(4.0))
+        .rounded(px(14.0))
+        .bg(background)
+        .text_color(foreground)
+        .text_size(px(theme::T_SM))
+        .font_weight(gpui::FontWeight::MEDIUM)
+        .child(div().size(px(6.0)).rounded_full().bg(foreground))
+        .child(label)
 }
 
 /// A section heading within a page body.
