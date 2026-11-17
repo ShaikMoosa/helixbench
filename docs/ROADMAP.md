@@ -1,5 +1,23 @@
 # HelixBench — Detailed Product Roadmap
 
+## Active delivery priority — UX v6 (17 November 2026)
+
+The user adopted [Soft Gallery UX v6](https://www.figma.com/design/U1kWw1K5NZBgEYkuxMz3Qb/helixbench?node-id=199-1316)
+and requested implementation. The historical release coverage below does not imply the new UX
+is implemented. P00–P09 preservation work is on main `d80460d`; P10A–P20 remain in scope.
+
+Implement V6-01 shared foundations first, V6-02 object-centered routes/navigation next,
+then V6-03 real scientific viewer controls and V6-04 import/digest/PCR workspaces.
+V6-05 carries the remaining P10A–P18 functionality through the new patterns; V6-06 combines
+P19/P20 acceptance, researcher validation and release evidence. P10A resumes after V6-02.
+
+See [the v6 adoption specification](implementation-ux-v6/README.md),
+[first implementation plan](superpowers/plans/2026-11-17-helixbench-ux-v6-foundations.md)
+and [live progress](implementation-ux-v6/progress.md). Preserve existing scientific capabilities;
+do not replace their engines with Figma sample values or infer cloud capabilities from the design.
+
+---
+
 **Grounded in:** `reference-features-ui-research.docx` + `reference-research/screens/`
 (15 capability areas, 82 screen groups, 178 public UI assets, 84 sources; research date 14 Nov 2026).
 **Baseline:** HelixBench v0.6.0 (local-first, pure-Rust, offline, single-user Windows DNA workbench).

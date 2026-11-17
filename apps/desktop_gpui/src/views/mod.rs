@@ -159,7 +159,11 @@ pub fn sort_header(
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .cursor_pointer()
         .overflow_hidden()
-        .text_color(if active { theme::ACCENT } else { theme::MUTED })
+        .text_color(if active {
+            theme::ACCENT_TEXT
+        } else {
+            theme::MUTED
+        })
         .hover(|s| s.text_color(theme::TEXT))
         .child(fitted)
 }
@@ -188,7 +192,7 @@ pub fn check_box(id: impl Into<ElementId>, checked: bool) -> Stateful<Div> {
         } else {
             theme::transparent()
         })
-        .text_color(theme::ACCENT)
+        .text_color(theme::ACCENT_TEXT)
         .hover(|s| s.border_color(theme::ACCENT.opacity(0.7)))
         .child(if checked { "✓" } else { "" }.to_owned())
 }

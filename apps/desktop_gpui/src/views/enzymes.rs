@@ -304,7 +304,7 @@ impl HelixBench {
             row3 = row3.child(widgets::label(
                 &format!("cuts in {}..{}", r.start + 1, r.start + r.len),
                 theme::T_XS,
-                theme::ACCENT,
+                theme::ACCENT_TEXT,
             ));
         }
 
@@ -564,7 +564,7 @@ impl HelixBench {
                         }
                         if !hid.contains(&2) {
                             cells.push(
-                                cell(window, &r.site, 140.0, theme::ACCENT, true)
+                                cell(window, &r.site, 140.0, theme::ACCENT_TEXT, true)
                                     .into_any_element(),
                             );
                         }

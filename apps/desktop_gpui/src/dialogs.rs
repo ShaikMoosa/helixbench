@@ -463,7 +463,7 @@ fn section_heading(text: &str) -> Div {
         .mb(px(6.0))
         .text_size(px(theme::T_XS))
         .font_weight(FontWeight::SEMIBOLD)
-        .text_color(theme::ACCENT)
+        .text_color(theme::ACCENT_TEXT)
         .child(text.to_owned())
 }
 
@@ -1670,7 +1670,7 @@ fn genetic_codes(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
                 .font_family(mono)
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_size(px(theme::T_SM))
-                .text_color(theme::ACCENT)
+                .text_color(theme::ACCENT_TEXT)
                 .child((b2 as char).to_string()),
         );
     }
@@ -1682,7 +1682,7 @@ fn genetic_codes(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
                 .font_family(mono)
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_size(px(theme::T_SM))
-                .text_color(theme::ACCENT)
+                .text_color(theme::ACCENT_TEXT)
                 .child((b1 as char).to_string()),
         );
         for (j, &b2) in bases.iter().enumerate() {
@@ -1830,7 +1830,7 @@ fn letter_row(code: &str, meaning: &str) -> Div {
                 .font_family(theme::mono_family())
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_size(px(theme::T_SM))
-                .text_color(theme::ACCENT)
+                .text_color(theme::ACCENT_TEXT)
                 .child(code.to_owned()),
         )
         .child(
@@ -1910,7 +1910,7 @@ fn tip(q: &str, desc: &str) -> Div {
                 .font_family(theme::mono_family())
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_size(px(theme::T_SM))
-                .text_color(theme::ACCENT)
+                .text_color(theme::ACCENT_TEXT)
                 .child(q.to_owned()),
         )
         .child(
@@ -1951,7 +1951,7 @@ fn about(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> A
                     div()
                         .text_size(px(theme::T_XL))
                         .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(theme::ACCENT)
+                        .text_color(theme::ACCENT_TEXT)
                         .child("HelixBench"),
                 )
                 .child(widgets::label(
@@ -1993,7 +1993,7 @@ fn about(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> A
                         .w(px(220.0))
                         .font_family(theme::mono_family())
                         .text_size(px(11.5))
-                        .text_color(theme::ACCENT)
+                        .text_color(theme::ACCENT_TEXT)
                         .child(k),
                 )
                 .child(div().text_size(px(11.5)).text_color(theme::MUTED).child(v)),
@@ -2428,7 +2428,7 @@ fn combo_row(id: impl Into<gpui::ElementId>, label: &str, checked: bool) -> Stat
         .child(
             div()
                 .w(px(12.0))
-                .text_color(theme::ACCENT)
+                .text_color(theme::ACCENT_TEXT)
                 .child(if checked { "✓" } else { "" }.to_owned()),
         )
         .child(div().truncate().child(label.to_owned()))
@@ -3585,14 +3585,14 @@ fn alignment(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) 
                         div()
                             .w(px(90.0))
                             .text_size(px(theme::T_XS))
-                            .text_color(theme::ACCENT)
+                            .text_color(theme::ACCENT_TEXT)
                             .child("Consensus"),
                     )
                     .child(
                         div()
                             .text_size(px(theme::T_XS))
                             .font_family(theme::mono_family())
-                            .text_color(theme::ACCENT)
+                            .text_color(theme::ACCENT_TEXT)
                             .child(cseg),
                     ),
             );
@@ -3982,7 +3982,7 @@ fn crispr(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> 
                 .child(widgets::label(
                     &format!("{:.2}", g.score),
                     theme::T_XS,
-                    theme::ACCENT,
+                    theme::ACCENT_TEXT,
                 ))
                 .child(widgets::label(
                     &format!("off:{}", g.off_targets),
@@ -4033,7 +4033,7 @@ fn crispr(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> 
                     .child(widgets::label(
                         &format!("CFD {:.2}", o.cfd),
                         theme::T_XS,
-                        theme::ACCENT,
+                        theme::ACCENT_TEXT,
                     )),
             );
         }
@@ -4329,7 +4329,7 @@ fn blast(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixels) -> A
                 .child(widgets::label(
                     &format!("{}", h.score),
                     theme::T_XS,
-                    theme::ACCENT,
+                    theme::ACCENT_TEXT,
                 ))
                 .child(widgets::label(
                     &format!("{:.0}%", h.identity),

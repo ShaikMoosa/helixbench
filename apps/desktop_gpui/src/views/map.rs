@@ -768,7 +768,7 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
                 sel.len
             ),
             theme::T_SM,
-            theme::ACCENT,
+            theme::ACCENT_TEXT,
             theme::ui_font(),
             Align::Center,
         );

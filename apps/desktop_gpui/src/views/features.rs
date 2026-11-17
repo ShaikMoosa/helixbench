@@ -408,7 +408,8 @@ impl HelixBench {
                         }
                         if !hid.contains(&3) {
                             cells.push(
-                                cell(window, r.dir, 44.0, theme::ACCENT, false).into_any_element(),
+                                cell(window, r.dir, 44.0, theme::ACCENT_TEXT, false)
+                                    .into_any_element(),
                             );
                         }
                         if !hid.contains(&4) {
