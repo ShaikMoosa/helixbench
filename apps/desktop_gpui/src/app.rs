@@ -1094,15 +1094,7 @@ impl HelixBench {
         cx.notify();
     }
     pub(crate) fn set_view(&mut self, v: View, cx: &mut Context<Self>) {
-        let route = appcore::navigation::Route {
-            view: v,
-            document: self.app.doc.id,
-            record: None,
-        };
-        if let Err(error) = appcore::navigation::request_navigation(
-            &mut self.app,
-            appcore::navigation::NavigationIntent::Navigate(route),
-        ) {
+        if let Err(error) = appcore::workspace::enter(&mut self.app, v) {
             self.app.toast(error);
         }
         self.menu = None;
@@ -1363,6 +1355,27 @@ impl HelixBench {
 
     fn status_bar(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let app = &self.app;
+        if !View::ALL.contains(&app.view) && app.view != View::Split {
+            return div()
+                .h(px(28.0))
+                .flex_shrink_0()
+                .px(px(16.0))
+                .flex()
+                .items_center()
+                .justify_between()
+                .bg(theme::PANEL)
+                .child(widgets::label(
+                    if appcore::first_use::is_sample(app) {
+                        "Temporary sample workspace"
+                    } else {
+                        "Local workspace"
+                    },
+                    theme::T_XS,
+                    theme::MUTED,
+                ))
+                .child(widgets::label(app.view.label(), theme::T_XS, theme::MUTED))
+                .into_any_element();
+        }
         let l = app.doc.sequence.len();
         let gc = gc_percent(&app.doc.sequence.bases);
         let sel_text = if let Some(sel) = app.selection {
@@ -1394,7 +1407,7 @@ impl HelixBench {
         } else if app.path.is_some() {
             ("✓ Saved", theme::OK)
         } else {
-            ("Demo", theme::FAINT)
+            ("Not saved locally", theme::FAINT)
         };
         let mut bar = div()
             .flex()
@@ -1630,6 +1643,9 @@ impl HelixBench {
             View::Enzymes => self.render_enzymes(window, cx),
             View::History => self.render_history(window, cx),
             View::Home => crate::lab::render_home(self, cx),
+            View::Sequences => crate::views::sequences::render(self, cx),
+            View::Results => crate::views::results::render(self, cx),
+            View::Activity => crate::views::activity::render(self, cx),
             View::Notebook => crate::lab::render_notebook(self, cx),
             View::Registry => crate::lab::render_registry(self, cx),
             View::Inventory => crate::lab::render_inventory(self, cx),
@@ -1740,7 +1756,10 @@ impl Render for HelixBench {
         self.update_title(window);
 
         let central = self.central_view(window, cx);
-        let shell_layout = self.app.shell.layout(self.viewport.width.v());
+        let shell_layout = self
+            .app
+            .shell
+            .layout_for(self.app.view, self.viewport.width.v());
         let gallery_header = crate::shell::page_header(self, cx);
         let selection_bar = if matches!(self.app.view, View::Map | View::Sequence)
             && !self.app.workspace_search.open
@@ -1810,6 +1829,7 @@ impl Render for HelixBench {
             .flex_col()
             .overflow_hidden()
             .child(self.menu_bar(cx))
+            .child(crate::shell::workspace_context(self, cx))
             .child(gallery_header);
         if View::ALL.contains(&self.app.view) && !self.app.workspace_search.open {
             workspace = workspace.child(self.tab_bar(cx));

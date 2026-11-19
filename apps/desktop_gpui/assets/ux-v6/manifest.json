@@ -1,0 +1,98 @@
+[
+  {
+    "name": "activity.svg",
+    "width": "15",
+    "height": "15",
+    "sha256": "C993FD339957307A47CDE3D6BAB846EA998EDA117EFDF19FD1B5CDEEAB6E3C53"
+  },
+  {
+    "name": "automation.svg",
+    "width": "18",
+    "height": "18",
+    "sha256": "677E04D68CE43546DF5EBE44157DE0D2F225424EAA3C67AA191AE5D110078F02"
+  },
+  {
+    "name": "expand.svg",
+    "width": "10.5",
+    "height": "6",
+    "sha256": "81C93D29BAAC96B00616080C9EBA2A51B8039A8DCAAB1CF26ACEAD113A70BF79"
+  },
+  {
+    "name": "experiments.svg",
+    "width": "18",
+    "height": "18",
+    "sha256": "5DD4324E35A1D610927B5E67535AC1F07531BE8191E7A843BFB7670437CA78AA"
+  },
+  {
+    "name": "home.svg",
+    "width": "24",
+    "height": "24",
+    "sha256": "6551C8B64D1558798582ED938ECF755D4D1BE19340A062179FE4E2237A52A746"
+  },
+  {
+    "name": "insights.svg",
+    "width": "18",
+    "height": "18",
+    "sha256": "E89039BDEBB95AC2E8FA4E31B1077F10A253CA89BAD1BE754CE80DA09C3EB81E"
+  },
+  {
+    "name": "inventory.svg",
+    "width": "18",
+    "height": "18",
+    "sha256": "0BEB1DBED7720B06B4C9029312DCD7C62699EFEDC3D92C84931E3BAA7EF89052"
+  },
+  {
+    "name": "logo.svg",
+    "width": "30",
+    "height": "30",
+    "sha256": "28C638CE0BDD471D4FFC320FAA5610EA3F25985F220B77BB6C087DE3B566345A"
+  },
+  {
+    "name": "play.svg",
+    "width": "16",
+    "height": "16",
+    "sha256": "3B729A8EB3C29303617C1508970610143099934FA566A531CF0920893784FB8C"
+  },
+  {
+    "name": "registry.svg",
+    "width": "18",
+    "height": "18",
+    "sha256": "02428D427BD520610CF650AF8B07E9B46FAEE36DE593446B57A96517B468BAC4"
+  },
+  {
+    "name": "results.svg",
+    "width": "18",
+    "height": "18",
+    "sha256": "DE619210B36A60FE8B4836622BCCBBD1C41C48F91E507CDC5ACFBE1DC45C3FCD"
+  },
+  {
+    "name": "save.svg",
+    "width": "16",
+    "height": "16",
+    "sha256": "48242B44398B7152B137001CA624FD592A3A8684796917237F20F009543ED501"
+  },
+  {
+    "name": "sequences.svg",
+    "width": "18",
+    "height": "18",
+    "sha256": "9029BDE8D1E7E4289F71EB2526DE00F8B720C3CC10FB38D776EAA720CBBFAA43"
+  },
+  {
+    "name": "settings.svg",
+    "width": "15",
+    "height": "14.325",
+    "sha256": "A4D26002FDE04952DC60625FC0EE45B8C7F2146357FB42D8CFB532537330EA52"
+  },
+  {
+    "name": "upload.svg",
+    "width": "16",
+    "height": "16",
+    "sha256": "6CCB73F337177286AA3D7105D649CAFA51AC9791BE9F45F295DADA58C7440757"
+  },
+  {
+    "name": "workflows.svg",
+    "width": "18",
+    "height": "18",
+    "sha256": "332176D3525EA352A975D2143D24D73AFDF39F66605F91369A5938C283DF4F29"
+  }
+]

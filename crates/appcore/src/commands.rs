@@ -177,7 +177,7 @@ const TOOLS: &[CommandDescriptor] = &[
     },
     CommandDescriptor {
         id: CommandId::NewEntry,
-        label: "New notebook entry",
+        label: "New experiment entry",
         owner: View::Notebook,
         keywords: "experiment notes",
     },
@@ -250,6 +250,7 @@ pub fn execute(app: &mut AppState, id: CommandId) -> Result<(), String> {
     }
     crate::workspace_search::depart(app);
     match id {
+        CommandId::Navigate(View::Results) => crate::results::browse(app)?,
         CommandId::Navigate(view) => {
             navigation::request_navigation(
                 app,

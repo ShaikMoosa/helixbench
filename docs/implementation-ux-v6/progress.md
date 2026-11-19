@@ -41,3 +41,52 @@ appcore routes and storage schemas are unchanged. The review fix has a green ful
 No full native v6 migration, usability study, remote CI result or release is claimed here.
 Next: V6-02 first-class Sequences/Results/Experiments navigation and exact v6 icon adoption,
 followed by V6-03 real viewer controls. Preserve all remaining P10A–P20 functionality.
+
+## V6-02 — Object-centered navigation (20 November 2026)
+
+Implemented on `codex/ux-v6-navigation`, based on main `c2006eb`. The shell now uses
+224px grouped navigation, persistent workspace breadcrumbs/search, exact local v6 SVGs,
+and first-class Sequences, Results, Experiments and Activity destinations. Scientific views
+use underline tabs, including while Split layout is active. Header actions belong to the
+current object: sequence import/create/save/analysis and experiment entry creation.
+
+Sequences lists **open documents**, not a recursively scanned file repository. Rows open by
+DocumentId, preserving edits, selection and undo state; pathless documents cannot claim a
+successful local save. Search matches name/path, with clear/reset and empty states. Import
+continues through the existing native file picker and input review.
+
+Results is a dedicated route rather than an alternate Home renderer. Saved rows expose
+actual method, captured source revision, short run ID, UTC date/time and source availability.
+Opening sources and Back retain exact ResultId and captured inputs. Completed unsaved runs
+remain reachable through **Unsaved in this session → Resume output**, even after visiting
+Home and the catalog. The section explicitly states that session outputs do not survive an
+app restart. Saved runs are excluded from that section. No new persistence schema is added.
+
+Catalogs hide the unrelated object inspector and its Page tools trigger. Activity reports
+actual local recovery items/errors; it does not imply cloud jobs or background scheduling.
+Settings continues to open the existing options form. Advanced viewer controls, complete
+analysis workspaces, module forms and all P10A–P20 capabilities retain their owning milestones.
+
+Verification:
+
+- Format, all-target/all-feature Clippy with `-D warnings`, full workspace/all-feature tests
+  and all-target/all-feature build pass offline with isolated test APPDATA/TEMP.
+- **427 tests passed**, including 14 navigation regressions. Coverage includes real digest
+  outputs, source return, duplicate names, stale IDs, search, unfinished forms, scoped entry
+  creation, repeated navigation and resuming/saving a previously hidden completed run.
+- Independent whole-branch review and fix review report no remaining actionable findings.
+  Review identified the inactive catalog Page tools control and stranded session output;
+  both are fixed, with a failing-then-passing regression for session resume.
+- All 16 imported SVG checksums match their manifest; source integrity and diff checks pass.
+- Native 1600px observation covered Home, sample Map, sequence catalog, Results empty state,
+  and Experiments creation before the final review fixes. The rebuilt 1280px check and native
+  Resume output confirmation remain pending: Windows window discovery timed out twice and
+  again after its runtime reset. Automated width/layout tests pass; these do not replace
+  visual inspection. Keep the PR draft until those two checks are completed.
+
+Environment recovery: two uncommitted result source files resumed as zero-filled files.
+They were reconstructed from the committed baseline and saved implementation scripts;
+all other edits were preserved. The final tree passed the checks above with incremental
+compilation disabled after Rust reported damaged incremental cache metadata.
+
+Next implementation increment: V6-03 real scientific viewer controls; P10A–P20 remain in scope.

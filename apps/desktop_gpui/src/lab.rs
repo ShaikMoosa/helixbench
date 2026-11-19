@@ -31,12 +31,6 @@ fn scroll(id: &str) -> gpui::Stateful<gpui::Div> {
 }
 
 pub fn render_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
-    if app.app.first_use.selected_result.is_some()
-        || app.app.results.pending.is_some()
-        || app.app.results.list
-    {
-        return crate::views::results::render(app, cx);
-    }
     let mut p = page("Home", "Your local workspace at a glance");
     let mut body = scroll("home-scroll").child(first_use_home(app, cx));
     body = body.child(widgets::label(
@@ -2514,15 +2508,14 @@ fn first_use_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> gpui::D
                 theme::T_BASE,
                 theme::MUTED,
             ));
-    }
-    body=body.child(div().flex().flex_col().gap(px(18.0)).p(px(28.0)).rounded(px(theme::CARD_RADIUS)).bg(theme::PANEL)
+        body=body.child(div().flex().flex_col().gap(px(18.0)).p(px(28.0)).rounded(px(theme::CARD_RADIUS)).bg(theme::PANEL)
         .child(widgets::page_header("Import a sequence","Open GenBank, FASTA or a HelixBench document. Review the recognized sequence before opening it."))
         .child(div().flex().flex_wrap().gap(px(10.0))
             .child(widgets::button("home-import","Import sequence",Btn::Primary).on_click(cx.listener(|t,_,_,cx|{act::guard(&mut t.app,appcore::state::PendingAction::Open);cx.notify();})))
             .child(widgets::button("home-sample","Try a sample",Btn::Outline).on_click(cx.listener(|t,_,_,cx|{if let Err(error)=first::try_sample(&mut t.app){t.app.first_use.error=Some(error);}cx.notify();}))))
         .child(widgets::label("No sequence ready? A sample is labeled and kept separate from your own files.",theme::T_BASE,theme::MUTED)));
-    body =
-        body.child(section_title("A short path to your first result"))
+        body = body
+            .child(section_title("A short path to your first result"))
             .child(widgets::label(
                 "Review input → inspect sequence → run analysis → save and find it again.",
                 theme::T_BASE,
@@ -2566,6 +2559,7 @@ fn first_use_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> gpui::D
                     cx.notify();
                 })),
             );
+    }
     if let Some(error) = &app.app.first_use.error {
         body = body.child(widgets::label(error, theme::T_BASE, theme::DANGER));
     }
@@ -2686,7 +2680,7 @@ fn first_use_home(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> gpui::D
                         div()
                             .flex_1()
                             .child(widgets::label(
-                                &format!("{} · {}", result.tool, result.id),
+                                &appcore::results::display_title(result),
                                 theme::T_BASE,
                                 theme::TEXT,
                             ))

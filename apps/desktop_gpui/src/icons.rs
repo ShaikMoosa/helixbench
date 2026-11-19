@@ -65,6 +65,22 @@ pub struct Assets;
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> gpui::Result<Option<Cow<'static, [u8]>>> {
         let gallery: Option<&'static [u8]> = match path {
+            "v6/logo.svg" => Some(include_bytes!("../assets/ux-v6/logo.svg")),
+            "v6/upload.svg" => Some(include_bytes!("../assets/ux-v6/upload.svg")),
+            "v6/save.svg" => Some(include_bytes!("../assets/ux-v6/save.svg")),
+            "v6/play.svg" => Some(include_bytes!("../assets/ux-v6/play.svg")),
+            "v6/home.svg" => Some(include_bytes!("../assets/ux-v6/home.svg")),
+            "v6/sequences.svg" => Some(include_bytes!("../assets/ux-v6/sequences.svg")),
+            "v6/results.svg" => Some(include_bytes!("../assets/ux-v6/results.svg")),
+            "v6/experiments.svg" => Some(include_bytes!("../assets/ux-v6/experiments.svg")),
+            "v6/registry.svg" => Some(include_bytes!("../assets/ux-v6/registry.svg")),
+            "v6/inventory.svg" => Some(include_bytes!("../assets/ux-v6/inventory.svg")),
+            "v6/workflows.svg" => Some(include_bytes!("../assets/ux-v6/workflows.svg")),
+            "v6/insights.svg" => Some(include_bytes!("../assets/ux-v6/insights.svg")),
+            "v6/automation.svg" => Some(include_bytes!("../assets/ux-v6/automation.svg")),
+            "v6/activity.svg" => Some(include_bytes!("../assets/ux-v6/activity.svg")),
+            "v6/settings.svg" => Some(include_bytes!("../assets/ux-v6/settings.svg")),
+            "v6/expand.svg" => Some(include_bytes!("../assets/ux-v6/expand.svg")),
             "gallery/logo-home.svg" => Some(include_bytes!("../assets/soft-gallery/logo-home.svg")),
             "gallery/logo-workspace.svg" => {
                 Some(include_bytes!("../assets/soft-gallery/logo-workspace.svg"))
@@ -144,6 +160,9 @@ pub fn view_icon(v: View) -> &'static str {
         View::Enzymes => "enzymes",
         View::History => "history",
         View::Home => "fit",
+        View::Sequences => "sequence",
+        View::Results => "history",
+        View::Activity => "history",
         View::Notebook => "pencil",
         View::Registry => "features",
         View::Inventory => "orfs",
@@ -159,23 +178,28 @@ pub fn view_icon(v: View) -> &'static str {
     }
 }
 
-pub fn gallery_view(view: View, color: Hsla) -> Svg {
-    let name = match view {
-        View::Home => "fit",
-        View::Notebook => "pencil",
-        View::Registry => "features",
-        View::Inventory => "orfs",
-        View::Workflows => "redo",
-        View::Insights => "translation",
-        View::Automation => "sliders",
-        View::Split => "split",
-        _ => return icon(view_icon(view), 16.0, color),
-    };
+pub fn v6_asset(name: &str, width: f32, height: f32, color: Hsla) -> Svg {
     svg()
-        .path(SharedString::from(format!("gallery/{name}.svg")))
-        .w(px(16.0))
-        .h(px(16.0))
+        .path(SharedString::from(format!("v6/{name}.svg")))
+        .w(px(width))
+        .h(px(height))
         .text_color(color)
+}
+pub fn workspace_icon(view: View, color: Hsla) -> Svg {
+    let name = match view {
+        View::Home => "home",
+        View::Sequences => "sequences",
+        View::Results => "results",
+        View::Notebook => "experiments",
+        View::Registry => "registry",
+        View::Inventory => "inventory",
+        View::Workflows => "workflows",
+        View::Insights => "insights",
+        View::Automation => "automation",
+        View::Activity => return v6_asset("activity", 15.0, 15.0, color),
+        _ => return icon(view_icon(view), 18.0, color),
+    };
+    v6_asset(name, 18.0, 18.0, color)
 }
 pub fn gallery_related() -> Svg {
     svg()

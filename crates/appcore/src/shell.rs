@@ -33,6 +33,7 @@ pub enum PanelTab {
 }
 #[derive(Default)]
 pub struct ShellState {
+    pub sequence_query: String,
     pub mode: PanelMode,
     pub tab: PanelTab,
     pub all_modules: bool,
@@ -50,6 +51,16 @@ impl ShellState {
     }
     pub fn layout(&self, width: f32) -> ShellLayout {
         ShellLayout::new(width, self.mode)
+    }
+    pub fn layout_for(&self, view: View, width: f32) -> ShellLayout {
+        if matches!(
+            view,
+            View::Home | View::Sequences | View::Results | View::Activity
+        ) {
+            ShellLayout::new(width, PanelMode::Closed)
+        } else {
+            self.layout(width)
+        }
     }
 }
 #[derive(Debug, Clone, Copy)]
@@ -76,7 +87,7 @@ impl ShellLayout {
             (_, true) => InspectorPlacement::Docked,
             _ => InspectorPlacement::Drawer,
         };
-        let navigation_width = 200.0;
+        let navigation_width = 224.0;
         let inspector_width = 320.0;
         let workspace_width = width
             - navigation_width
@@ -114,7 +125,7 @@ pub fn context(app: &AppState) -> PanelContext {
     if app.workspace_search.open {
         return PanelContext::WorkspaceSearch;
     }
-    if app.view == View::Home {
+    if app.view == View::Results {
         if let Some(id) = app.first_use.selected_result {
             return PanelContext::Result(id);
         }

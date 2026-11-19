@@ -33,11 +33,11 @@ fn header_actions_do_not_overflow_1280() {
                 <= layout.content_width
         );
         assert!(layout.content_width >= 600.0);
-        assert_eq!(layout.navigation_width, 200.0);
+        assert_eq!(layout.navigation_width, 224.0);
     }
     let narrow = ShellLayout::new(1280.0, PanelMode::Open);
     assert_eq!(narrow.inspector, InspectorPlacement::Drawer);
-    assert_eq!(narrow.workspace_width, 1080.0);
+    assert_eq!(narrow.workspace_width, 1056.0);
 }
 #[test]
 fn view_representation_does_not_change_topology() {

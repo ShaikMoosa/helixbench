@@ -99,7 +99,7 @@ fn resume_opens_exact_entry_task_or_result() {
     .unwrap();
     first::resume(&mut app, RecentTarget::Result(id)).unwrap();
     assert_eq!(app.first_use.selected_result, Some(id));
-    assert_eq!(app.view, View::Home);
+    assert_eq!(app.view, View::Results);
 }
 #[test]
 fn sample_store_writes_cannot_touch_personal_records() {
