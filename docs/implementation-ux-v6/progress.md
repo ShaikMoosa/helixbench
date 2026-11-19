@@ -90,3 +90,59 @@ all other edits were preserved. The final tree passed the checks above with incr
 compilation disabled after Rust reported damaged incremental cache metadata.
 
 Next implementation increment: V6-03 real scientific viewer controls; P10A–P20 remain in scope.
+
+## V6-03 — Scientific viewer controls (20 November 2026)
+
+Implemented on `codex/ux-v6-viewers`, stacked on V6-02 commit `0884109` without changing
+main. The Map defaults to a larger white canvas and shares the Figma toolbar201:5143
+with Sequence: zoom, fit, layers and palette; circular Map also exposes rotation.
+The percentage opens continuous native zoom/rotation sliders. View options retains
+representation, metadata and the existing sequence preview. Duplicate viewer Page tools
+and zoom-strip entry controls were removed; Run analysis and existing scientific commands
+remain available. The sample banner is compact and retains its guarded copy/leave flow.
+
+Display changes are scoped to DocumentId plus circular Map, linear Map or Sequence.
+They do not change DNA, topology, revisions, dirty status or undo. Circular paint and hits
+use matching rotation/radii; interior tracks remain positive at minimum zoom. Sequence
+windows clamp at linear ends and wrap only on circular DNA. Per-property layer overrides
+inherit current defaults, and legacy menus/inspector controls use the same effective state.
+Unsupported layers/rotation are absent. Reset leaves another view's scroll position intact.
+
+Native controls have tab stops, one GPUI keyboard-click path and focus restoration.
+Drag state is gated by document/surface and pressed button, and cleared on leaving a
+viewer. The floating toolbar and panels block clicks from reaching the underlying canvas.
+Panels are window-anchored above the toolbar with persistent heading/actions and a
+scrollable full-width body, so a short canvas cannot clip away the slider controls.
+
+Verification on the final source:
+
+- **441 tests passed**, including 10 core viewer regressions and four new native regressions.
+  Format, all-target/all-feature Clippy with `-D warnings` and workspace build pass offline
+  with isolated APPDATA/TEMP and incremental compilation disabled.
+- Whole-branch review identified rotated restriction-site hits, unsupported linear ORFs,
+  keyboard reachability/double activation, stale drag, metadata gating, click-through,
+  frozen preference snapshots, negative radii, linear wrapping and rounded keyboard zoom.
+  The fix pass addresses these with failing-then-passing behavior tests where testable;
+  GPUI event/focus integration was also checked against the framework and native app.
+- All 23 embedded v6 SVG checksums match the manifest, including seven new exact toolbar
+  assets. Root sizes24px and design slots18px/32px are recorded in asset provenance.
+- Native final1280x720 confirmation observed full anchored panels, real zoom100→150%,
+  rotation0→88°, feature visibility changes, and independent Sequence layers with no
+  rotation buttons. Earlier1280x900 checks confirmed Tab reachability and one Enter toggle.
+- Initial1600x1000 Map/shell was observed before final fixes. The later1600 window extended
+  beyond the available desktop and produced unreliable targeting; final full1600 acceptance
+  remains pending. Keep this PR draft until that check. Existing dense annotation labels
+  and glyph-rendering artifacts in captures are recorded for V6-06; no blanket visual or
+  accessibility certification is claimed.
+
+The isolated test samples were discarded only after the user's explicit approval.
+A temporary separately named preview executable allowed verification while an older test
+window held the shipping binary open; its manifest change was restored exactly and is
+not part of the product. The final normal workspace build also passed.
+
+Implementation defaults: circular zoom50–250%, linear zoom100–1000%, Sequence up to
+the existing20-base minimum window, and15-degree rotation buttons. These are engineering
+choices; changing them affects display reach, not scientific results.
+
+Next: V6-04 primary analysis journeys and contextual edit drawers. The full v6 screen
+migration and P10A–P20 capabilities are not claimed complete by this viewer increment.

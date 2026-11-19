@@ -106,7 +106,7 @@ impl DisplayToggle {
         }
     }
     pub fn enabled(self, app: &AppState) -> bool {
-        let p = &app.prefs;
+        let p = crate::viewer::effective_prefs(app);
         match self {
             Self::Features => p.show_features,
             Self::Primers => p.show_primers,
@@ -119,6 +119,23 @@ impl DisplayToggle {
     }
 }
 pub fn toggle_display(app: &mut AppState, kind: DisplayToggle) {
+    if let Some(surface) = crate::viewer::active(app) {
+        let key = match kind {
+            DisplayToggle::Features => "features",
+            DisplayToggle::Primers => "primers",
+            DisplayToggle::Enzymes => "enzymes",
+            DisplayToggle::Orfs => "orfs",
+            DisplayToggle::Translation => "translations",
+            DisplayToggle::Complement => "complement",
+            DisplayToggle::Colors => {
+                let mono = !crate::viewer::settings(app, surface).monochrome;
+                crate::viewer::set_palette(app, surface, mono);
+                return;
+            }
+        };
+        crate::viewer::toggle_layer(app, surface, key);
+        return;
+    }
     let p = &mut app.prefs;
     let slot = match kind {
         DisplayToggle::Features => &mut p.show_features,

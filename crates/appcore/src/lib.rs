@@ -17,5 +17,6 @@ pub mod results;
 pub mod selection;
 pub mod shell;
 pub mod state;
+pub mod viewer;
 pub mod workspace;
 pub mod workspace_search;

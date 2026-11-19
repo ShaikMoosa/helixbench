@@ -366,6 +366,8 @@ pub fn workspace_toolbar(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> 
                 | appcore::state::View::Sequences
                 | appcore::state::View::Results
                 | appcore::state::View::Activity
+                | appcore::state::View::Map
+                | appcore::state::View::Sequence
         )
     {
         row = row.child(

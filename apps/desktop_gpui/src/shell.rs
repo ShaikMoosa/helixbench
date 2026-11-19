@@ -484,6 +484,22 @@ pub fn inspector(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyEleme
         {
             body = body.child(label("Display", theme::T_MD));
             for toggle in appcore::selection::DisplayToggle::ALL {
+                if let Some(surface) = appcore::viewer::active(&app.app) {
+                    let key = match toggle {
+                        appcore::selection::DisplayToggle::Features => "features",
+                        appcore::selection::DisplayToggle::Primers => "primers",
+                        appcore::selection::DisplayToggle::Enzymes => "enzymes",
+                        appcore::selection::DisplayToggle::Orfs => "orfs",
+                        appcore::selection::DisplayToggle::Translation => "translations",
+                        appcore::selection::DisplayToggle::Complement => "complement",
+                        appcore::selection::DisplayToggle::Colors => "colors",
+                    };
+                    if (key == "colors" && surface != appcore::viewer::Surface::Sequence)
+                        || (key != "colors" && !appcore::viewer::supports_layer(surface, key))
+                    {
+                        continue;
+                    }
+                }
                 let text = format!(
                     "{} · {}",
                     toggle.label(),

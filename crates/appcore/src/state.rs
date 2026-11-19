@@ -665,6 +665,7 @@ pub enum MapMode {
 }
 
 pub struct AppState {
+    pub viewer: crate::viewer::State,
     pub results: crate::results::ResultsState,
     pub shell: crate::shell::ShellState,
     pub first_use: crate::first_use::FirstUseState,
@@ -781,6 +782,7 @@ impl AppState {
         let prefs = config.ui.clone();
         let zoom_width = doc.sequence.len().max(1);
         let mut s = Self {
+            viewer: Default::default(),
             shell: Default::default(),
             results: Default::default(),
             first_use: crate::first_use::FirstUseState::for_profile(&profile_root),
@@ -1110,7 +1112,11 @@ impl AppState {
             }
             let w = self.zoom_width.min(l);
             let center = sel.start + sel.len / 2;
-            self.zoom_start = (center + l - w / 2) % l;
+            self.zoom_start = if self.doc.sequence.is_circular() {
+                (center + l - w / 2) % l
+            } else {
+                center.saturating_sub(w / 2).min(l - w)
+            };
         }
     }
 

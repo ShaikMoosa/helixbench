@@ -2712,9 +2712,49 @@ pub fn sample_banner(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> Opti
     if !appcore::first_use::is_sample(&app.app) {
         return None;
     }
-    Some(widgets::operation_notice("Sample workspace — changes and lab records stay separate from your personal work. Copy the active sequence to keep it.")
-        .child(div().flex().gap(px(8.0))
-            .child(widgets::button("sample-copy","Make personal copy",Btn::Primary).on_click(cx.listener(|t,_,_,cx|{if let Err(error)=appcore::first_use::request_personal_copy(&mut t.app){t.app.toast(error);}cx.notify();})))
-            .child(widgets::button("sample-leave","Leave sample",Btn::Outline).on_click(cx.listener(|t,_,_,cx|{if let Err(error)=appcore::first_use::leave_sample(&mut t.app,false){t.app.toast(error);}cx.notify();}))))
-        .into_any_element())
+    Some(
+        div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .justify_between()
+            .gap(px(10.0))
+            .px(px(16.0))
+            .py(px(8.0))
+            .bg(theme::MINT)
+            .child(widgets::label(
+                "Sample workspace - separate from your personal files",
+                theme::T_SM,
+                theme::TEXT,
+            ))
+            .child(
+                div()
+                    .flex()
+                    .gap(px(8.0))
+                    .child(
+                        widgets::button("sample-copy", "Make personal copy", Btn::Outline)
+                            .on_click(cx.listener(|t, _, _, cx| {
+                                if let Err(error) =
+                                    appcore::first_use::request_personal_copy(&mut t.app)
+                                {
+                                    t.app.toast(error);
+                                }
+                                cx.notify();
+                            })),
+                    )
+                    .child(
+                        widgets::button("sample-leave", "Leave sample", Btn::Ghost).on_click(
+                            cx.listener(|t, _, _, cx| {
+                                if let Err(error) =
+                                    appcore::first_use::leave_sample(&mut t.app, false)
+                                {
+                                    t.app.toast(error);
+                                }
+                                cx.notify();
+                            }),
+                        ),
+                    ),
+            )
+            .into_any_element(),
+    )
 }
