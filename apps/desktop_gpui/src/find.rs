@@ -335,23 +335,39 @@ pub fn workspace_toolbar(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> 
             ),
         );
     }
-    if appcore::state::View::ALL.contains(&app.app.view) && !app.app.workspace_search.open {
+    if (appcore::state::View::ALL.contains(&app.app.view)
+        || app.app.view == appcore::state::View::Split)
+        && !app.app.workspace_search.open
+    {
         for view in appcore::state::View::ALL {
             row = row.child(
-                widgets::button(
+                widgets::view_tab(
                     SharedString::from(format!("gallery-sequence-tab-{view:?}")),
                     view.label(),
-                    if app.app.view == view {
-                        Btn::Subtle
-                    } else {
-                        Btn::Outline
-                    },
+                    app.app.view == view,
                 )
                 .on_click(cx.listener(move |t, _, _, cx| t.set_view(view, cx))),
             );
         }
     }
-    if !app.app.workspace_search.open {
+    if (appcore::state::View::ALL.contains(&app.app.view)
+        || app.app.view == appcore::state::View::Split)
+        && !app.app.workspace_search.open
+    {
+        row = row.child(
+            widgets::button("workspace-split-layout", "Split layout", Btn::Ghost)
+                .on_click(cx.listener(|t, _, _, cx| t.set_view(appcore::state::View::Split, cx))),
+        );
+    }
+    if !app.app.workspace_search.open
+        && !matches!(
+            app.app.view,
+            appcore::state::View::Home
+                | appcore::state::View::Sequences
+                | appcore::state::View::Results
+                | appcore::state::View::Activity
+        )
+    {
         row = row.child(
             widgets::button("gallery-open-page-tools", "Page tools", Btn::Ghost)
                 .track_focus(&app.page_tools_focus)

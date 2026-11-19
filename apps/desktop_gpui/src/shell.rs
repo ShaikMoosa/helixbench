@@ -23,114 +23,62 @@ fn property(name: &str, value: String) -> gpui::Div {
         .child(widgets::label(name, theme::T_SM, theme::MUTED))
         .child(label(&value, theme::T_BASE))
 }
+fn nav_group(title: &str) -> gpui::Div {
+    widgets::label(title, theme::T_XS, theme::NAV_GROUP_TEXT)
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .mt(px(16.0))
+        .mb(px(6.0))
+}
 pub fn navigation(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
-    let logo = if app.app.view == View::Home {
-        "gallery/logo-home.svg"
-    } else {
-        "gallery/logo-workspace.svg"
-    };
     let mut body = div()
-        .id("gallery-navigation-scroll")
+        .id("workspace-navigation-scroll")
         .flex_1()
         .min_h(px(0.0))
         .overflow_y_scroll()
         .flex()
         .flex_col()
-        .gap(px(7.0));
-    body = body.child(
-        widgets::label("WORKSPACE", theme::T_XS, theme::NAV_GROUP_TEXT)
-            .font_weight(gpui::FontWeight::SEMIBOLD)
-            .mt(px(16.0))
-            .mb(px(6.0)),
-    );
-    let primary = [
-        View::Home,
-        View::Notebook,
-        View::Registry,
-        View::Inventory,
-        View::Workflows,
-        View::Insights,
-        View::Automation,
-        View::Split,
-    ];
-    for view in primary {
-        body = body.child(nav_item(app, view, cx));
-    }
-    body = body.child(
-        widgets::button(
-            "gallery-all-modules",
-            if app.app.shell.all_modules {
-                "Fewer modules"
-            } else {
-                "All modules"
-            },
-            Btn::Outline,
-        )
-        .w_full()
-        .on_click(cx.listener(|t, _, _, cx| {
-            t.app.shell.all_modules = !t.app.shell.all_modules;
-            cx.notify();
-        })),
-    );
-    if app.app.shell.all_modules {
-        for view in [
-            View::Biologics,
-            View::Chemistry,
-            View::Rna,
-            View::InVivo,
-            View::Bioprocess,
-        ] {
+        .gap(px(4.0));
+    for (name, views) in [
+        ("WORKSPACE", appcore::workspace::WORKSPACE.as_slice()),
+        ("LAB RECORDS", appcore::workspace::RECORDS.as_slice()),
+        ("LAB OPERATIONS", appcore::workspace::OPERATIONS.as_slice()),
+    ] {
+        body = body.child(nav_group(name));
+        for &view in views {
             body = body.child(nav_item(app, view, cx));
         }
     }
-    body = body.child(widgets::label("Active sequence", theme::T_SM, theme::MUTED).mt(px(14.0)));
-    let id = app.app.doc.id;
-    let topology = if app.app.doc.sequence.is_circular() {
-        "circular"
-    } else {
-        "linear"
-    };
     body = body.child(
         div()
-            .id("gallery-active-sequence")
+            .id("workspace-specialists")
+            .h(px(40.0))
+            .flex_shrink_0()
             .flex()
-            .flex_col()
-            .gap(px(3.0))
-            .p(px(10.0))
-            .rounded(px(12.0))
-            .bg(if View::ALL.contains(&app.app.view) {
-                theme::MINT
-            } else {
-                theme::BG
-            })
-            .child(label(&app.app.doc.name, theme::T_BASE).overflow_hidden())
-            .child(widgets::label(
-                &format!("{} bp · {topology}", app.app.doc.sequence.len()),
-                theme::T_SM,
-                theme::MUTED,
-            ))
+            .items_center()
+            .justify_between()
+            .px(px(12.0))
+            .mt(px(12.0))
             .cursor_pointer()
-            .on_click(cx.listener(move |t, _, _, cx| {
-                if let Err(error) = appcore::navigation::request_navigation(
-                    &mut t.app,
-                    appcore::navigation::NavigationIntent::Navigate(appcore::navigation::Route {
-                        view: View::Map,
-                        document: id,
-                        record: None,
-                    }),
-                ) {
-                    t.app.toast(error);
-                }
+            .child(label("Specialist tools", theme::T_BASE))
+            .child(icons::v6_asset("expand", 10.5, 6.0, theme::MUTED))
+            .on_click(cx.listener(|t, _, _, cx| {
+                t.app.shell.all_modules = !t.app.shell.all_modules;
                 cx.notify();
             })),
     );
+
+    if app.app.shell.all_modules {
+        for view in appcore::workspace::SPECIALISTS {
+            body = body.child(nav_item(app, view, cx));
+        }
+    }
     div()
         .w(px(theme::NAV_WIDTH))
         .flex_shrink_0()
         .h_full()
         .flex()
         .flex_col()
-        .gap(px(7.0))
+        .gap(px(8.0))
         .p(px(16.0))
         .bg(theme::PANEL)
         .child(
@@ -139,35 +87,43 @@ pub fn navigation(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElem
                 .flex_shrink_0()
                 .flex()
                 .items_center()
-                .gap(px(8.0))
-                .child(img(logo).w(px(34.0)).h(px(34.0)))
-                .child(label("HelixBench", 15.0).font_weight(gpui::FontWeight::MEDIUM)),
+                .gap(px(10.0))
+                .child(img("v6/logo.svg").w(px(30.0)).h(px(30.0)))
+                .child(label("HelixBench", 19.0).font_weight(gpui::FontWeight::SEMIBOLD)),
         )
         .child(body)
+        .child(nav_item(app, View::Activity, cx))
         .child(
-            widgets::label(
-                if first_use::is_sample(&app.app) {
-                    "Temporary sample"
-                } else {
-                    "Local workspace"
-                },
-                theme::T_SM,
-                theme::MUTED,
-            )
-            .mt(px(8.0)),
-        )
-        .child(
-            widgets::button("gallery-settings", "Settings & help", Btn::Outline)
+            div()
+                .id("workspace-settings")
                 .w_full()
+                .h(px(40.0))
+                .flex_shrink_0()
+                .flex()
+                .items_center()
+                .gap(px(10.0))
+                .px(px(12.0))
+                .cursor_pointer()
+                .child(icons::v6_asset("settings", 15.0, 14.325, theme::MUTED))
+                .child(label("Settings and help", theme::T_MD))
                 .on_click(cx.listener(|t, _, _, cx| {
-                    if t.app.dialog.is_none() {
+                    if t.app.dialog.is_none() && t.app.navigation.pending.is_none() {
                         t.app.dialog = Some(Dialog::Options);
                     } else {
-                        t.app.toast("Apply or cancel the open form first");
+                        t.app.toast("Finish or cancel the open form first");
                     }
                     cx.notify();
                 })),
         )
+        .child(widgets::label(
+            if first_use::is_sample(&app.app) {
+                "Temporary sample"
+            } else {
+                "Local workspace"
+            },
+            theme::T_XS,
+            theme::MUTED,
+        ))
         .into_any_element()
 }
 fn nav_item(
@@ -175,13 +131,18 @@ fn nav_item(
     view: View,
     cx: &mut Context<HelixBench>,
 ) -> gpui::Stateful<gpui::Div> {
-    let active = app.app.view == view && !app.app.workspace_search.open;
+    let active = appcore::workspace::owner(app.app.view) == view && !app.app.workspace_search.open;
+    let color = if active {
+        theme::ACCENT_TEXT
+    } else {
+        theme::NAV_TEXT
+    };
     div()
-        .id(SharedString::from(format!("gallery-nav-{view:?}")))
+        .id(SharedString::from(format!("workspace-nav-{view:?}")))
         .w_full()
         .h(px(40.0))
         .flex_shrink_0()
-        .px(px(8.0))
+        .px(px(12.0))
         .rounded(px(8.0))
         .border_l(px(3.0))
         .border_color(if active {
@@ -197,117 +158,202 @@ fn nav_item(
         } else {
             theme::transparent()
         })
-        .text_color(if active {
-            theme::ACCENT_TEXT
-        } else {
-            theme::NAV_TEXT
-        })
-        .child(icons::gallery_view(
-            view,
-            if active {
-                theme::ACCENT_TEXT
-            } else {
-                theme::MUTED
-            },
-        ))
-        .child(widgets::label(
-            view.label(),
-            theme::T_BASE,
-            if active {
-                theme::ACCENT_TEXT
-            } else {
-                theme::NAV_TEXT
-            },
-        ))
+        .child(icons::workspace_icon(view, color))
+        .child(widgets::label(view.label(), theme::T_MD, color))
         .cursor_pointer()
         .hover(|s| s.bg(theme::FILL_HOVER))
         .on_click(cx.listener(move |t, _, _, cx| t.set_view(view, cx)))
 }
-pub fn page_header(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
-    let layout = app.app.shell.layout(app.viewport.width.v());
-    let title = if app.app.workspace_search.open {
-        "Search workspace"
-    } else if app.app.first_use.selected_result.is_some() && app.app.view == View::Home {
-        "Saved result"
+pub fn workspace_context(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
+    let owner = appcore::workspace::owner(app.app.view);
+    let crumb = if app.app.workspace_search.open {
+        "Workspace › Search".to_owned()
+    } else if View::ALL.contains(&app.app.view) || app.app.view == View::Split {
+        format!(
+            "Workspace › Sequences › {} › {}",
+            app.app.doc.name,
+            app.app.view.label()
+        )
     } else {
-        app.app.view.label()
+        format!("Workspace › {}", owner.label())
     };
-    let subtitle = match app.app.view {
-        View::Home => "Continue your work and resolve what needs attention.",
-        View::Map => "Inspect a construct and act on the selected region.",
-        View::Sequence => "Read, find and edit the active DNA sequence.",
-        View::Features => "Inspect annotations and their exact sequence ranges.",
-        View::Primers => "Review primers and design against your sequence.",
-        View::Enzymes => "Inspect restriction sites and choose an analysis.",
-        _ => "Your local workspace. Select an item for details and available tools.",
-    };
-    let mut actions_bar = div()
-        .w(px(layout.header_actions_width))
+    div()
+        .h(px(48.0))
         .flex_shrink_0()
+        .px(px(28.0))
         .flex()
-        .flex_wrap()
-        .justify_end()
-        .gap(px(8.0))
+        .items_center()
+        .justify_between()
+        .gap(px(16.0))
+        .bg(theme::PANEL)
         .child(
-            widgets::button("gallery-search", "Search", Btn::Outline).on_click(cx.listener(
-                |t, _, _, cx| {
-                    if let Err(error) = appcore::workspace_search::open(&mut t.app) {
-                        t.app.toast(error);
-                    }
-                    cx.notify();
-                },
-            )),
+            widgets::label(&crumb, theme::T_SM, theme::MUTED)
+                .flex_1()
+                .min_w(px(0.0))
+                .truncate(),
         )
         .child(
-            widgets::button("gallery-inspector-toggle", "Details & tools", Btn::Outline)
+            widgets::icon_button(
+                "workspace-global-search",
+                "search",
+                "Search workspace · Ctrl K",
+                Btn::Ghost,
+            )
+            .on_click(cx.listener(|t, _, _, cx| {
+                if let Err(e) = appcore::workspace_search::open(&mut t.app) {
+                    t.app.toast(e);
+                }
+                cx.notify();
+            })),
+        )
+        .into_any_element()
+}
+pub fn page_header(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
+    let scientific = View::ALL.contains(&app.app.view) || app.app.view == View::Split;
+    let title = if app.app.workspace_search.open {
+        "Search workspace".to_owned()
+    } else if scientific {
+        app.app.doc.name.clone()
+    } else {
+        app.app.view.label().to_owned()
+    };
+    let subtitle = if scientific {
+        format!(
+            "DNA · {} bp · {}",
+            app.app.doc.sequence.len(),
+            app.app.doc.sequence.topology.label()
+        )
+    } else {
+        match app.app.view {
+            View::Home => "Start a task or continue your recent research.",
+            View::Sequences => "Browse open sequences. Import opens a local file for review.",
+            View::Results => "Find saved outputs with their exact input versions and methods.",
+            View::Notebook => "Record experiments and link your scientific inputs and results.",
+            View::Activity => "Review local operations that need attention.",
+            _ => "Local records and tools for this workspace.",
+        }
+        .to_owned()
+    };
+    let mut actions_bar = div().flex().flex_wrap().items_center().gap(px(8.0));
+    if !app.app.workspace_search.open {
+        match app.app.view {
+            View::Sequences => {
+                if app.app.view == View::Sequences {
+                    actions_bar = actions_bar.child(
+                        widgets::button("sequence-create", "New sequence", Btn::Outline).on_click(
+                            cx.listener(|t, _, _, cx| {
+                                actions::guard(&mut t.app, appcore::state::PendingAction::NewEmpty);
+                                cx.notify();
+                            }),
+                        ),
+                    );
+                }
+                actions_bar = actions_bar.child(
+                    widgets::v6_button(
+                        "sequence-import",
+                        "upload",
+                        "Import sequence",
+                        Btn::Primary,
+                    )
+                    .on_click(cx.listener(|t, _, _, cx| {
+                        actions::guard(&mut t.app, appcore::state::PendingAction::Open);
+                        cx.notify();
+                    })),
+                );
+            }
+            View::Home if app.app.config.first_use_dismissed => {
+                actions_bar = actions_bar.child(
+                    widgets::v6_button(
+                        "home-import-header",
+                        "upload",
+                        "Import sequence",
+                        Btn::Primary,
+                    )
+                    .on_click(cx.listener(|t, _, _, cx| {
+                        actions::guard(&mut t.app, appcore::state::PendingAction::Open);
+                        cx.notify();
+                    })),
+                )
+            }
+            View::Notebook => {
+                actions_bar = actions_bar.child(
+                    widgets::icon_button("experiment-new", "plus", "New entry", Btn::Primary)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            if let Err(e) =
+                                commands::execute(&mut t.app, commands::CommandId::NewEntry)
+                            {
+                                t.app.toast(e);
+                            }
+                            cx.notify();
+                        })),
+                )
+            }
+            _ => {}
+        }
+        if scientific {
+            actions_bar = actions_bar
+                .child(
+                    widgets::v6_button("sequence-save", "save", "Save sequence", Btn::Outline)
+                        .on_click(cx.listener(|t, _, _, cx| {
+                            actions::save(&mut t.app);
+                            cx.notify();
+                        })),
+                )
+                .child(
+                    widgets::v6_button("sequence-analysis", "play", "Run analysis", Btn::Primary)
+                        .on_click(cx.listener(|t, _, _, cx| open_page_tools(t, cx))),
+                );
+        }
+        if !matches!(
+            app.app.view,
+            View::Home | View::Sequences | View::Results | View::Activity
+        ) {
+            actions_bar = actions_bar.child(
+                widgets::button(
+                    "gallery-inspector-toggle",
+                    if scientific { "Selection" } else { "Details" },
+                    Btn::Ghost,
+                )
                 .track_focus(&app.inspector_toggle_focus)
                 .on_click(cx.listener(|t, _, window, cx| toggle_inspector(t, window, cx))),
-        );
-    if View::ALL.contains(&app.app.view) {
-        actions_bar = actions_bar.child(
-            widgets::button("gallery-save", "Save", Btn::Primary).on_click(cx.listener(
-                |t, _, _, cx| {
-                    actions::save(&mut t.app);
-                    cx.notify();
-                },
-            )),
-        );
-    } else {
-        actions_bar = actions_bar.child(
-            widgets::button("gallery-new", "New", Btn::Primary).on_click(cx.listener(
-                |t, _, _, cx| {
-                    actions::guard(&mut t.app, appcore::state::PendingAction::NewEmpty);
-                    cx.notify();
-                },
-            )),
-        );
+            );
+        }
     }
     div()
         .flex()
         .flex_wrap()
         .items_center()
         .justify_between()
-        .gap(px(layout.gap))
-        .px(px(layout.page_padding))
+        .gap(px(16.0))
+        .px(px(28.0))
         .py(px(20.0))
         .child(
             div()
                 .flex_1()
-                .min_w(px(layout.title_min_width))
+                .min_w(px(220.0))
                 .flex()
                 .flex_col()
                 .gap(px(6.0))
                 .child(
-                    label(title, theme::T_TITLE)
+                    label(&title, theme::T_TITLE)
                         .line_height(px(40.0))
-                        .font_weight(gpui::FontWeight::MEDIUM),
+                        .font_weight(gpui::FontWeight::SEMIBOLD),
                 )
-                .child(widgets::label(subtitle, theme::T_BASE, theme::MUTED)),
+                .child(widgets::label(&subtitle, theme::T_BASE, theme::MUTED)),
         )
         .child(actions_bar)
         .into_any_element()
 }
 pub fn toggle_inspector(app: &mut HelixBench, window: &mut Window, cx: &mut Context<HelixBench>) {
+    if matches!(
+        app.app.view,
+        View::Home | View::Sequences | View::Results | View::Activity
+    ) {
+        app.app
+            .toast("Open a sequence or record to inspect its selection");
+        cx.notify();
+        return;
+    }
     if app.app.dialog.is_some() || app.app.navigation.pending.is_some() {
         app.app.toast("Apply or cancel the open form first");
         cx.notify();

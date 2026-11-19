@@ -28,12 +28,15 @@ page title/subtitle gap is 6px. Use medium weight and whitespace for hierarchy.
 
 ## Layout
 
-Reference viewport is 1600×1080: 200px white navigation, warm center with 32px
+Reference viewport is 1600×1080: 224px white navigation, warm center with 32px
 padding, 320px white inspector with 24px padding. The inspector docks by default
 at widths >=1480px. Below that it starts hidden and opens as a right drawer;
 manual Close remains closed across resizing. Header actions reserve 360px.
-Sequence view tabs and document tabs are independently accessible. All modules
-retains specialist destinations; the native application menu retains existing tools.
+Sequence view tabs and document tabs are independently accessible. Workspace navigation
+groups Home, Sequences, Results and Experiments; Specialist tools expands the remaining
+specialist destinations. Split is a viewer layout action. The native application menu
+retains existing tools. Catalogs hide the object inspector; their own search and row actions
+remain visible. Experiments creates an experiment entry, never a DNA document.
 
 Buttons are 40px high, radius8, horizontal padding16; primary actions use ink
 with white text. Cards/rows use radius12, a #E6E4DF border and subtle two-layer
@@ -61,6 +64,11 @@ Use embedded approved Figma SVGs: full-color logos via image rendering; monochro
 tool icons at their native16/18/15px sizes. Provenance and checksums are in
 `apps/desktop_gpui/assets/soft-gallery/README.md`. No network asset is required at
 runtime. The latest empty Home has an import card without a cave-art slot.
+The migrated v6 navigation, logo and action SVGs are documented with checksums in
+`apps/desktop_gpui/assets/ux-v6/README.md`. Results is a first-class catalog; unsaved
+completed runs remain resumable in a separate session section, with an explicit reminder
+that they do not survive app restarts. Saved rows use captured source revision, run ID and
+UTC time to distinguish repeated runs.
 
 P07 migrates shared chrome, Home task card, tokens and contextual tools. Detailed
 scientific screens remain P08; other module redesigns remain P11–P17. Native menus,

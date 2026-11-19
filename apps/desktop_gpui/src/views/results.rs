@@ -15,18 +15,21 @@ pub fn render(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement 
         .flex()
         .flex_col()
         .gap(px(14.0))
-        .p(px(24.0))
+        .px(px(theme::PAGE_PAD))
+        .py(px(12.0))
         .bg(theme::BG);
-    page = page.child(
-        widgets::button("result-back", "Back to previous task", Btn::Outline).on_click(
-            cx.listener(|t, _, _, cx| {
-                if let Err(e) = r::close(&mut t.app) {
-                    t.app.results.error = Some(e);
-                }
-                cx.notify();
-            }),
-        ),
-    );
+    if !app.app.results.stack.is_empty() {
+        page = page.child(
+            widgets::button("result-back", "Back to previous task", Btn::Outline).on_click(
+                cx.listener(|t, _, _, cx| {
+                    if let Err(e) = r::close(&mut t.app) {
+                        t.app.results.error = Some(e);
+                    }
+                    cx.notify();
+                }),
+            ),
+        );
+    }
     let result = app.app.results.pending.as_deref().cloned().or_else(|| {
         app.app.first_use.selected_result.and_then(|id| {
             app.app
@@ -296,100 +299,7 @@ pub fn render(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement 
             theme::DANGER,
         ));
     } else {
-        page = page.child(widgets::label(
-            "Saved analysis results",
-            theme::T_XL,
-            theme::TEXT,
-        ));
-        let input = app.input_entity(
-            cx,
-            "results:query",
-            &app.app.results.query.clone(),
-            "Find by result ID, input name, tool or method",
-            false,
-        );
-        app.app.results.query = input.read(cx).text();
-        let query = app.app.results.query.to_ascii_lowercase();
-        page = page.child(input);
-        page = page.child(
-            widgets::button("results-refresh", "Refresh results", Btn::Outline).on_click(
-                cx.listener(|t, _, _, cx| {
-                    appcore::first_use::refresh_results(&mut t.app);
-                    cx.notify();
-                }),
-            ),
-        );
-        let mut n = 0;
-        for result in app.app.first_use.results.results.iter().rev() {
-            let searchable = format!(
-                "{} {} {} {}",
-                result.id,
-                result.tool,
-                result.method_version,
-                result
-                    .inputs
-                    .iter()
-                    .map(|i| i.document().name.clone())
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            )
-            .to_ascii_lowercase();
-            if !searchable.contains(&query) {
-                continue;
-            }
-            n += 1;
-            let id = result.id;
-            page = page.child(
-                div()
-                    .flex()
-                    .flex_wrap()
-                    .items_center()
-                    .gap(px(8.0))
-                    .p(px(12.0))
-                    .bg(theme::PANEL)
-                    .rounded(px(12.0))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(200.0))
-                            .child(widgets::label(
-                                &format!(
-                                    "{} · {}",
-                                    result.tool,
-                                    result
-                                        .inputs
-                                        .iter()
-                                        .map(|i| i.document().name.clone())
-                                        .collect::<Vec<_>>()
-                                        .join(", ")
-                                ),
-                                theme::T_BASE,
-                                theme::TEXT,
-                            ))
-                            .child(widgets::label(
-                                &format!("{} · {}", id, crate::util::timestamp_utc(result.created)),
-                                theme::T_XS,
-                                theme::MUTED,
-                            )),
-                    )
-                    .child(
-                        widgets::button(
-                            SharedString::from(format!("results-open-{id}")),
-                            "Open result",
-                            Btn::Outline,
-                        )
-                        .on_click(cx.listener(move |t, _, _, cx| {
-                            if let Err(e) = r::open(&mut t.app, id) {
-                                t.app.results.error = Some(e);
-                            }
-                            cx.notify();
-                        })),
-                    ),
-            );
-        }
-        if n == 0 {
-            page=page.child(widgets::label(if query.is_empty(){"No saved results yet. Run a digest or PCR analysis, then save the completed result."}else{"No matching results. Change or clear the search."},theme::T_BASE,theme::MUTED));
-        }
+        page = catalog(page, app, cx);
     }
     if let Some(e) = app
         .app
@@ -488,4 +398,243 @@ pub fn settings(result: &AnalysisResult) -> gpui::Div {
         body = body.child(widgets::label(&text, theme::T_SM, theme::MUTED));
     }
     body
+}
+
+fn catalog(
+    mut page: gpui::Stateful<gpui::Div>,
+    app: &mut HelixBench,
+    cx: &mut Context<HelixBench>,
+) -> gpui::Stateful<gpui::Div> {
+    use crate::draw::PxVal;
+    let previews = r::unsaved_previews(&app.app);
+    if !previews.is_empty() {
+        page=page.child(widgets::section_title("Unsaved in this session"))
+            .child(widgets::label("Resume a completed output to inspect or save it. Session outputs are not saved across app restarts.",theme::T_SM,theme::MUTED));
+        for result in previews {
+            let id = result.id;
+            page = page.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .gap(px(12.0))
+                    .p(px(12.0))
+                    .bg(theme::PANEL)
+                    .rounded(px(12.0))
+                    .child(widgets::label(
+                        &format!(
+                            "{} · {}",
+                            r::display_title(result),
+                            result.inputs[0].document().name
+                        ),
+                        theme::T_BASE,
+                        theme::TEXT,
+                    ))
+                    .child(
+                        widgets::button(
+                            SharedString::from(format!("resume-session-{id}")),
+                            "Resume output",
+                            Btn::Outline,
+                        )
+                        .on_click(cx.listener(move |t, _, _, cx| {
+                            if let Err(e) = r::resume_preview(&mut t.app, id) {
+                                t.app.results.error = Some(e);
+                            }
+                            cx.notify();
+                        })),
+                    ),
+            );
+        }
+    }
+    let input = app.input_entity(
+        cx,
+        "results:query",
+        &app.app.results.query.clone(),
+        "Search results by source, method or run ID",
+        false,
+    );
+    app.app.results.query = input.read(cx).text();
+    let query = app.app.results.query.trim().to_lowercase();
+    let mut controls = div()
+        .flex()
+        .items_center()
+        .gap(px(12.0))
+        .child(div().flex_1().child(input));
+    if !query.is_empty() {
+        controls = controls.child(
+            widgets::button("results-query-clear", "Clear search", Btn::Outline).on_click(
+                cx.listener(|t, _, _, cx| {
+                    t.app.results.query.clear();
+                    t.inputs.remove("results:query");
+                    cx.notify();
+                }),
+            ),
+        );
+    }
+    controls = controls.child(
+        widgets::button("results-refresh", "Refresh", Btn::Outline).on_click(cx.listener(
+            |t, _, _, cx| {
+                appcore::first_use::refresh_results(&mut t.app);
+                cx.notify();
+            },
+        )),
+    );
+    page = page.child(controls);
+    let width = (app
+        .app
+        .shell
+        .layout_for(app.app.view, app.viewport.width.v())
+        .content_width
+        - 2.0)
+        .max(500.0);
+    let widths = [
+        width * 0.28,
+        width * 0.25,
+        width * 0.15,
+        width * 0.15,
+        width * 0.17,
+    ];
+    let mut table = div()
+        .flex()
+        .flex_col()
+        .bg(theme::PANEL)
+        .rounded(px(12.0))
+        .border_1()
+        .border_color(theme::BORDER)
+        .shadow(theme::shadow_card())
+        .overflow_hidden();
+    let mut head = div().h(px(44.0)).flex().items_center().bg(theme::BG);
+    for (label, w) in ["Result", "Source and version", "Method", "Created", "State"]
+        .iter()
+        .zip(widths)
+    {
+        head = head.child(widgets::catalog_cell(label, w, true));
+    }
+    table = table.child(head);
+    let mut count = 0;
+    for result in app.app.first_use.results.results.iter().rev() {
+        let source = result
+            .inputs
+            .iter()
+            .map(|i| i.document().name.clone())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let search = format!(
+            "{} {} {} {}",
+            result.id,
+            r::display_title(result),
+            result.method_version,
+            source
+        )
+        .to_lowercase();
+        if !search.contains(&query) {
+            continue;
+        }
+        count += 1;
+        let id = result.id;
+        let name = r::display_title(result);
+        let status = result.inputs.first().map(|i| r::source_status(&app.app, i));
+        let status_label = match status {
+            Some(r::SourceStatus::Current) => "Saved locally",
+            Some(r::SourceStatus::OlderInput) => "Older input",
+            _ => "Source unavailable",
+        };
+        let version = result
+            .inputs
+            .first()
+            .map(|i| {
+                format!(
+                    "{} · rev {}",
+                    i.document().name,
+                    i.source()
+                        .revision
+                        .to_string()
+                        .chars()
+                        .take(8)
+                        .collect::<String>()
+                )
+            })
+            .unwrap_or_else(|| "Captured input".into());
+        let timestamp = crate::util::timestamp_utc(result.created);
+        let (date, time) = timestamp.split_once(' ').unwrap_or((&timestamp, ""));
+        let row = div()
+            .id(SharedString::from(format!("result-row-{id}")))
+            .flex()
+            .items_center()
+            .h(px(68.0))
+            .border_t_1()
+            .border_color(theme::BORDER)
+            .cursor_pointer()
+            .hover(|s| s.bg(theme::MINT))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .w(px(widths[0]))
+                    .flex_shrink_0()
+                    .child(widgets::catalog_cell(&name, widths[0], false))
+                    .child(widgets::catalog_cell(
+                        &format!("Run {}", id.to_string().chars().take(8).collect::<String>()),
+                        widths[0],
+                        true,
+                    )),
+            )
+            .child(widgets::catalog_cell(&version, widths[1], true))
+            .child(widgets::catalog_cell(
+                &result.method_version,
+                widths[2],
+                true,
+            ))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .w(px(widths[3]))
+                    .flex_shrink_0()
+                    .child(widgets::catalog_cell(date, widths[3], true))
+                    .child(widgets::catalog_cell(time, widths[3], true)),
+            )
+            .child(
+                div()
+                    .w(px(widths[4]))
+                    .px(px(8.0))
+                    .child(widgets::status_badge(
+                        status_label,
+                        if status == Some(r::SourceStatus::Current) {
+                            theme::OK
+                        } else {
+                            theme::MUTED
+                        },
+                        if status == Some(r::SourceStatus::Current) {
+                            theme::MINT
+                        } else {
+                            theme::NEUTRAL_STATUS
+                        },
+                    )),
+            )
+            .on_click(cx.listener(move |t, _, _, cx| {
+                if let Err(e) = r::open(&mut t.app, id) {
+                    t.app.results.error = Some(e);
+                }
+                cx.notify();
+            }));
+        table = table.child(row);
+    }
+    page = page.child(table);
+    if count == 0 {
+        page = page.child(widgets::empty_state(
+            "search",
+            if query.is_empty() {
+                "No saved results yet"
+            } else {
+                "No matching results"
+            },
+            if query.is_empty() {
+                "Run an analysis, then save the completed output."
+            } else {
+                "Clear the search to see your saved results."
+            },
+        ));
+    }
+    page.child(widgets::label("Saved outputs retain their captured inputs and settings. Open a row to inspect the exact run and source revision.",theme::T_SM,theme::MUTED))
 }

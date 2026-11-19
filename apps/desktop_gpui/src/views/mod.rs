@@ -1,6 +1,7 @@
 //! View modules plus shared table chrome: a palette-matched scrollbar drawn as
 //! a `uniform_list` decoration, sortable headers, body cells and sort cycling.
 
+pub mod activity;
 pub mod enzymes;
 pub mod features;
 pub mod history;
@@ -8,6 +9,7 @@ pub mod map;
 pub mod primers;
 pub mod results;
 pub mod sequence;
+pub mod sequences;
 pub mod table_opts;
 
 use std::ops::Range;

@@ -15,6 +15,35 @@ pub struct ResultReturn {
     pending: Option<Box<AnalysisResult>>,
     list: bool,
 }
+/// Run title derived from recorded parameters, without invented sample values.
+pub fn display_title(result: &AnalysisResult) -> String {
+    match result.tool.as_str() {
+        "digest" => {
+            let names = result
+                .parameters
+                .get("enzymes")
+                .and_then(|v| v.as_array())
+                .map(|enzymes| {
+                    enzymes
+                        .iter()
+                        .filter_map(|e| {
+                            e.get("name")
+                                .and_then(|v| v.as_str())
+                                .or_else(|| e.as_str())
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            if names.is_empty() {
+                "Restriction digest".into()
+            } else {
+                format!("{} digest", names.join(" + "))
+            }
+        }
+        "pcr" => "PCR prediction".into(),
+        _ => result.tool.clone(),
+    }
+}
 #[derive(Default)]
 pub struct ResultsState {
     pub stack: Vec<ResultReturn>,
@@ -24,6 +53,42 @@ pub struct ResultsState {
     pub error: Option<String>,
     pub query: String,
     pub list: bool,
+}
+/// Completed previews retained by navigation, distinct from durable saved outputs.
+pub fn unsaved_previews(app: &AppState) -> Vec<&AnalysisResult> {
+    let mut seen = std::collections::HashSet::new();
+    app.results
+        .pending
+        .as_deref()
+        .into_iter()
+        .chain(
+            app.results
+                .stack
+                .iter()
+                .rev()
+                .filter_map(|r| r.pending.as_deref()),
+        )
+        .filter(|r| {
+            seen.insert(r.id)
+                && !app
+                    .first_use
+                    .results
+                    .results
+                    .iter()
+                    .any(|saved| saved.id == r.id)
+        })
+        .collect()
+}
+pub fn resume_preview(app: &mut AppState, id: ResultId) -> Result<(), String> {
+    if app.dialog.is_some() || app.navigation.pending.is_some() {
+        return Err("Finish or cancel the open form first".into());
+    }
+    let result = unsaved_previews(app)
+        .into_iter()
+        .find(|r| r.id == id)
+        .cloned()
+        .ok_or("This session output is no longer available")?;
+    open_preview(app, result)
 }
 fn push_return(app: &mut AppState) {
     let location = ReturnLocation::capture(app);
@@ -41,7 +106,23 @@ pub fn browse(app: &mut AppState) -> Result<(), String> {
     if app.dialog.is_some() || app.navigation.pending.is_some() {
         return Err("Finish the open form first".into());
     }
+    if app.view == View::Results
+        && app.results.list
+        && app.results.pending.is_none()
+        && app.first_use.selected_result.is_none()
+    {
+        crate::first_use::refresh_results(app);
+        return Ok(());
+    }
     push_return(app);
+    crate::navigation::request_navigation(
+        app,
+        NavigationIntent::Navigate(Route {
+            view: View::Results,
+            document: app.doc.id,
+            record: None,
+        }),
+    )?;
     crate::first_use::refresh_results(app);
     app.first_use.selected_result = None;
     app.results.list = true;
@@ -56,7 +137,7 @@ pub fn open_preview(app: &mut AppState, result: AnalysisResult) -> Result<(), St
     crate::navigation::request_navigation(
         app,
         NavigationIntent::Navigate(Route {
-            view: View::Home,
+            view: View::Results,
             document: app.doc.id,
             record: None,
         }),
@@ -163,8 +244,8 @@ pub fn save_analysis(app: &mut AppState, result: &AnalysisResult) -> Result<Resu
         &app.profile_path(storage::config::config_path()),
     )
     .err();
-    app.operation_error=config_error.map(|e|format!("Result saved and available on Home, but its recent-work shortcut could not be saved: {e}"));
-    app.toast("Analysis result saved — find it on Home in Saved analysis results");
+    app.operation_error=config_error.map(|e|format!("Result saved and available in Results, but its recent-work shortcut could not be saved: {e}"));
+    app.toast("Analysis result saved — find it in Results");
     Ok(result.id)
 }
 pub fn open(app: &mut AppState, id: ResultId) -> Result<(), String> {
@@ -182,7 +263,7 @@ pub fn open(app: &mut AppState, id: ResultId) -> Result<(), String> {
     crate::navigation::request_navigation(
         app,
         NavigationIntent::Navigate(Route {
-            view: View::Home,
+            view: View::Results,
             document: app.doc.id,
             record: None,
         }),

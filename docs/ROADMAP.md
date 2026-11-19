@@ -6,8 +6,9 @@ The user adopted [Soft Gallery UX v6](https://www.figma.com/design/U1kWw1K5NZBgE
 and requested implementation. The historical release coverage below does not imply the new UX
 is implemented. P00–P09 preservation work is on main `d80460d`; P10A–P20 remain in scope.
 
-Implement V6-01 shared foundations first, V6-02 object-centered routes/navigation next,
-then V6-03 real scientific viewer controls and V6-04 import/digest/PCR workspaces.
+V6-01 shared foundations is merged. V6-02 object-centered routes/navigation is implemented
+on `codex/ux-v6-navigation`; see live progress for verification and remaining visual checks.
+Next: V6-03 real scientific viewer controls and V6-04 import/digest/PCR workspaces.
 V6-05 carries the remaining P10A–P18 functionality through the new patterns; V6-06 combines
 P19/P20 acceptance, researcher validation and release evidence. P10A resumes after V6-02.
 

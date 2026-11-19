@@ -80,6 +80,18 @@ pub fn icon_button(
         .child(label.to_owned())
 }
 
+pub fn v6_button(
+    id: impl Into<ElementId>,
+    asset: &str,
+    label: &str,
+    variant: Btn,
+) -> Stateful<Div> {
+    button_base(id, variant)
+        .gap(px(8.0))
+        .child(icons::v6_asset(asset, 16.0, 16.0, variant_text(variant)))
+        .child(label.to_owned())
+}
+
 pub fn icon_only(id: impl Into<ElementId>, icon: &str, variant: Btn) -> Stateful<Div> {
     button_base(id, variant)
         .w(px(36.0))
@@ -211,6 +223,10 @@ pub fn document_status(dirty: bool) -> Div {
     } else {
         ("No unsaved changes", theme::MUTED, theme::NEUTRAL_STATUS)
     };
+    status_badge(label, foreground, background)
+}
+
+pub fn status_badge(label: &str, foreground: Hsla, background: Hsla) -> Div {
     div()
         .flex()
         .items_center()
@@ -223,7 +239,45 @@ pub fn document_status(dirty: bool) -> Div {
         .text_size(px(theme::T_SM))
         .font_weight(gpui::FontWeight::MEDIUM)
         .child(div().size(px(6.0)).rounded_full().bg(foreground))
-        .child(label)
+        .child(label.to_owned())
+}
+
+/// Peer views are tabs, visually distinct from task commands.
+pub fn view_tab(id: impl Into<ElementId>, label: &str, selected: bool) -> Stateful<Div> {
+    div()
+        .id(id)
+        .h(px(48.0))
+        .flex_shrink_0()
+        .px(px(10.0))
+        .flex()
+        .items_center()
+        .border_b(px(3.0))
+        .border_color(if selected {
+            theme::ACCENT_TEXT
+        } else {
+            theme::transparent()
+        })
+        .text_color(if selected {
+            theme::ACCENT_TEXT
+        } else {
+            theme::NAV_TEXT
+        })
+        .text_size(px(theme::T_MD))
+        .cursor_pointer()
+        .hover(|s| s.bg(theme::FILL_HOVER))
+        .child(label.to_owned())
+}
+
+pub fn catalog_cell(text: &str, width: f32, muted: bool) -> Div {
+    div()
+        .w(px(width))
+        .flex_shrink_0()
+        .min_w(px(0.0))
+        .px(px(12.0))
+        .text_size(px(theme::T_BASE))
+        .text_color(if muted { theme::MUTED } else { theme::TEXT })
+        .truncate()
+        .child(text.to_owned())
 }
 
 /// A section heading within a page body.
