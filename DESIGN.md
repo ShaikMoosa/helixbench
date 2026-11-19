@@ -47,6 +47,21 @@ Scrollable inspector content must retain natural control heights and wrap within
 
 ## Interaction
 
+Scientific canvases use the v6 floating viewer toolbar: 32px focusable targets, 18px
+icon instances, a 10px white toolbar and window-anchored panels. Panels can extend
+above a short canvas, keep their heading and Reset/Close actions visible, and scroll
+their content. Both floating surfaces occlude the canvas to prevent click-through.
+Zoom/rotation are continuous; rotation is offered only for circular maps. Sequence
+zoom uses a real genomic window and clamps at linear ends. Map defaults to the larger
+canvas; View options retains sequence preview and metadata. Existing scientific
+engines, coordinates, annotation colors and captured inputs remain authoritative.
+
+Display state is keyed by document ID and surface, with per-property layer overrides
+over existing defaults. Menu/inspector controls read the same effective settings.
+Reset does not edit DNA, selection, topology or another view's scroll position.
+Tab reaches controls; native keyboard click activation runs once. +/- and 0 work with
+viewer focus, and R rotates only circular Map so Sequence typing retains IUPAC R.
+
 Page tools opens the contextual command catalog in one click. A second click
 opens the chosen tool; unavailable tools explain their prerequisites. Search is
 workspace metadata/tool search; Ctrl+F remains sequence Find. Ctrl+Shift+I toggles

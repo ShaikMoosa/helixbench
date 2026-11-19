@@ -8,50 +8,31 @@ use appcore::{selection, state::View};
 use gpui::{div, prelude::*, px, AnyElement, Context};
 pub fn bar(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
     let source = app.app.doc.source_ref();
-    let mut actions =
-        div()
-            .flex()
-            .flex_wrap()
-            .gap(px(6.0))
-            .child(
-                widgets::button("sequence-find-visible", "Find in sequence", Btn::Primary)
-                    .on_click(cx.listener(|t, _, _, cx| {
-                        t.app.search.open = true;
-                        t.app.search.focus_request = true;
-                        cx.notify();
-                    })),
-            )
-            .child(
-                widgets::button(
-                    "sequence-annotations-visible",
-                    "Annotation list",
-                    Btn::Outline,
-                )
-                .on_click(cx.listener(|t, _, _, cx| t.set_view(View::Features, cx))),
-            )
-            .child(
-                widgets::button("sequence-fit-visible", "Show entire sequence", Btn::Outline)
-                    .on_click(cx.listener(|t, _, _, cx| {
-                        selection::fit(&mut t.app);
-                        t.app.scroll_to = Some(0);
-                        cx.notify();
-                    })),
-            )
-            .child(
-                widgets::button(
-                    "sequence-zoom-visible",
-                    "Zoom controls",
-                    if app.app.prefs.show_zoom_controls {
-                        Btn::Subtle
-                    } else {
-                        Btn::Ghost
-                    },
-                )
-                .on_click(cx.listener(|t, _, _, cx| {
-                    t.app.prefs.show_zoom_controls = !t.app.prefs.show_zoom_controls;
+    let mut actions = div()
+        .flex()
+        .flex_wrap()
+        .gap(px(6.0))
+        .child(
+            widgets::button("sequence-find-visible", "Find in sequence", Btn::Ghost).on_click(
+                cx.listener(|t, _, _, cx| {
+                    t.app.search.open = true;
+                    t.app.search.focus_request = true;
                     cx.notify();
-                })),
-            );
+                }),
+            ),
+        )
+        .child(
+            widgets::button(
+                "sequence-annotations-visible",
+                "Annotation list",
+                Btn::Ghost,
+            )
+            .on_click(cx.listener(|t, _, _, cx| t.set_view(View::Features, cx))),
+        )
+        .child(div().flex_1())
+        .when(appcore::viewer::active(&app.app).is_some(), |d| {
+            d.child(crate::viewer::options_button(app, cx))
+        });
     if app.app.selection.is_some() {
         actions = actions.child(
             widgets::button("sequence-clear-visible", "Clear selection", Btn::Outline).on_click(
@@ -73,10 +54,12 @@ pub fn bar(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
         .px(px(32.0))
         .py(px(8.0))
         .child(actions)
-        .child(widgets::label(
-            &selection::summary(&app.app),
-            theme::T_BASE,
-            theme::MUTED,
-        ))
+        .when(app.app.selection.is_some(), |d| {
+            d.child(widgets::label(
+                &selection::summary(&app.app),
+                theme::T_BASE,
+                theme::MUTED,
+            ))
+        })
         .into_any_element()
 }

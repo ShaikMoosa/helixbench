@@ -8,7 +8,9 @@ is implemented. P00–P09 preservation work is on main `d80460d`; P10A–P20 rem
 
 V6-01 shared foundations is merged. V6-02 object-centered routes/navigation is implemented
 on `codex/ux-v6-navigation`; see live progress for verification and remaining visual checks.
-Next: V6-03 real scientific viewer controls and V6-04 import/digest/PCR workspaces.
+V6-03 scientific viewer controls is implemented on `codex/ux-v6-viewers`, stacked on
+V6-02. Final wide-screen visual acceptance remains in its draft review scope.
+Next implementation: V6-04 import/digest/PCR workspaces and contextual edit drawers.
 V6-05 carries the remaining P10A–P18 functionality through the new patterns; V6-06 combines
 P19/P20 acceptance, researcher validation and release evidence. P10A resumes after V6-02.
 

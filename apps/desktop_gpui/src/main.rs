@@ -12,6 +12,7 @@ mod shell;
 mod text_input;
 mod theme;
 mod util;
+mod viewer;
 mod views;
 mod widgets;
 

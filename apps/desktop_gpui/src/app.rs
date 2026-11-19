@@ -112,6 +112,7 @@ impl Default for ProfileUiState {
     }
 }
 pub struct HelixBench {
+    pub viewer_ui: crate::viewer::Ui,
     profile_ui: appcore::first_use::ProfileUiSession<ProfileUiState>,
     pub app: AppState,
     pub focus_handle: FocusHandle,
@@ -195,6 +196,7 @@ impl HelixBench {
             toast_armed: None,
             workspace_scroll: ScrollHandle::new(),
             workspace_was_open: false,
+            viewer_ui: Default::default(),
             map_bounds: None,
             map_press: None,
             map_dragged: false,
@@ -637,28 +639,37 @@ impl HelixBench {
                 );
             }
             MenuKind::View => {
+                let display = appcore::viewer::effective_prefs(&self.app);
                 for (key, label, on) in [
-                    ("show_features", "Features", self.app.prefs.show_features),
-                    ("show_enzymes", "Enzymes", self.app.prefs.show_enzymes),
-                    ("show_primers", "Primers", self.app.prefs.show_primers),
-                    ("show_orfs", "ORFs", self.app.prefs.show_orfs),
+                    ("show_features", "Features", display.show_features),
+                    ("show_enzymes", "Enzymes", display.show_enzymes),
+                    ("show_primers", "Primers", display.show_primers),
+                    ("show_orfs", "ORFs", display.show_orfs),
                     (
                         "show_translations",
                         "Translations",
-                        self.app.prefs.show_translations,
+                        display.show_translations,
                     ),
                     (
                         "show_complement",
                         "Complement strand",
-                        self.app.prefs.show_complement,
+                        display.show_complement,
                     ),
-                    ("show_colors", "Base colors", self.app.prefs.show_colors),
+                    ("show_colors", "Base colors", display.show_colors),
                     (
                         "show_zoom_controls",
                         "Zoom controls",
-                        self.app.prefs.show_zoom_controls,
+                        display.show_zoom_controls,
                     ),
                 ] {
+                    if appcore::viewer::active(&self.app).is_some_and(|surface| {
+                        appcore::viewer::layer_key(key)
+                            .is_some_and(|layer| !appcore::viewer::supports_layer(surface, layer))
+                            || (key == "show_colors"
+                                && surface != appcore::viewer::Surface::Sequence)
+                    }) {
+                        continue;
+                    }
                     rows.push(
                         widgets::menu_check(SharedString::from(format!("mv-{key}")), label, on)
                             .on_click(cx.listener(move |t, _, _, cx| {
@@ -683,6 +694,15 @@ impl HelixBench {
                         )
                         .on_click(cx.listener(move |t, _, _, cx| {
                             t.app.colors_mode = mode;
+                            if let Some(surface @ appcore::viewer::Surface::Sequence) =
+                                appcore::viewer::active(&t.app)
+                            {
+                                appcore::viewer::set_palette(
+                                    &mut t.app,
+                                    surface,
+                                    mode == ColorsMode::None,
+                                );
+                            }
                             cx.notify();
                         }))
                         .into_any_element(),
@@ -1121,6 +1141,20 @@ impl HelixBench {
         if self.app.workspace_search.open || self.app.dialog.is_some() || self.menu.is_some() {
             return;
         }
+        if self.focus_handle.is_focused(window) && crate::viewer::key(self, &ev.keystroke) {
+            cx.stop_propagation();
+            cx.notify();
+            return;
+        }
+        if ev.keystroke.key == "tab" && appcore::viewer::active(&self.app).is_some() {
+            if ev.keystroke.modifiers.shift {
+                window.focus_prev();
+            } else {
+                window.focus_next();
+            }
+            cx.stop_propagation();
+            return;
+        }
         if !self.focus_handle.is_focused(window) || self.app.view != View::Sequence {
             return;
         }
@@ -1338,6 +1372,17 @@ impl HelixBench {
     }
 
     pub fn toggle_pref(&mut self, key: &str) {
+        if let Some(surface) = appcore::viewer::active(&self.app) {
+            if let Some(layer) = appcore::viewer::layer_key(key) {
+                appcore::viewer::toggle_layer(&mut self.app, surface, layer);
+                return;
+            }
+            if key == "show_colors" {
+                let mono = appcore::viewer::prefs(&self.app, surface).show_colors;
+                appcore::viewer::set_palette(&mut self.app, surface, mono);
+                return;
+            }
+        }
         let p = &mut self.app.prefs;
         match key {
             "show_features" => p.show_features = !p.show_features,
@@ -1636,8 +1681,8 @@ impl HelixBench {
             return crate::find::show_workspace(self, window, cx);
         }
         match self.app.view {
-            View::Map => crate::editor::render_editor(self, cx),
-            View::Sequence => self.render_sequence(cx),
+            View::Map => crate::viewer::map_page(self, cx),
+            View::Sequence => crate::viewer::sequence_page(self, cx),
             View::Features => self.render_features(window, cx),
             View::Primers => self.render_primers(window, cx),
             View::Enzymes => self.render_enzymes(window, cx),
@@ -1755,6 +1800,13 @@ impl Render for HelixBench {
         self.viewport = window.viewport_size();
         self.update_title(window);
 
+        self.viewer_ui.sync_context(
+            if self.app.workspace_search.open || self.app.dialog.is_some() {
+                None
+            } else {
+                appcore::viewer::active(&self.app).map(|surface| (self.app.doc.id, surface))
+            },
+        );
         let central = self.central_view(window, cx);
         let shell_layout = self
             .app

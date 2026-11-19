@@ -65,6 +65,13 @@ pub struct Assets;
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> gpui::Result<Option<Cow<'static, [u8]>>> {
         let gallery: Option<&'static [u8]> = match path {
+            "v6/zoom-in.svg" => Some(include_bytes!("../assets/ux-v6/zoom-in.svg")),
+            "v6/zoom-out.svg" => Some(include_bytes!("../assets/ux-v6/zoom-out.svg")),
+            "v6/fit.svg" => Some(include_bytes!("../assets/ux-v6/fit.svg")),
+            "v6/rotate-left.svg" => Some(include_bytes!("../assets/ux-v6/rotate-left.svg")),
+            "v6/rotate-right.svg" => Some(include_bytes!("../assets/ux-v6/rotate-right.svg")),
+            "v6/layers.svg" => Some(include_bytes!("../assets/ux-v6/layers.svg")),
+            "v6/palette.svg" => Some(include_bytes!("../assets/ux-v6/palette.svg")),
             "v6/logo.svg" => Some(include_bytes!("../assets/ux-v6/logo.svg")),
             "v6/upload.svg" => Some(include_bytes!("../assets/ux-v6/upload.svg")),
             "v6/save.svg" => Some(include_bytes!("../assets/ux-v6/save.svg")),

@@ -14,3 +14,5 @@ foreground tint for neutral/selected states; the full-color logo is never tinted
 Runtime paths are `v6/<name>.svg`, served by the existing embedded AssetSource.
 There is no runtime Figma URL or network dependency. Existing scientific/menu assets
 remain available for their existing commands.
+
+V6-03: toolbar source201:5143 (Map199:2197), Figma session316890c3-009a-4ec1-9a35-f76ba543e2fc. Seven unchanged SVGs (zoom-in/out, fit, rotate-left/right, layers, palette) retain root24x24 dimensions; design instances occupy18x18 inside32px hit targets. See manifest for hashes. Native toolbar embeds them via v6 asset paths, with no temporary URLs at runtime.

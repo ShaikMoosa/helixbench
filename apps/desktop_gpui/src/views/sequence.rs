@@ -60,6 +60,7 @@ fn intervals(start: usize, len: usize, l: usize, circular: bool) -> Vec<(usize, 
 }
 
 fn assign_lanes(app: &AppState) -> LaneAssign {
+    let prefs = appcore::viewer::prefs(app, appcore::viewer::Surface::Sequence);
     let l = app.doc.sequence.len();
     let circular = app.doc.sequence.is_circular();
     let mut assign = LaneAssign {
@@ -87,7 +88,7 @@ fn assign_lanes(app: &AppState) -> LaneAssign {
             return lane;
         }
     };
-    if app.prefs.show_features {
+    if prefs.show_features {
         let mut ends = Vec::new();
         let mut feats: Vec<&Feature> = app
             .doc
@@ -105,7 +106,7 @@ fn assign_lanes(app: &AppState) -> LaneAssign {
             }
         }
     }
-    if app.prefs.show_orfs {
+    if prefs.show_orfs {
         let mut ends_t = Vec::new();
         let mut ends_b = Vec::new();
         for (i, orf) in app.analysis.orfs.iter().enumerate() {
@@ -119,7 +120,7 @@ fn assign_lanes(app: &AppState) -> LaneAssign {
             }
         }
     }
-    if app.prefs.show_primers {
+    if prefs.show_primers {
         let mut ends = Vec::new();
         for p in &app.doc.primers {
             if !p.visible {
@@ -139,7 +140,7 @@ fn assign_lanes(app: &AppState) -> LaneAssign {
             assign.primer_lanes.push((p.id, lane));
         }
     }
-    if !app.prefs.show_translations {
+    if !prefs.show_translations {
         assign.translated.clear();
     }
     assign
@@ -254,9 +255,10 @@ pub struct SeqDraw {
 
 impl SeqDraw {
     pub fn build(app: &AppState) -> Self {
+        let prefs = appcore::viewer::prefs(app, appcore::viewer::Surface::Sequence);
         let l = app.doc.sequence.len();
         let circular = app.doc.sequence.is_circular();
-        let zoom = app.prefs.show_zoom_controls && app.zoom_width < l;
+        let zoom = prefs.show_zoom_controls && app.zoom_width < l;
         let (disp_start, disp_len) = if zoom {
             (app.zoom_start % l, app.zoom_width.min(l))
         } else {
@@ -265,7 +267,7 @@ impl SeqDraw {
         let positions: Vec<usize> = (0..disp_len).map(|i| (disp_start + i) % l).collect();
         let n_rows = disp_len.div_ceil(BASES_PER_ROW);
         let lanes = assign_lanes(app);
-        let any_enzymes = app.prefs.show_enzymes && !app.analysis.chosen.is_empty();
+        let any_enzymes = prefs.show_enzymes && !app.analysis.chosen.is_empty();
 
         let regions = app
             .history_regions()
@@ -361,11 +363,7 @@ impl SeqDraw {
 
         let mut rows: Vec<RowLayout> = Vec::with_capacity(n_rows);
         let mut y = 0.0f32;
-        let comp_h = if app.prefs.show_complement {
-            COMP_H
-        } else {
-            0.0
-        };
+        let comp_h = if prefs.show_complement { COMP_H } else { 0.0 };
         for row in 0..n_rows {
             let i0 = row * BASES_PER_ROW;
             let i1 = (i0 + BASES_PER_ROW).min(disp_len);
@@ -457,11 +455,13 @@ impl SeqDraw {
             sel: app.selection,
             selected_feature: app.selected_feature,
             enz_marks,
-            show_complement: app.prefs.show_complement,
-            show_features: app.prefs.show_features,
-            show_orfs: app.prefs.show_orfs,
-            show_primers: app.prefs.show_primers,
-            colorize: app.colors_mode != ColorsMode::None || app.prefs.show_colors,
+            show_complement: prefs.show_complement,
+            show_features: prefs.show_features,
+            show_orfs: prefs.show_orfs,
+            show_primers: prefs.show_primers,
+            colorize: !appcore::viewer::settings(app, appcore::viewer::Surface::Sequence)
+                .monochrome
+                && (app.colors_mode != ColorsMode::None || prefs.show_colors),
             rows,
             total_h,
         }
@@ -1207,7 +1207,8 @@ impl HelixBench {
         cx.notify();
     }
 
-    fn seq_mouse_down(&mut self, ev: &MouseDownEvent, _w: &mut Window, cx: &mut Context<Self>) {
+    fn seq_mouse_down(&mut self, ev: &MouseDownEvent, w: &mut Window, cx: &mut Context<Self>) {
+        self.focus_handle.focus(w);
         self.seq_press = Some(ev.position);
         self.seq_dragged = false;
         self.app.seq_drag_anchor = self

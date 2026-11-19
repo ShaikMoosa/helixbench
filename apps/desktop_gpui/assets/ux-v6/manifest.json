@@ -94,5 +94,47 @@
     "width": "18",
     "height": "18",
     "sha256": "332176D3525EA352A975D2143D24D73AFDF39F66605F91369A5938C283DF4F29"
+  },
+  {
+    "name": "zoom-out.svg",
+    "width": "24",
+    "height": "24",
+    "sha256": "DEB14348D805F1FFD6BFDC81D6ABDC767A71CF326E7F2A3069C9C4E00FC724CB"
+  },
+  {
+    "name": "zoom-in.svg",
+    "width": "24",
+    "height": "24",
+    "sha256": "0293B8ADEBDEC65E3F015CE92F2CF97E13256544511D74F0F56F3B899DB04E70"
+  },
+  {
+    "name": "fit.svg",
+    "width": "24",
+    "height": "24",
+    "sha256": "4CAE8617BFF00C507703BD0074D271E5DEB6754976DB56FD0E512E48D1D9A184"
+  },
+  {
+    "name": "rotate-left.svg",
+    "width": "24",
+    "height": "24",
+    "sha256": "12485E181824FA6B1B23295B61FC198F3B81D65ED9D9F684837733E60D0B7085"
+  },
+  {
+    "name": "rotate-right.svg",
+    "width": "24",
+    "height": "24",
+    "sha256": "BDEC081949EDAD01B71F01CE49A1B8B7A7A51F0EEB87FEFB9CA4B1097BA28568"
+  },
+  {
+    "name": "layers.svg",
+    "width": "24",
+    "height": "24",
+    "sha256": "F4329C2B6B6E8AE79BCDA613D828F12F975A9402B5BFA3D0B78F8E6FEA0B228B"
+  },
+  {
+    "name": "palette.svg",
+    "width": "24",
+    "height": "24",
+    "sha256": "0CC26F86785F3B6D23FFFAC31AC93C568530F2894810D9BB9D48DF31887F6D8D"
   }
 ]

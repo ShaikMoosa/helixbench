@@ -147,6 +147,8 @@ struct EnzDraw {
 }
 
 pub struct MapDraw {
+    zoom: f32,
+    rotation: f32,
     l: usize,
     circular: bool,
     topology: &'static str,
@@ -171,15 +173,21 @@ pub struct MapDraw {
 
 impl MapDraw {
     pub fn build(app: &AppState) -> Self {
+        let display = appcore::viewer::settings(app, appcore::viewer::map_surface(app));
+        let prefs = &display.prefs;
         let l = app.doc.sequence.len();
         let mut features = Vec::new();
         for f in &app.doc.features {
-            if !app.prefs.show_features || !f.visible || f.segments.is_empty() {
+            if !prefs.show_features || !f.visible || f.segments.is_empty() {
                 continue;
             }
             features.push(FeatDraw {
                 name: f.name.clone(),
-                color: theme::pastel(f.color),
+                color: if display.monochrome {
+                    theme::ACCENT_TEXT
+                } else {
+                    theme::pastel(f.color)
+                },
                 dir: f.direction,
                 span: f.span(l),
                 multi: f.segments.len() > 1,
@@ -228,15 +236,17 @@ impl MapDraw {
         let hits = crate::util::search_hit_ranges(app);
         MapDraw {
             l,
+            zoom: display.zoom,
+            rotation: display.rotation,
             circular: app.map_circular(),
             topology: app.doc.sequence.topology.label(),
             name: app.doc.name.clone(),
             gc: app.doc.sequence.gc_content(),
             selection: app.selection,
-            show_orfs: app.prefs.show_orfs,
-            show_enzymes: app.prefs.show_enzymes,
-            show_primers: app.prefs.show_primers,
-            show_zoom: app.prefs.show_zoom_controls,
+            show_orfs: prefs.show_orfs,
+            show_enzymes: prefs.show_enzymes,
+            show_primers: prefs.show_primers,
+            show_zoom: prefs.show_zoom_controls,
             zoom_start: app.zoom_start,
             zoom_width: app.zoom_width,
             orfs: app
@@ -302,6 +312,8 @@ impl MapDraw {
         }
         MapDraw {
             l,
+            zoom: 1.0,
+            rotation: 0.0,
             circular: doc.sequence.topology == domain::Topology::Circular,
             topology: doc.sequence.topology.label(),
             name: doc.name.clone(),
@@ -330,7 +342,7 @@ impl MapDraw {
 }
 
 pub fn paint(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
-    draw::rect(window, bounds, 0.0, theme::BG);
+    draw::rect(window, bounds, 0.0, theme::PANEL);
     if d.l == 0 {
         draw::text(
             window,
@@ -351,10 +363,23 @@ pub fn paint(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut 
     }
 }
 
+fn track_radii(base: f32, zoom: f32) -> [f32; 6] {
+    let scale = (base / 160.0).min(1.0) * zoom;
+    let r = base * zoom;
+    [
+        r,
+        r - 13.0 * scale,
+        r - 26.0 * scale,
+        r - 52.0 * scale,
+        r - 76.0 * scale,
+        r - 88.0 * scale,
+    ]
+}
 fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
     let g = geom(bounds, true);
     let c = g.center;
-    let r = g.r;
+    let radii = track_radii(g.r, d.zoom);
+    let r = radii[0];
     let l = d.l;
 
     draw::disc(window, c, r + 58.0, theme::PANEL);
@@ -362,18 +387,18 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
     draw::disc(window, c, r + 26.0, theme::SURFACE);
 
     let r_feat_out = r;
-    let r_feat_in = r - 13.0;
-    let r_enz = r - 26.0;
-    let r_primer = r - 52.0;
-    let r_orf_top = r - 76.0;
-    let r_orf_bot = r - 88.0;
+    let r_feat_in = radii[1];
+    let r_enz = radii[2];
+    let r_primer = radii[3];
+    let r_orf_top = radii[4];
+    let r_orf_bot = radii[5];
 
     draw::ring(window, c, r_enz, 1.5, theme::FAINT);
 
     // ORF arcs
     if d.show_orfs {
         for &(start, len, top) in &d.orfs {
-            let a0 = pos_angle(start, l);
+            let a0 = pos_angle(start, l) + d.rotation.to_radians();
             let a1 = a0 + TAU * len as f32 / l as f32;
             let (rr, col) = if top {
                 (r_orf_top, theme::ORF_TOP)
@@ -391,7 +416,7 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
     if d.show_primers {
         for p in &d.primers {
             for &(start, len, _) in &p.sites {
-                let a0 = pos_angle(start, l);
+                let a0 = pos_angle(start, l) + d.rotation.to_radians();
                 let mid = a0 + TAU * len as f32 / l as f32 / 2.0;
                 let ap = polar(c, r_primer, mid);
                 occupied.push((
@@ -409,7 +434,7 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
         let label_sites = d.enzymes.len() <= 42;
         let mut labels: Vec<(f32, String)> = Vec::new();
         for e in &d.enzymes {
-            let a = pos_angle(e.position, l);
+            let a = pos_angle(e.position, l) + d.rotation.to_radians();
             draw::segment(
                 window,
                 polar(c, r_enz - 5.0, a),
@@ -496,7 +521,7 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
     if d.show_primers {
         for p in &d.primers {
             for &(start, len, top) in &p.sites {
-                let a0 = pos_angle(start, l);
+                let a0 = pos_angle(start, l) + d.rotation.to_radians();
                 let a1 = a0 + TAU * len as f32 / l as f32;
                 let dir = if top {
                     Direction::Forward
@@ -526,7 +551,7 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
     // Feature arrows + labels
     let mut feat_labels: Vec<(f32, String, Hsla)> = Vec::new();
     for f in &d.features {
-        let a0 = pos_angle(f.span.start, l);
+        let a0 = pos_angle(f.span.start, l) + d.rotation.to_radians();
         let a1 = a0 + TAU * f.span.len as f32 / l as f32;
         let fill = if f.selected {
             f.color
@@ -618,7 +643,7 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
     if d.show_primers {
         for p in &d.primers {
             for &(start, len, _) in &p.sites {
-                let a0 = pos_angle(start, l);
+                let a0 = pos_angle(start, l) + d.rotation.to_radians();
                 let mid = a0 + TAU * len as f32 / l as f32 / 2.0;
                 let w = draw::measure(window, &p.name, 10.5, theme::ui_font()).v();
                 let left = mid.cos() >= 0.0;
@@ -670,14 +695,14 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
 
     // Color regions
     for (range, col) in &d.regions {
-        let a0 = pos_angle(range.start, l);
+        let a0 = pos_angle(range.start, l) + d.rotation.to_radians();
         let a1 = a0 + TAU * range.len as f32 / l as f32;
         draw::polyline(window, &arc_points(c, r + 6.0, a0, a1), 5.0, *col);
     }
 
     // Search hits
     for (i, hr) in d.hits.iter().enumerate() {
-        let a0 = pos_angle(hr.start, l);
+        let a0 = pos_angle(hr.start, l) + d.rotation.to_radians();
         let a1 = a0 + TAU * hr.len as f32 / l as f32;
         let current = i == d.hit_current && d.has_hits;
         draw::polyline(
@@ -690,7 +715,7 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
 
     // Selection arc
     if let Some(sel) = d.selection {
-        let a0 = pos_angle(sel.start, l);
+        let a0 = pos_angle(sel.start, l) + d.rotation.to_radians();
         let a1 = a0 + TAU * sel.len as f32 / l as f32;
         draw::polyline(window, &arc_points(c, r + 12.0, a0, a1), 4.0, theme::SELECT);
         for a in [a0, a1] {
@@ -706,7 +731,7 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
 
     // Zoom window
     if d.show_zoom && d.zoom_width < l {
-        let a0 = pos_angle(d.zoom_start, l);
+        let a0 = pos_angle(d.zoom_start, l) + d.rotation.to_radians();
         let a1 = a0 + TAU * d.zoom_width as f32 / l as f32;
         draw::polyline(
             window,
@@ -719,8 +744,8 @@ fn paint_circular(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: 
     // Origin tick at 12 o'clock
     draw::segment(
         window,
-        polar(c, r + 24.0, -HALF_PI),
-        polar(c, r + 30.0, -HALF_PI),
+        polar(c, r + 24.0, -HALF_PI + d.rotation.to_radians()),
+        polar(c, r + 30.0, -HALF_PI + d.rotation.to_radians()),
         1.5,
         theme::FAINT,
     );
@@ -808,9 +833,13 @@ fn linear_x(bounds: Bounds<Pixels>) -> (f32, f32, f32) {
     (x0, (x1 - x0).max(50.0), y)
 }
 
+fn linear_view(bounds: Bounds<Pixels>, zoom: f32) -> (f32, f32, f32) {
+    let (x, w, y) = linear_x(bounds);
+    (x - w * (zoom - 1.0) / 2.0, w * zoom, y)
+}
 fn paint_linear(d: &MapDraw, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
     let l = d.l;
-    let (x0, w, y) = linear_x(bounds);
+    let (x0, w, y) = linear_view(bounds, d.zoom);
     let px_at = |p: usize| x0 + w * (p as f32 / l as f32);
     let pt = |x: f32, yy: f32| point(px(x), px(yy));
 
@@ -1016,27 +1045,35 @@ pub enum Hit {
 }
 
 pub fn hit_test(app: &AppState, g: Geom, pos: Point<Pixels>) -> Option<Hit> {
+    let display = appcore::viewer::settings(app, appcore::viewer::map_surface(app));
+    let prefs = &display.prefs;
     let l = app.doc.sequence.len();
     if l == 0 {
         return None;
     }
     if g.circular {
         let d = dist(pos, g.center);
-        let pa = angle_of(pos, g.center);
-        let r = g.r;
+        let delta = appcore::viewer::Transform {
+            zoom: 1.0,
+            rotation: display.rotation,
+        }
+        .inverse([(pos.x - g.center.x).v(), (pos.y - g.center.y).v()]);
+        let pa = delta[1].atan2(delta[0]);
+        let radii = track_radii(g.r, display.zoom);
+        let r = radii[0];
         // features (highest priority)
         for f in &app.doc.features {
-            if !app.prefs.show_features || !f.visible || f.segments.is_empty() {
+            if !prefs.show_features || !f.visible || f.segments.is_empty() {
                 continue;
             }
             let span = f.span(l);
             let a0 = pos_angle(span.start, l);
             let a1 = a0 + TAU * span.len as f32 / l as f32;
-            if (r - 13.0 - 2.0..=r + 2.0).contains(&d) && angle_in(pa, a0, a1) {
+            if (radii[1] - 2.0..=r + 2.0).contains(&d) && angle_in(pa, a0, a1) {
                 return Some(Hit::Feature(f.id));
             }
         }
-        if app.prefs.show_primers {
+        if prefs.show_primers {
             for p in &app.doc.primers {
                 if !p.visible {
                     continue;
@@ -1045,29 +1082,29 @@ pub fn hit_test(app: &AppState, g: Geom, pos: Point<Pixels>) -> Option<Hit> {
                     for s in sites {
                         let a0 = pos_angle(s.start, l);
                         let a1 = a0 + TAU * s.len as f32 / l as f32;
-                        if (d - (r - 52.0)).abs() < 9.0 && angle_in(pa, a0, a1) {
+                        if (d - radii[3]).abs() < 9.0 && angle_in(pa, a0, a1) {
                             return Some(Hit::Primer(p.id, Range::new(s.start, s.len), s.strand));
                         }
                     }
                 }
             }
         }
-        if app.prefs.show_enzymes {
+        if prefs.show_enzymes {
             for (_e, sites) in &app.analysis.chosen {
                 for s in sites {
-                    let a = pos_angle(s.position, l);
-                    if dist(pos, polar(g.center, r - 26.0, a)) < 8.0 {
+                    let a = pos_angle(s.position, l) + display.rotation.to_radians();
+                    if dist(pos, polar(g.center, radii[2], a)) < 8.0 {
                         return Some(Hit::Enzyme(s.position));
                     }
                 }
             }
         }
     } else {
-        let (x0, w, y) = linear_x(g.bounds);
+        let (x0, w, y) = linear_view(g.bounds, display.zoom);
         let px_at = |p: usize| x0 + w * (p as f32 / l as f32);
         let mut lane_ends: Vec<f32> = Vec::new();
         for f in &app.doc.features {
-            if !app.prefs.show_features || !f.visible || f.segments.is_empty() {
+            if !prefs.show_features || !f.visible || f.segments.is_empty() {
                 continue;
             }
             let span = f.span(l);
@@ -1086,7 +1123,7 @@ pub fn hit_test(app: &AppState, g: Geom, pos: Point<Pixels>) -> Option<Hit> {
                 return Some(Hit::Feature(f.id));
             }
         }
-        if app.prefs.show_enzymes {
+        if prefs.show_enzymes {
             for (_e, sites) in &app.analysis.chosen {
                 for s in sites {
                     let x = px_at(s.position);
@@ -1110,6 +1147,7 @@ impl HelixBench {
         div()
             .id("map-view")
             .size_full()
+            .overflow_hidden()
             .child(
                 canvas(
                     move |bounds, _window, cx| {
@@ -1131,7 +1169,8 @@ impl HelixBench {
         Some(geom(b, self.app.map_circular()))
     }
 
-    fn map_mouse_down(&mut self, ev: &MouseDownEvent, _w: &mut Window, cx: &mut Context<Self>) {
+    fn map_mouse_down(&mut self, ev: &MouseDownEvent, w: &mut Window, cx: &mut Context<Self>) {
+        self.focus_handle.focus(w);
         let Some(g) = self.map_geom() else { return };
         let l = self.app.doc.sequence.len();
         if l == 0 {
@@ -1147,11 +1186,28 @@ impl HelixBench {
             return;
         }
         if g.circular {
-            if dist(ev.position, g.center) > g.r - 90.0 {
-                self.app.map_drag_anchor = Some(angle_pos(angle_of(ev.position, g.center), l));
+            if dist(ev.position, g.center)
+                > g.r
+                    * appcore::viewer::settings(&self.app, appcore::viewer::Surface::CircularMap)
+                        .zoom
+                    - 90.0
+            {
+                self.app.map_drag_anchor = Some(angle_pos(
+                    angle_of(ev.position, g.center)
+                        - appcore::viewer::settings(
+                            &self.app,
+                            appcore::viewer::Surface::CircularMap,
+                        )
+                        .rotation
+                        .to_radians(),
+                    l,
+                ));
             }
         } else {
-            let (x0, w, _) = linear_x(g.bounds);
+            let (x0, w, _) = linear_view(
+                g.bounds,
+                appcore::viewer::settings(&self.app, appcore::viewer::Surface::LinearMap).zoom,
+            );
             let p = (((ev.position.x.v() - x0) / w) * l as f32).clamp(0.0, (l - 1) as f32) as usize;
             self.app.map_drag_anchor = Some(p);
         }
@@ -1170,7 +1226,16 @@ impl HelixBench {
         }
         if let Some(anchor) = self.app.map_drag_anchor {
             if g.circular {
-                let cur = angle_pos(angle_of(ev.position, g.center), l);
+                let cur = angle_pos(
+                    angle_of(ev.position, g.center)
+                        - appcore::viewer::settings(
+                            &self.app,
+                            appcore::viewer::Surface::CircularMap,
+                        )
+                        .rotation
+                        .to_radians(),
+                    l,
+                );
                 let len = (cur + l - anchor) % l + 1;
                 let source = self.app.doc.source_ref();
                 let _ = appcore::selection::apply(
@@ -1180,7 +1245,10 @@ impl HelixBench {
                     Strand::Top,
                 );
             } else {
-                let (x0, w, _) = linear_x(g.bounds);
+                let (x0, w, _) = linear_view(
+                    g.bounds,
+                    appcore::viewer::settings(&self.app, appcore::viewer::Surface::LinearMap).zoom,
+                );
                 let p =
                     (((ev.position.x.v() - x0) / w) * l as f32).clamp(0.0, (l - 1) as f32) as usize;
                 let (a, b) = (anchor.min(p), anchor.max(p));
@@ -1240,6 +1308,73 @@ impl HelixBench {
 #[cfg(test)]
 mod p08a_tests {
     use super::*;
+    #[test]
+    fn all_circular_tracks_remain_positive_at_minimum_zoom_and_small_viewports() {
+        for base in [60.0, 90.0, 125.0, 300.0] {
+            for zoom in [0.5, 1.0, 2.5] {
+                let radii = track_radii(base, zoom);
+                assert!(radii.iter().all(|r| r.is_finite() && *r > 0.0));
+                assert!(radii.windows(2).all(|p| p[0] > p[1]));
+            }
+        }
+    }
+    #[test]
+    fn rotated_enzyme_tick_hits_its_drawn_position_not_the_old_location() {
+        let mut app = AppState::new(
+            domain::Document::new("site".into(), vec![b'A'; 1000], domain::Topology::Circular),
+            Default::default(),
+        );
+        app.doc.sequence.bases[100..106].copy_from_slice(b"GAATTC");
+        app.doc.chosen_enzymes = vec!["EcoRI".into()];
+        app.analysis_dirty = true;
+        app.ensure_analysis();
+        let site = app.analysis.chosen[0].1[0].position;
+        appcore::viewer::rotate(&mut app, appcore::viewer::Surface::CircularMap, 90.0);
+        let g = geom(
+            Bounds::new(point(px(0.0), px(0.0)), gpui::size(px(800.0), px(800.0))),
+            true,
+        );
+        let old = polar(g.center, g.r - 26.0, pos_angle(site, 1000));
+        let shown = polar(
+            g.center,
+            g.r - 26.0,
+            pos_angle(site, 1000) + 90_f32.to_radians(),
+        );
+        assert!(matches!(hit_test(&app,g,shown),Some(Hit::Enzyme(found)) if found==site));
+        assert!(hit_test(&app, g, old).is_none());
+    }
+    #[test]
+    fn rotated_map_hits_the_original_feature_and_hidden_layers_stay_unselectable() {
+        let mut app = AppState::new(
+            domain::Document::new(
+                "template".into(),
+                vec![b'A'; 1000],
+                domain::Topology::Circular,
+            ),
+            Default::default(),
+        );
+        app.doc.add_feature(domain::Feature::new(
+            7,
+            "feature".into(),
+            "gene".into(),
+            vec![Range::new(100, 100)],
+        ));
+        let id = app.doc.features[0].id;
+        appcore::viewer::rotate(&mut app, appcore::viewer::Surface::CircularMap, 90.0);
+        let g = geom(
+            Bounds::new(point(px(0.0), px(0.0)), gpui::size(px(800.0), px(800.0))),
+            true,
+        );
+        let p = polar(
+            g.center,
+            g.r - 5.0,
+            pos_angle(150, 1000) + 90_f32.to_radians(),
+        );
+        assert!(matches!(hit_test(&app,g,p),Some(Hit::Feature(found)) if found==id));
+        appcore::viewer::toggle_layer(&mut app, appcore::viewer::Surface::CircularMap, "features");
+        assert!(MapDraw::build(&app).features.is_empty());
+        assert!(hit_test(&app, g, p).is_none());
+    }
     #[test]
     fn hidden_map_features_are_neither_drawn_nor_clickable() {
         let mut app = AppState::new(
