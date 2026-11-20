@@ -131,7 +131,11 @@ fn nav_item(
     view: View,
     cx: &mut Context<HelixBench>,
 ) -> gpui::Stateful<gpui::Div> {
-    let active = appcore::workspace::owner(app.app.view) == view && !app.app.workspace_search.open;
+    let active = if crate::dialogs::import_workspace_active(&app.app) {
+        view == View::Sequences
+    } else {
+        appcore::workspace::owner(app.app.view) == view && !app.app.workspace_search.open
+    };
     let color = if active {
         theme::ACCENT_TEXT
     } else {
@@ -166,7 +170,9 @@ fn nav_item(
 }
 pub fn workspace_context(app: &mut HelixBench, cx: &mut Context<HelixBench>) -> AnyElement {
     let owner = appcore::workspace::owner(app.app.view);
-    let crumb = if app.app.workspace_search.open {
+    let crumb = if crate::dialogs::import_workspace_active(&app.app) {
+        "Workspace › Sequences › Review imported records".to_owned()
+    } else if app.app.workspace_search.open {
         "Workspace › Search".to_owned()
     } else if View::ALL.contains(&app.app.view) || app.app.view == View::Split {
         format!(

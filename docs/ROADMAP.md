@@ -6,11 +6,11 @@ The user adopted [Soft Gallery UX v6](https://www.figma.com/design/U1kWw1K5NZBgE
 and requested implementation. The historical release coverage below does not imply the new UX
 is implemented. P00–P09 preservation work is on main `d80460d`; P10A–P20 remain in scope.
 
-V6-01 shared foundations is merged. V6-02 object-centered routes/navigation is implemented
-on `codex/ux-v6-navigation`; see live progress for verification and remaining visual checks.
-V6-03 scientific viewer controls is implemented on `codex/ux-v6-viewers`, stacked on
-V6-02. Final wide-screen visual acceptance remains in its draft review scope.
-Next implementation: V6-04 import/digest/PCR workspaces and contextual edit drawers.
+V6-01 shared foundations, V6-02 navigation (PR #3) and V6-03 scientific viewers (PR #4)
+are merged into main. Main's merge-commit Actions run `44641014046` passed all CI steps.
+The user waived exact 1600px acceptance; available-width native evidence remains recorded.
+V6-04A now implements file-import review in the workspace on `codex/ux-v6-import-review`.
+Next slices: contextual feature/primer drawers, digest/PCR workspaces and result detail tabs.
 V6-05 carries the remaining P10A–P18 functionality through the new patterns; V6-06 combines
 P19/P20 acceptance, researcher validation and release evidence. P10A resumes after V6-02.
 
