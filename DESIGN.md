@@ -75,6 +75,13 @@ Related records are actual linked records, never authored reference fixtures.
 
 ## Assets and scope
 
+File-import review is a guarded task in the central workspace, with three visible task
+steps, record inclusion, Overview/Interpretation/Original input tabs and a fixed footer.
+Only relevant conversion/exclusion acknowledgments appear. Validation explains why the
+primary action is unavailable. Native paste and nested new-sequence review retain their
+own form. The original source and current documents remain intact until explicit commit.
+Choosing input still uses the native picker in this slice.
+
 Use embedded approved Figma SVGs: full-color logos via image rendering; monochrome
 tool icons at their native16/18/15px sizes. Provenance and checksums are in
 `apps/desktop_gpui/assets/soft-gallery/README.md`. No network asset is required at

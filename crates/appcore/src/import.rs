@@ -30,8 +30,99 @@ pub struct ImportReviewDraft {
     operation: OperationId,
     origin: ReturnLocation,
     previous_dialog: Option<Box<Dialog>>,
+    source_facts: Vec<ImportSourceFacts>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ImportSourceFacts {
+    pub contains_u: bool,
+    pub contains_gaps: bool,
+    pub residue_count: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ImportReviewSummary {
+    pub total: usize,
+    pub selected: usize,
+    pub excluded: usize,
+    pub invalid: usize,
+    pub needs_changes_ack: bool,
+    pub needs_skipped_ack: bool,
+}
+
 impl ImportReviewDraft {
+    pub fn source_facts(&self, index: usize) -> Option<ImportSourceFacts> {
+        self.source_facts.get(index).copied()
+    }
+
+    pub fn sync_name(&mut self, index: usize, name: &str) -> Result<(), String> {
+        let current = self
+            .names
+            .get_mut(index)
+            .ok_or("This record is no longer available")?;
+        if current != name {
+            *current = name.to_owned();
+            self.invalidate();
+        }
+        Ok(())
+    }
+
+    /// File reviews occupy the workspace; nested creation and paste keep their owning form.
+    pub fn is_workspace(&self) -> bool {
+        matches!(self.destination, ImportDestination::NewDocuments)
+            && self.previous_dialog.is_none()
+    }
+
+    pub fn summary(&self) -> ImportReviewSummary {
+        let total = self.preview.records.len();
+        let selected = self.selected.iter().filter(|selected| **selected).count();
+        ImportReviewSummary {
+            total,
+            selected,
+            excluded: total.saturating_sub(selected),
+            invalid: self
+                .preview
+                .records
+                .iter()
+                .filter(|row| row.document.is_none() || !row.errors.is_empty())
+                .count(),
+            needs_changes_ack: self
+                .preview
+                .records
+                .iter()
+                .enumerate()
+                .any(|(i, row)| self.selected.get(i) == Some(&true) && row.requires_acknowledgment),
+            needs_skipped_ack: selected != total,
+        }
+    }
+
+    pub fn set_selected(&mut self, index: usize, selected: bool) -> Result<(), String> {
+        let row = self
+            .preview
+            .records
+            .get(index)
+            .ok_or("This record is no longer available")?;
+        if selected && (row.document.is_none() || !row.errors.is_empty()) {
+            return Err("Resolve this record's errors before including it".into());
+        }
+        let current = self
+            .selected
+            .get_mut(index)
+            .ok_or("Import review no longer matches the source; reopen it")?;
+        if *current != selected {
+            *current = selected;
+            self.acknowledge_changes = false;
+            self.acknowledge_skipped = false;
+            self.invalidate();
+        }
+        Ok(())
+    }
+
+    /// Borrowed validation is safe to run while rendering; it does not clone DNA or metadata.
+    pub fn validate(&self) -> Result<(), String> {
+        validate_review(self)
+    }
+
     pub fn invalidate(&mut self) {
         self.revision = self.revision.wrapping_add(1);
         self.error = None;
@@ -80,6 +171,22 @@ fn begin_review_inner(
         .map(|row| row.document.is_some() && row.errors.is_empty())
         .collect();
     let names = preview.records.iter().map(|row| row.name.clone()).collect();
+    let source_facts = preview
+        .records
+        .iter()
+        .map(|row| ImportSourceFacts {
+            contains_u: row
+                .original_sequence
+                .bytes()
+                .any(|byte| matches!(byte, b'U' | b'u')),
+            contains_gaps: row.original_sequence.contains(['-', '.']),
+            residue_count: row
+                .original_sequence
+                .bytes()
+                .filter(|byte| !byte.is_ascii_whitespace())
+                .count(),
+        })
+        .collect();
     let origin = ReturnLocation::capture(app);
     let previous_dialog = app.dialog.take().map(Box::new);
     app.dialog = Some(Dialog::ImportReview(Box::new(ImportReviewDraft {
@@ -96,6 +203,7 @@ fn begin_review_inner(
         operation: OperationId::new(),
         origin,
         previous_dialog,
+        source_facts,
     })));
     Ok(())
 }
@@ -142,13 +250,14 @@ pub fn review_paste(app: &mut AppState, text: &str) -> Result<(), String> {
     begin_review(app, ImportSource::text("Clipboard.txt", text), destination)
 }
 
-pub fn reviewed_plan(draft: &ImportReviewDraft) -> Result<ReviewedImportPlan, String> {
+fn validate_review(draft: &ImportReviewDraft) -> Result<(), String> {
     if draft.selected.len() != draft.preview.records.len()
         || draft.names.len() != draft.preview.records.len()
     {
         return Err("Import review no longer matches the source; reopen it".into());
     }
-    let mut documents = vec![];
+    let mut count = 0;
+    let mut annotated = false;
     for (i, row) in draft.preview.records.iter().enumerate() {
         if !draft.selected[i] {
             continue;
@@ -166,42 +275,62 @@ pub fn reviewed_plan(draft: &ImportReviewDraft) -> Result<ReviewedImportPlan, St
                     .into(),
             );
         }
-        let mut doc = row
+        let doc = row
             .document
-            .clone()
+            .as_ref()
             .ok_or_else(|| format!("Record {} has no supported DNA interpretation", row.index))?;
         let name = draft.names[i].trim();
         if name.is_empty() {
             return Err(format!("Give record {} a name", row.index));
         }
-        doc.name = name.into();
-        if name != row.name {
-            if let Some(source) = &mut doc.import_source {
-                source
-                    .transformations
-                    .push(format!("Renamed record to {name}"));
-            }
-        }
-        documents.push(doc);
+        count += 1;
+        annotated |= !doc.features.is_empty() || !doc.primers.is_empty();
     }
-    if documents.is_empty() {
+    if count == 0 {
         return Err("Select at least one valid DNA record".into());
     }
-    if documents.len() != draft.preview.records.len() && !draft.acknowledge_skipped {
+    if count != draft.preview.records.len() && !draft.acknowledge_skipped {
         return Err(
             "Acknowledge the unselected records before importing only the selected subset".into(),
         );
     }
     if matches!(draft.destination, ImportDestination::Insert { .. }) {
-        if documents.len() != 1 {
+        if count != 1 {
             return Err("Select exactly one record for sequence insertion".into());
         }
-        if !documents[0].features.is_empty() || !documents[0].primers.is_empty() {
+        if annotated {
             return Err(
                 "Annotated input must open as a new document to preserve its annotations".into(),
             );
         }
     }
+    Ok(())
+}
+
+pub fn reviewed_plan(draft: &ImportReviewDraft) -> Result<ReviewedImportPlan, String> {
+    draft.validate()?;
+    let documents = draft
+        .preview
+        .records
+        .iter()
+        .enumerate()
+        .filter_map(|(i, row)| {
+            if !draft.selected[i] {
+                return None;
+            }
+            let mut doc = row.document.clone()?;
+            let name = draft.names[i].trim();
+            doc.name = name.into();
+            if name != row.name {
+                if let Some(source) = &mut doc.import_source {
+                    source
+                        .transformations
+                        .push(format!("Renamed record to {name}"));
+                }
+            }
+            Some(doc)
+        })
+        .collect();
     Ok(ReviewedImportPlan {
         operation: draft.operation,
         review_revision: draft.revision,

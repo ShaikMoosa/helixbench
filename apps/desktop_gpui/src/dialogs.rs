@@ -23,6 +23,9 @@ use crate::theme;
 use crate::views::check_box;
 use crate::widgets::{self, Btn};
 
+mod import_workspace;
+pub use import_workspace::{import_workspace, import_workspace_active, ImportReviewUi};
+
 // ---------------------------------------------------------------------------
 // Openers
 // ---------------------------------------------------------------------------
@@ -146,6 +149,9 @@ pub fn show(
 ) -> Option<AnyElement> {
     if app.app.dialog.is_none() {
         app.dlg_combo = None;
+        return None;
+    }
+    if import_workspace_active(&app.app) {
         return None;
     }
     let max_h = (window.viewport_size().height - px(64.0)).max(px(360.0));
@@ -863,9 +869,11 @@ fn import_review(app: &mut HelixBench, cx: &mut Context<HelixBench>, max_h: Pixe
                                     if let Some(Dialog::ImportReview(draft)) = &mut this.app.dialog
                                     {
                                         if valid {
-                                            draft.selected[i] = !draft.selected[i];
-                                            draft.acknowledge_skipped = false;
-                                            draft.invalidate();
+                                            if let Err(error) =
+                                                draft.set_selected(i, !draft.selected[i])
+                                            {
+                                                draft.error = Some(error);
+                                            }
                                         } else {
                                             draft.active = i;
                                             draft.error = Some(

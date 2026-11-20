@@ -170,6 +170,7 @@ pub struct HelixBench {
     // Text fields (keyed, persistent entities)
     pub inputs: HashMap<String, Entity<TextInput>>,
     pub last_dialog_sig: String,
+    pub import_ui: crate::dialogs::ImportReviewUi,
     last_input_context: Option<(domain::DocumentId, u64)>,
 
     // Dialog chrome: window size for the scrim, scroll handle for the body
@@ -227,6 +228,7 @@ impl HelixBench {
             inputs: HashMap::new(),
             last_input_context: None,
             last_dialog_sig: String::new(),
+            import_ui: Default::default(),
             viewport: size(px(0.0), px(0.0)),
             dlg_scroll: ScrollHandle::new(),
             feat_scroll: UniformListScrollHandle::new(),
@@ -973,15 +975,21 @@ impl HelixBench {
         cx.notify();
     }
     fn on_save(&mut self, _: &Save, _: &mut Window, cx: &mut Context<Self>) {
+        if crate::dialogs::import_workspace_active(&self.app) {
+            return;
+        }
         act::save(&mut self.app);
         cx.notify();
     }
     fn on_save_as(&mut self, _: &SaveAs, _: &mut Window, cx: &mut Context<Self>) {
+        if crate::dialogs::import_workspace_active(&self.app) {
+            return;
+        }
         act::save_as(&mut self.app);
         cx.notify();
     }
     fn on_undo(&mut self, _: &Undo, _: &mut Window, cx: &mut Context<Self>) {
-        if self.app.workspace_search.open {
+        if self.app.workspace_search.open || crate::dialogs::import_workspace_active(&self.app) {
             return;
         }
         if self.app.undo() {
@@ -990,7 +998,7 @@ impl HelixBench {
         cx.notify();
     }
     fn on_redo(&mut self, _: &Redo, _: &mut Window, cx: &mut Context<Self>) {
-        if self.app.workspace_search.open {
+        if self.app.workspace_search.open || crate::dialogs::import_workspace_active(&self.app) {
             return;
         }
         if self.app.redo() {
@@ -999,6 +1007,9 @@ impl HelixBench {
         cx.notify();
     }
     fn on_inspector(&mut self, _: &Inspector, window: &mut Window, cx: &mut Context<Self>) {
+        if crate::dialogs::import_workspace_active(&self.app) {
+            return;
+        }
         crate::shell::toggle_inspector(self, window, cx);
     }
     fn on_workspace_find(&mut self, _: &WorkspaceFind, _: &mut Window, cx: &mut Context<Self>) {
@@ -1009,7 +1020,10 @@ impl HelixBench {
         cx.notify();
     }
     fn on_find(&mut self, _: &Find, window: &mut Window, cx: &mut Context<Self>) {
-        if self.app.workspace_search.open {
+        if crate::dialogs::import_workspace_active(&self.app) {
+            return;
+        }
+        if self.app.workspace_search.open || crate::dialogs::import_workspace_active(&self.app) {
             if let Err(error) = appcore::workspace_search::close(&mut self.app) {
                 self.app.toast(error);
                 return;
@@ -1051,7 +1065,9 @@ impl HelixBench {
                 }
                 Some(_) => self.app.dialog = None,
                 None => {
-                    if self.app.workspace_search.open {
+                    if self.app.workspace_search.open
+                        || crate::dialogs::import_workspace_active(&self.app)
+                    {
                         if let Err(error) = appcore::workspace_search::close(&mut self.app) {
                             self.app.workspace_search.error = Some(error);
                         } else {
@@ -1069,14 +1085,14 @@ impl HelixBench {
         cx.notify();
     }
     fn on_select_all(&mut self, _: &SelectAll, _: &mut Window, cx: &mut Context<Self>) {
-        if self.app.workspace_search.open {
+        if self.app.workspace_search.open || crate::dialogs::import_workspace_active(&self.app) {
             return;
         }
         act::select_all(&mut self.app);
         cx.notify();
     }
     fn on_copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
-        if self.app.workspace_search.open {
+        if self.app.workspace_search.open || crate::dialogs::import_workspace_active(&self.app) {
             return;
         }
         let text = act::copy_selection(&self.app);
@@ -1085,7 +1101,7 @@ impl HelixBench {
         }
     }
     fn on_cut(&mut self, _: &Cut, _: &mut Window, cx: &mut Context<Self>) {
-        if self.app.workspace_search.open {
+        if self.app.workspace_search.open || crate::dialogs::import_workspace_active(&self.app) {
             return;
         }
         if let Some(text) = act::cut_selection(&mut self.app) {
@@ -1096,7 +1112,7 @@ impl HelixBench {
         cx.notify();
     }
     fn on_paste(&mut self, _: &Paste, _: &mut Window, cx: &mut Context<Self>) {
-        if self.app.workspace_search.open {
+        if self.app.workspace_search.open || crate::dialogs::import_workspace_active(&self.app) {
             return;
         }
         if let Some(text) = cx.read_from_clipboard().and_then(|i| i.text()) {
@@ -1107,7 +1123,7 @@ impl HelixBench {
         cx.notify();
     }
     fn on_delete(&mut self, _: &Delete, _: &mut Window, cx: &mut Context<Self>) {
-        if self.app.workspace_search.open {
+        if self.app.workspace_search.open || crate::dialogs::import_workspace_active(&self.app) {
             return;
         }
         act::delete_selection(&mut self.app);
@@ -1138,6 +1154,15 @@ impl HelixBench {
             return;
         }
 
+        if crate::dialogs::import_workspace_active(&self.app) && ev.keystroke.key == "tab" {
+            if ev.keystroke.modifiers.shift {
+                window.focus_prev();
+            } else {
+                window.focus_next();
+            }
+            cx.stop_propagation();
+            return;
+        }
         if self.app.workspace_search.open || self.app.dialog.is_some() || self.menu.is_some() {
             return;
         }
@@ -1677,6 +1702,9 @@ impl HelixBench {
     }
 
     fn central_view(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        if crate::dialogs::import_workspace_active(&self.app) {
+            return crate::dialogs::import_workspace(self, cx);
+        }
         if self.app.workspace_search.open {
             return crate::find::show_workspace(self, window, cx);
         }
@@ -1808,13 +1836,18 @@ impl Render for HelixBench {
             },
         );
         let central = self.central_view(window, cx);
-        let shell_layout = self
+        let import_task = crate::dialogs::import_workspace_active(&self.app);
+        let mut shell_layout = self
             .app
             .shell
             .layout_for(self.app.view, self.viewport.width.v());
+        if import_task {
+            shell_layout.inspector = appcore::shell::InspectorPlacement::Hidden;
+        }
         let gallery_header = crate::shell::page_header(self, cx);
         let selection_bar = if matches!(self.app.view, View::Map | View::Sequence)
             && !self.app.workspace_search.open
+            && !import_task
         {
             Some(crate::selection_ui::bar(self, cx))
         } else {
@@ -1826,14 +1859,18 @@ impl Render for HelixBench {
             None
         };
         let toolbar = self.left_rail(cx);
-        let menu_overlay = self.render_menu(cx);
+        let menu_overlay = if import_task {
+            None
+        } else {
+            self.render_menu(cx)
+        };
         let dialog_overlay = crate::dialogs::show(self, window, cx);
         let workspace_toolbar = crate::find::workspace_toolbar(self, cx);
         let inspected_record = crate::find::inspected_record(self, cx);
         let toast = self.toast(cx);
         let operation_feedback = self.operation_feedback(cx);
         let sample_banner = crate::lab::sample_banner(self, cx);
-        let find_bar = if self.app.search.open && !self.app.workspace_search.open {
+        let find_bar = if self.app.search.open && !self.app.workspace_search.open && !import_task {
             Some(crate::find::show(self, window, cx))
         } else {
             None
@@ -1880,13 +1917,17 @@ impl Render for HelixBench {
             .flex()
             .flex_col()
             .overflow_hidden()
-            .child(self.menu_bar(cx))
-            .child(crate::shell::workspace_context(self, cx))
-            .child(gallery_header);
-        if View::ALL.contains(&self.app.view) && !self.app.workspace_search.open {
+            .when(!import_task, |d| d.child(self.menu_bar(cx)))
+            .child(crate::shell::workspace_context(self, cx));
+        if !import_task {
+            workspace = workspace.child(gallery_header);
+        }
+        if View::ALL.contains(&self.app.view) && !self.app.workspace_search.open && !import_task {
             workspace = workspace.child(self.tab_bar(cx));
         }
-        workspace = workspace.child(workspace_toolbar);
+        if !import_task {
+            workspace = workspace.child(workspace_toolbar);
+        }
         if let Some(banner) = sample_banner {
             workspace = workspace.child(banner);
         }
@@ -1902,20 +1943,22 @@ impl Render for HelixBench {
         if let Some(bar) = selection_bar {
             workspace = workspace.child(bar);
         }
-        let scientific = View::ALL.contains(&self.app.view) && !self.app.workspace_search.open;
-        workspace = workspace
-            .child(
-                div()
-                    .flex_1()
-                    .min_h(px(0.0))
-                    .min_w(px(0.0))
-                    .overflow_hidden()
-                    .when(scientific, |d| {
-                        d.px(px(shell_layout.page_padding)).pb(px(20.0))
-                    })
-                    .child(central),
-            )
-            .child(self.status_bar(cx));
+        let scientific =
+            View::ALL.contains(&self.app.view) && !self.app.workspace_search.open && !import_task;
+        workspace = workspace.child(
+            div()
+                .flex_1()
+                .min_h(px(0.0))
+                .min_w(px(0.0))
+                .overflow_hidden()
+                .when(scientific, |d| {
+                    d.px(px(shell_layout.page_padding)).pb(px(20.0))
+                })
+                .child(central),
+        );
+        if !import_task {
+            workspace = workspace.child(self.status_bar(cx));
+        }
         let mut columns = div()
             .flex()
             .flex_row()

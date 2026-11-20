@@ -146,3 +146,69 @@ choices; changing them affects display reach, not scientific results.
 
 Next: V6-04 primary analysis journeys and contextual edit drawers. The full v6 screen
 migration and P10A–P20 capabilities are not claimed complete by this viewer increment.
+
+## Merge reconciliation (20 November 2026)
+
+The draft/check-pending statements above describe the evidence at those commits, not
+the current PR state. PR #3 was merged as `518a6f6`; PR #4 was retargeted to main and
+merged as `285d2ce`. The user explicitly waived the exact 1600px check. Native 1280px
+and available 1536px observations were accepted in the PR. Main push CI run
+`44641014046` completed successfully (Format, Clippy, Test, Build). Local work now
+starts from that main merge commit.
+
+## V6-04A — File-import review workspace
+
+Branch: `codex/ux-v6-import-review`, based on main `285d2ce`. The first primary-journey
+slice follows Figma `199:1994` and `199:2107`: progress, a record table, focused detail
+tabs, explicit import scope and a persistent confirmation footer replace the long
+file-review modal. Owning navigation and captured draft remain in appcore. Paste and
+the nested new-sequence review keep their existing form behavior.
+
+Overview shows actual interpretation, annotations and transformations. Interpretation
+exposes the existing name/type/topology/conversion controls; Original input retains
+the complete-record copy action and a bounded preview. Exclusions and conversions
+require only their relevant acknowledgments. Including another record clears earlier
+acknowledgments. Invalid input cannot be included or silently cleaned. Import opens
+independent unsaved documents; it does not write the source file.
+
+Borrowed validation avoids cloning DNA on render. The latest name field is synchronized
+before table/footer validation. Source conversion flags and raw symbol counts are cached
+once, avoiding sequence-sized work per keystroke. Raw lengths exclude formatting
+whitespace; invalid DNA is labeled in symbols rather than claiming validated base pairs.
+
+Existing document actions/inspector/peer tabs are suppressed during workspace review.
+The sidebar retains guarded navigation; Cancel restores the prior context. The table
+scrolls independently, detail content scrolls above the fixed footer and interactive
+targets participate in Tab order. This is not a complete accessibility certification.
+
+Review evidence: one independent whole-branch review. Its two important findings
+(name-validation timing and repeated full-sequence scans while typing) are fixed with
+regressions. Deferred minors: Escape does not explicitly restore root focus after
+cancellation; two redundant import guards remain in the action handlers.
+
+Native evidence and final CI verification are recorded below when complete. Further
+V6-04 slices remain: dedicated choose-input workspace, contextual feature/primer edit
+drawers, digest/PCR workspaces and Output/Inputs/Method result tabs. Selecting a file
+continues to use the existing native picker; no drag-and-drop capability is claimed.
+
+Final local evidence:
+
+- Format, all-target/all-feature Clippy with `-D warnings`, all-feature workspace
+  tests (**447 passed**) and all-target/all-feature build pass offline with isolated
+  APPDATA/TEMP and incremental compilation disabled.
+- Native 1280x720 mixed-batch review: valid records included, protein/invalid input
+  excluded, acknowledgment unlocks the exact selected count, detail content scrolls
+  above the fixed footer, Cancel returns to the original Home context.
+- Native available 1536px maximized review: Shift+Tab reaches Original input; Enter
+  opens that tab. Clearing the name immediately disables Import; restoring it enables
+  Import without another click. The final import opens the real pUC19 record in Map
+  as an unsaved independent document, with 2686 bases, circular topology and 8 features.
+- The user authorized downloading examples. NCBI accession M77789.2 was downloaded
+  in GenBank and FASTA formats to the external task outputs, with source provenance.
+  Generated mixed-input fixtures are separate and are not shipped as production data.
+- A separately named preview binary pins an isolated APPDATA profile for native checks;
+  temporary main/manifest changes were restored byte-for-byte and are excluded from
+  the product. Design detector reports no findings in the changed native targets.
+
+Remote Actions status belongs to the PR, not this local test claim. The main merge CI
+record in the reconciliation section refers specifically to the previous viewer merge.
